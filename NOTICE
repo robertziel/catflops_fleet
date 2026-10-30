@@ -1,0 +1,38 @@
+catflops_fleet
+Copyright (c) 2026 Robert Zieliński
+Licensed under the Apache License, Version 2.0 (LICENSE).
+
+This repository also contains, or builds on, third-party work under its own terms. Each item below
+names where it is and where its full license text is kept.
+
+THIRD-PARTY CODE SHIPPED IN THIS REPOSITORY
+-------------------------------------------
+
+1. Patches to SGLang — deploy/images/sglang/*.patch
+   They modify files of SGLang (Copyright 2023-2024 SGLang Team, Apache License 2.0), applied at image
+   build time on top of the lmsysorg/sglang image pinned by digest in that Dockerfile. The modified
+   files, the Apache-2.0 text and the change notice: deploy/images/sglang/NOTICE.
+
+2. Patches to TensorFold and to vLLM — deploy/images/tensorfold/*.patch,
+   deploy/images/vllm/priority/, deploy/images/vllm/glm53/,
+   deploy/images/vllm/deepseek-v4-b12x/ (where present)
+   Each image directory carries its own NOTICE naming the upstream project, its license and the
+   change made; the patches are applied at image build time. Two directories also ship a whole
+   modified upstream vLLM file (Apache-2.0, "Copyright contributors to the vLLM project", its SPDX
+   header kept): deploy/images/vllm/glm53/sparse_attn_indexer_kpool_sm121.py and
+   deploy/images/vllm/deepseek-v4-b12x/quant_config.py; their NOTICE files name the origin and the
+   change.
+
+3. lb/fleet_telemetry — the box-side hardware sender
+   Its sampler, LAN broadcast and hardware readers began as broker_parrot's hardware telemetry (hw_metrics,
+   hw_lan, hw_watch, cgroup attribution; github.com/robertziel/broker_parrot, Apache-2.0, by the same author),
+   copied into this repository and rewritten here. It is this repository's own code, under this repository's
+   license; nothing of that project is imported or tracked.
+
+THIRD-PARTY SOFTWARE USED BUT NOT SHIPPED
+-----------------------------------------
+
+The Docker images this repository builds pull vLLM, SGLang, TensorFold, SearXNG, nginx, frp and the
+Python base image at build time, each under its own license; none of their source is in this
+repository. The optional broker (broker_parrot, github.com/robertziel/broker_parrot, Apache-2.0) is
+mounted from a separate checkout and is never vendored here.

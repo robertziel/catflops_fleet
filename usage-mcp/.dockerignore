@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Secrets never enter a layer (see lb/.dockerignore): operator config, version-control metadata, key material.
+.env
+.git
+*.pem
+*.key

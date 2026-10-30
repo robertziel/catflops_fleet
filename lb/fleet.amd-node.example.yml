@@ -1,0 +1,110 @@
+# THE FLEET FILE, the pair + AMD iGPU nodes (worklog/parallel-clusters.md, "The gui node"): three clusters under one
+# LB — the TP=2 pair the LB drives over SSH, the DEFAULT (a request naming no model goes to it alone), run at boot;
+# a one-host node on an AMD APU box (a Radeon 8060S, ROCm, its GPU pool carved from the box's own RAM) serving a small
+# vision model, declared but NOT run at boot — the panel's + tab activates it for one run; and a SPEECH-TO-TEXT node on
+# the same box (`stt`, run at boot) — the two share it at once, their memory within the box's gpu_ram_max_gib: its models' task is transcription, so POST /v1/audio/transcriptions goes to it
+# alone, whatever model the client names, and no chat request ever does. Its choices run on two engines — vLLM and
+# faster-whisper (each choice's catalog `node_engine`) — so its `image` names one per engine. Every key is
+# explained in lb/fleet.example.yml and lb/fleet.one-host.example.yml; vllm_lb/fleet.py validates it and refuses the
+# start, naming the value. Addresses are documentation ranges (RFC 5737 / 3849); names are placeholders.
+#
+# Each node's box needs its host's applier, one per cluster (`deploy/standalone/install-node-applier.sh --cluster gui`,
+# `--cluster stt`, each with its own server file: its EDGE_NODE_PROJECT, EDGE_NODE_NAME and EDGE_NODE_PUBLISH) and the
+# standalone node compose with the ROCm override (deploy/standalone/node-gpu.rocm.yml: EDGE_NODE_VIDEO_GID and
+# EDGE_NODE_RENDER_GID, the host's numeric groups). With the broker on, the box is reserved in broker_parrot first,
+# as the pair's are: ONE reservation per box, taken by the first node to start, shared by the other, returned by the
+# last to stop.
+
+boxes:
+  box-a:
+    hostname: box-a-host
+    label: box-a-gpu
+    platform: linux/arm64
+    ssh: operator@192.0.2.10
+    cards:
+      - {index: 0, type: gb10, serves: true}
+  box-b:
+    hostname: box-b-host
+    label: box-b-gpu
+    platform: linux/arm64
+    ssh: operator@192.0.2.11
+    cards:
+      - {index: 0, type: gb10, serves: true}
+  apu-box:                            # the AMD APU: its GPU's pool IS this box's RAM (unified memory)
+    hostname: apu-box-host
+    label: apu-box-gpu
+    platform: linux/amd64
+    node_limits: {memory_gib: 24, cpus: 16, pids: 4096, nice: 10}   # the node container's bounds on this shared box (no defaults)
+    # The most GiB of THIS box's RAM its nodes' GPU pools may take — the operator's bound (no default). vLLM's own start
+    # check reads the pool's free figure, which on an APU overstates the box's free RAM, so the fit bounds the pool by
+    # this: gpu_memory_utilization × the type's visible_gib must be within it. It is ONE pool the box's clusters share:
+    # gui (12.4) and stt (6.2 on vLLM, 2.59 on faster-whisper) run at once while their sum is within it; a Start past
+    # it is refused naming the box, its holders and the GiB.
+    gpu_ram_max_gib: 32
+    cards:
+      - {index: 0, type: radeon8060s, serves: true}
+
+clusters:
+  pair:
+    control: ssh
+    iface: bond0                     # the NIC the ranks talk over (NCCL_SOCKET_IFNAME); its address is each rank's interconnect
+    link: roce                       # how the ranks' GPUs are joined: roce (NCCL over RDMA) or ethernet (NCCL sockets) — tp-rank opens
+                                     # /dev/infiniband only for roce
+    run_at_boot: true
+    default: true                     # a chat request naming no model, or a name no cluster serves, goes here alone
+    url: http://192.0.2.10:8100
+    ram_usable_fraction: 0.98   # what a start may take of each box's MemTotal; the rest is the one reserve
+    max_num_batched_tokens: 8192
+    ranks:
+      - {box: box-a, interconnect: 198.51.100.1}
+      - {box: box-b, interconnect: 198.51.100.2}
+  gui:
+    control: local
+    run_at_boot: false                # declared; the + tab activates it for one run
+    model: mai-ui-2b                  # a model only a fleet launches (its recipe has no launch mode: library/recipes.json)
+    # The node's OpenAI API as the LB dials it. A node on the LB's OWN box is reached by its container name on the
+    # node's network (EDGE_NODE_NAME / EDGE_NODE_NETWORK of its server file; lb/docker-compose.node.yml joins the LB
+    # to it): http://<EDGE_NODE_NAME>:8000. A node on another box: that box's address and published port.
+    url: http://192.0.2.12:8000
+    launch:
+      image: rocm/vllm@sha256:0000000000000000000000000000000000000000000000000000000000000000   # a ROCm vLLM build for the card's arch, pinned
+      max_model_len: 32768
+      max_num_seqs: 4
+      gpu_memory_utilization: 0.10    # 0.10 × 124.0 GiB = 12.4 GiB of the box's RAM, within gpu_ram_max_gib
+      tool_call_parser: hermes
+      # reasoning_parser: left out — the model has no thinking format; absent passes no flag
+      choices: [mai-ui-2b]
+    ranks:
+      - {box: apu-box}
+  stt:
+    control: local
+    run_at_boot: true                 # always on: the speech-to-text API clients call through the LB
+    model: whisper-large-v3-turbo     # the boot default: vLLM's (catalog node_engine vllm)
+    url: http://192.0.2.12:8001       # its OWN node: another container name / port than the gui node's
+    launch:
+      image:                          # one per engine its choices run, each pinned (a local build: its image id)
+        vllm: sha256:0000000000000000000000000000000000000000000000000000000000000000            # deploy/standalone/images/vllm-audio.Dockerfile
+        faster-whisper: sha256:0000000000000000000000000000000000000000000000000000000000000000  # .../images/faster-whisper-rocm.Dockerfile
+      # Each engine reads only its own settings (fleet.py ENGINES: the panel shows those, node-env renders those):
+      max_model_len: 448              # vLLM's: Whisper's decoder window
+      max_num_seqs: 4                 # both: seats (faster-whisper: MAX_ACTIVE_REQUESTS)
+      gpu_memory_utilization: 0.05    # vLLM's: 0.05 × 124.0 GiB = 6.2 GiB of the box's RAM (faster-whisper: its measured
+                                      # engine_memory instead, catalog)
+      # faster-whisper's, optional and only on a launch whose model is faster-whisper's (vLLM refuses them):
+      # max_queue (realtime requests queued behind busy seats; absent = a busy request is answered 503) and
+      # compute_type (CTranslate2's: float16, bfloat16, int8_float16, int8_bfloat16, int8; absent = the image's own)
+      # no tool_call_parser: a transcription node serves no tools (the fleet refuses one)
+      choices: [whisper-large-v3-turbo, faster-whisper-large-v3-turbo, faster-whisper-large-v3]
+    ranks:
+      - {box: apu-box}
+
+backends: {}
+
+# WHERE EACH MODEL'S FILES SIT, relative to the models roots (lb/.env MODELS_SEARCH_DIRS; a standalone node's
+# EDGE_MODELS_DIR) — the deployment's, never the model library's (lb/fleet.example.yml says more). A model not
+# named here is not staged: not offered, and a Start of it is refused naming this key.
+checkpoints:
+  mai-ui-2b: {path: MAI-UI-2B}
+  whisper-large-v3-turbo: {path: whisper-large-v3-turbo}
+  faster-whisper-large-v3-turbo: {path: faster-whisper-large-v3-turbo}
+  faster-whisper-large-v3: {path: faster-whisper-large-v3}

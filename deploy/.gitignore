@@ -1,0 +1,6 @@
+# This deployment's edge vhosts — copy each nginx-edge-*.example.conf to the name below and fill it in. Never tracked.
+nginx-edge-vllm.conf
+nginx-edge-chat.conf
+nginx-edge-chat-vhost.conf
+nginx-edge-chat-retire.conf
+nginx-edge-power.conf

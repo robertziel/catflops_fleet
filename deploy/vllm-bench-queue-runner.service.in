@@ -1,0 +1,51 @@
+# The host half of the gateway's Start swarm button (lb/bench_queue_runner.py).
+#
+# RENDERED, not copied: deploy/install-bench-queue-runner.sh substitutes @REPO@ (this checkout),
+# @PY@ (the system python), @HOME@ (the operator's home, where `claude` lives) and @CLUSTER_URL@
+# (the head rank's vLLM API, LB_CLUSTER_URL) before installing it as a user unit.
+#
+# The vllm-lb container cannot start a process on the host, so POST /lb/swarm/start only leaves a
+# request in lb/state/benchq/. This unit is what reads it, decides whether a swarm may start — never
+# a second one, never while the run matrix is up — launches lb/bench_session.py for ONE deep-research
+# session against the model ALREADY LOADED, and reports back so the page can stop saying "requested"
+# and say what actually happened: how far into its cap it is, and the exit code it ended on.
+#
+# IT NO LONGER STARTS THE THIRTY-RUN MATRIX, and a request asking for it is refused by name. On
+# 2026-10-01 a click on the old button started worklog/bench/fullclaudevllm_queue.sh, which tore down
+# the operator's 16/8192/4 default and loaded spec 6. The matrix is a keyboard operation now:
+#
+#   python3 @REPO@/lb/bench_queue_runner.py --start-matrix
+#
+# A USER unit, not a system one: the session it starts runs `claude` as the operator, with the
+# operator's HOME, exactly as their own invocation does — but with `env -i` and the backend variables
+# on `claude`'s own command line, so it is the LOCAL cluster that serves it and never a subscription.
+#
+#   deploy/install-bench-queue-runner.sh                 install or update (idempotent), start, verify
+#   deploy/install-bench-queue-runner.sh --render        print the rendered unit, change nothing
+#   deploy/install-bench-queue-runner.sh --uninstall     stop, disable and remove the unit
+#   sudo loginctl enable-linger $(id -un)                # so it keeps running with nobody logged in
+#
+[Unit]
+Description=vLLM gateway swarm runner (one deep-research session per request)
+Documentation=file://@REPO@/lb/bench_queue_runner.py
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=@PY@ @REPO@/lb/bench_queue_runner.py
+# The head engine whose /metrics the session's guard C reads (the same value as the LB's LB_CLUSTER_URL).
+Environment=LB_CLUSTER_URL=@CLUSTER_URL@
+# `claude` lives in ~/.local/bin, and both launchers run it by name — lb/bench_session.py puts this
+# very PATH on `claude`'s own command line under `env -i`. A user unit's default PATH does not include
+# that directory, and the session would fail its own guard A.
+Environment=PATH=@HOME@/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Restart=always
+RestartSec=5
+# The runner STARTS a session and never signals it: it is launched in a session of its own so it
+# outlives a runner restart. KillMode=process keeps systemd from taking a swarm (or a ten-hour matrix
+# started at the keyboard) down with the unit when it is restarted or stopped — control-group, the
+# default, would.
+KillMode=process
+
+[Install]
+WantedBy=default.target

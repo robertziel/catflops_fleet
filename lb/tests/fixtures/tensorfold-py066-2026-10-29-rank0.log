@@ -1,0 +1,22 @@
+[tensorfold] warning: non-loopback server has no API key; requests are open
+[tensorfold] loading Qwen3.8-Flash-Next-MLX: Qwen3.8 Flash Next (qwen4_exp) on CUDA, rank 0 of 2
+
+[2026-10-29 14:54:39] box-a:1:1 [0] init.cc:449 NCCL WARN Spectrum-X (SPCX) NCCL plugin is not supported on device:roce0, skipping ..
+
+[2026-10-29 14:54:39] box-a:1:1 [0] init.cc:449 NCCL WARN Spectrum-X (SPCX) NCCL plugin is not supported on device:roce1, skipping ..
+
+[2026-10-29 14:54:39] box-a:1:1 [0] misc/ibvwrap.cc:402 (wrap_ibv_query_port_speed) NCCL WARN Call to ibv_query_port_speed failed with error Protocol not supported errno 93
+
+[2026-10-29 14:54:39] box-a:1:1 [0] misc/ibvwrap.cc:402 (wrap_ibv_query_port_speed) NCCL WARN Call to ibv_query_port_speed failed with error Protocol not supported errno 93
+[tensorfold] building CUDA extension tensorfold_experts_v7 (first start after an install or update; later starts reuse it)
+[tensorfold] building CUDA extension tensorfold_gdn_v2 (first start after an install or update; later starts reuse it)
+[tensorfold] building CUDA extension tensorfold_qmm_v5 (first start after an install or update; later starts reuse it)
+[tensorfold] building CUDA extension tensorfold_qwen4_exp_gdn_io (first start after an install or update; later starts reuse it)
+[tensorfold] building CUDA extension tensorfold_qwen4_exp_gdn (first start after an install or update; later starts reuse it)
+[tensorfold] HC fusion self-check on cuda:0: passed; enabled
+[tensorfold] HC upmix self-check on cuda:0: passed; enabled
+[tensorfold] Flash Next on CUDA: 1 to 6 MTP drafts a round, a chain stops before a later draft under 70%; up to 16 streams, each growing to 131072 prompt/reply tokens while memory lasts (57.6 GiB free for their caches, 2.13 GiB for one at the full window), eager; n-gram tables read alongside the weights (0.0s after them), locked in memory in 11.8s; 0 decode graphs captured; idle prompt pieces 2048 rows; prompt kernels warmed in 16.6s
+[tensorfold] serving Qwen3.8-Flash-Next-MLX at http://0.0.0.0:8100/v1 on CUDA, rank 0 of 2 (sampling: temperature 1.0, top_k 20, top_p 0.95; drafts: on; prompts: bf16 activations; context: 131072; loaded in 144.9s)
+[tensorfold] thinking on (the chat template's default): replies reason in reasoning_content before the answer in content, and max_tokens counts both. --no-thinking turns it off; a request can send chat_template_kwargs {"enable_thinking": false}
+[tensorfold] 192.0.2.1 "GET /v1/models HTTP/1.1" 200 -
+[tensorfold] done req-b403b87f9388 prompt=71 cached=0 thinking=True tokens=89 sha=2f21f28950dd finish=stop tok/s=89.2 ttft=0.40s prefill=0.31s rounds=25 accepted=63/79

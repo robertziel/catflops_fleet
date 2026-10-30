@@ -1,0 +1,39 @@
+# vllm-lb WITH broker_parrot — everything the LB needs only when it leases from the broker.
+#
+# docker-compose.yml alone runs the LB without the broker. Turn the broker on with BOTH lines in
+# lb/.env (gitignored):
+#   LB_BROKER_ENABLED=1
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.broker.yml
+# `docker compose` reads COMPOSE_FILE from lb/.env, so every command in lb/ — build, up, logs —
+# then merges this file over the base one. Either line alone is not a broker: the switch without
+# this file has no engine to import (/lb/status says so: db_ok false, engine unavailable), and this
+# file without the switch mounts an engine the LB never imports.
+#
+# What it adds, and why each is broker-only:
+#   * the engine (`queue_workflows`) mounted READ-ONLY from the broker_parrot checkout the fleet itself runs
+#     (LB_BROKER_CHECKOUT in lb/.env), at /opt/broker_parrot (already on the image's PYTHONPATH) — the LB always
+#     speaks the fleet's schema. Never edit that checkout from here.
+#   * the broker DB: PG_USER / PG_PW / PG_DB from lb/.env, the same values as the broker's own project. All three
+#     are REQUIRED here, and only here: no name of one deployment's database is compiled in.
+#   * the broker's network (LB_BROKER_NETWORK in lb/.env: external, created by the broker's project), where the DB
+#     is `postgres:5432` and where a client on that network reaches this LB as `vllm-lb`.
+#     Both services join it in place of this project's default network.
+services:
+  vllm-lb:
+    environment:
+      - LB_DB_BACKEND=pg
+      - LB_DB_URL_ENV=LB_BROKER_DB_URL
+      - LB_BROKER_DB_URL=postgresql://${PG_USER:?set PG_USER in lb/.env}:${PG_PW:?set PG_PW in lb/.env}@postgres:5432/${PG_DB:?set PG_DB in lb/.env}
+    volumes:
+      - ${LB_BROKER_CHECKOUT:?set LB_BROKER_CHECKOUT in lb/.env}:/opt/broker_parrot:ro
+    networks:
+      - broker
+
+  searxng:
+    networks:
+      - broker
+
+networks:
+  broker:
+    external: true
+    name: ${LB_BROKER_NETWORK:?set LB_BROKER_NETWORK in lb/.env}

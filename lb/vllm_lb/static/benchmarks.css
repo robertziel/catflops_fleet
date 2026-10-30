@@ -1,0 +1,902 @@
+/* /benchmarks — saved benchmark runs. Loaded AFTER gateway.css, which owns the palette, the
+   header, the tiles, the diodes and the cards; this file adds only what a results browser needs.
+   Nothing here redefines a gateway token: one page's green must mean the same as the other's.
+
+   THE LOOK IS THE FLEET APP'S PERFORMANCE SCREEN (FleetStats/Shared/PerfScreen.swift, PerfCharts.swift),
+   as gateway.css already wears the app's for the main page: dark rounded cards on the page's ground; a
+   small upper-case grey label over a bold tabular figure; a segmented range picker over a summary card;
+   quiet tables; charts with a few light grid lines, the unit set once over the axis, a thin line with a
+   soft fill, a dashed grey second series, and a change of configuration as a thin labelled rule. It is
+   a look and nothing else — every section, column, series, tooltip and note of this page is what it
+   was, from the same arithmetic; what the app's screen shows that this page does not is not added here.
+
+   COLOUR. Two encodings, and they never borrow from each other:
+     * max_num_seqs is ORDERED (8 < 16 < 24), so runs are coloured on a one-hue ORDINAL ramp —
+       the gateway's own blue family, dimmest cap to brightest. Validated on this page's surface
+       (#1b2129): monotone lightness, every adjacent gap >= 0.06 L, the dim end 3.50:1 against the
+       surface. A rainbow would claim the caps are unrelated categories.
+     * --ok / --warn / --bad stay STATUS and only ever say healthy / suspect / failed. A run's
+       colour never comes from them, so a status colour can never be mistaken for a series.
+     * A NUMBER's value is washed on a one-hue VIOLET ramp (--heat-1..4) — a hue used nowhere else
+       in the gateway, so a washed cell can be read as neither a cap nor a status. See the
+       measured table beside the tokens below.
+     * The ARCHIVE's BATCH-SIZE COMPARISON puts max_num_seqs on the x axis, so its colour carries the
+       two settings beside it: HUE = speculative tokens (--cmp-1..3), SHAPE = max_num_batched_tokens.
+       A third encoding, and it borrows from none of the others — see the tokens below.
+     * REAL TRAFFIC uses the cap ramp for every configuration, and tells two configurations at ONE cap
+       apart by FILL (a hatch), never by a second hue — the rules at the foot of this file.
+   A corpus run is told from a synthetic one by a DASHED stroke and a hatched bar, not by hue —
+   identity is never colour alone. */
+
+:root {
+  /* The ordinal ramp for the concurrency cap: GitHub blue 5 → 1, the family --accent is from. */
+  --seq-1: #1f6feb;
+  --seq-2: #388bfd;
+  --seq-3: #58a6ff;
+  --seq-4: #79c0ff;
+  --seq-5: #a5d6ff;
+  /* Recessive chart furniture: a grid line must be visible and never compete with a mark. */
+  --grid: #212731;
+  --axis: #2b313c;
+  /* The card every block of this page is — gateway.css `.card`'s own radius and inset. */
+  --card-r: 14px;
+  --card-pad: .85rem .9rem;
+
+  /* THE VALUE RAMP for the run table: one hue, four tiers, strongest = best. The hue is the
+     data-viz reference palette's dark-mode violet (#9085e9) as channels, so the tiers can be
+     alphas of it — kept SEMI-TRANSPARENT on purpose, because the row's hover and selected
+     backgrounds then still show through and the table does not lose its hover affordance.
+
+     MEASURED on this table's own surfaces, not eyeballed. --panel #161b22 is the row background,
+     --panel-2 #1b2129 the hover one and #1d2530 the selected one:
+
+       tier  alpha   over --panel   OKLCH L   ΔL      --ink 4.5:1?  (panel / hover / selected)
+         1   .159    #292c42        0.300      —      11.60 / 10.81 / 10.29
+         2   .314    #3c3c60        0.374    0.074     8.81 /  8.28 /  7.93
+         3   .477    #504e81        0.448    0.074     6.49 /  6.19 /  6.00
+         4   .646    #655fa3        0.522    0.074     4.76 /  4.62 /  4.53
+
+     The top tier's alpha is CAPPED by that last column: .646 is the strongest wash that still
+     carries --ink at WCAG AA 4.5:1 on every row background this table uses — the number in the
+     cell has to stay readable at full intensity, which is the whole point of printing it.
+
+     The four tiers pass the data-viz palette validator's one-hue (8° spread), monotone-lightness
+     and ≥0.06 adjacent-ΔL gates on BOTH surfaces (measured on the 8-bit colours actually painted:
+     gaps 0.072/0.076/0.073 over --panel, 0.068/0.072/0.070 over --panel-2). They do NOT clear its
+     2:1 light-end-versus-surface floor, and on this surface nothing could: between the faintest
+     tint that reaches 2:1 (L 0.420) and the strongest that keeps AA text (L 0.524) lies 0.103 L of
+     band — room for two tiers, not four. That floor is the ORDINAL rule, for discrete marks; a
+     value heatmap is SEQUENTIAL, where the step nearest the surface is allowed to recede toward
+     it. Tier 1 recedes to 1.26:1, still a tenth more separation than the row-hover cue this page
+     already relies on (1.14:1), and the number it sits behind is printed either way. */
+  --heat: 144, 133, 233;
+  --heat-1: rgba(var(--heat), .159);
+  --heat-2: rgba(var(--heat), .314);
+  --heat-3: rgba(var(--heat), .477);
+  --heat-4: rgba(var(--heat), .646);
+
+  /* THE SERIES HUES of the batch-size comparison: one per speculative-token value, by its rank among
+     the saved runs. The data-viz reference palette's dark-mode slots 2 and 3 (orange, aqua), then
+     slot 1 (blue) for a third value only. Slot 1 is NOT first because blue already means the
+     concurrency cap on this page (--seq-*), and violet the value wash (--heat); a subset that
+     skipped blue AND took magenta instead failed the validator outright (magenta/aqua ΔE 1.6 under
+     deuteranopia). RUN, not eyeballed — validate_palette.js --mode dark --pairs all:
+       --cmp-1/2 on --panel #161b22 and --panel-2 #1b2129: PASS every gate — L 0.48-0.67 band,
+         chroma >= 0.10, worst CVD ΔE 9.4 (deutan, target 8), normal-vision ΔE 26.5 (floor 15),
+         contrast 4.45:1 and 5.08:1 on --panel.
+       with --cmp-3 added: PASS all-pairs (worst CVD 9.4, normal 20.9).
+     Measured against the page's own tokens (normal-vision ΔE): orange sits 6.9 from --bad and aqua
+     10.2 from --ok — neither status colour is ever drawn inside these charts, so they never meet. */
+  --cmp-1: #d95926;
+  --cmp-2: #199e70;
+  --cmp-3: #3987e5;
+}
+
+/* ── the header's own line back to the gateway ───────────────────────────── */
+
+.brand .crumbs { font-size: .74rem; color: var(--ink-faint); }
+.brand .crumbs a { color: var(--accent); text-decoration: none; }
+.brand .crumbs a:hover { text-decoration: underline; }
+
+/* ── ONE MODEL AT A TIME: its label in the header, and the selector — a segment per model ──────────── */
+
+.brand .model-name { font-weight: 500; color: var(--ink-dim); }
+.brand .model-name:not(:empty)::before { content: "\00b7"; margin: 0 .4rem; color: var(--ink-faint); }
+/* A phone: the model on its own line under "Performance", and the status ("21 busy minutes") whole, on a
+   line of its own under the title — beside it, it broke as "21 busy" / "minutes" and the title after "dense". */
+@media (max-width: 640px) {
+  body.benchmarks .top { flex-wrap: wrap; gap: .2rem 1rem; }
+  body.benchmarks .brand .model-name { display: block; }
+  body.benchmarks .brand .model-name::before { content: none; margin: 0; }
+  body.benchmarks .conn { flex-basis: 100%; white-space: nowrap; }
+}
+.models { margin: var(--gap) var(--gutter) 0; display: flex; flex-wrap: wrap; gap: .4rem; }
+.mdl-opt { position: relative; display: block; min-width: 0; cursor: pointer; }
+.mdl-opt input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.mdl-face {
+  display: flex; flex-direction: column; gap: .05rem; padding: .4rem .75rem .45rem; border-radius: 10px;
+  background: var(--panel); border: 1px solid var(--line); color: var(--ink-dim);
+}
+.mdl-name { font-size: .84rem; font-weight: 500; overflow-wrap: anywhere; }
+.mdl-n { font-size: var(--small); text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+.mdl-n b { font-weight: 600; color: var(--ink-dim); }
+.mdl-opt:hover .mdl-face { color: var(--ink); }
+/* Lit like the range picker's segment (#2d3440), and by the weight of the words and the edge as well. */
+.mdl-opt input:checked + .mdl-face { background: #2d3440; border-color: var(--accent); color: var(--ink); box-shadow: 0 1px 2px rgba(0, 0, 0, .45); }
+.mdl-opt input:checked + .mdl-face .mdl-name { font-weight: 600; }
+.mdl-opt input:checked + .mdl-face .mdl-n b { color: var(--ink); }
+.mdl-opt input:focus-visible + .mdl-face { outline: 2px solid var(--accent); outline-offset: 1px; }
+@media (forced-colors: active) { .mdl-opt input:checked + .mdl-face { outline: 2px solid Highlight; outline-offset: -2px; } }
+/* The archive's spread charts, with two models saved: the model beside the workload, quieter. */
+.chart h3 .sub { font-size: .74rem; font-weight: 400; color: var(--ink-faint); text-transform: none; letter-spacing: 0; }
+/* A model with no minute in the range: its label, the figure, the range. */
+.blank.model-empty { display: flex; flex-direction: column; align-items: center; gap: .2rem; }
+.model-empty .me-name { font-size: .9rem; font-weight: 600; color: var(--ink); }
+.model-empty .me-fig { font-size: .8rem; color: var(--ink-faint); text-transform: uppercase; letter-spacing: .06em; }
+.model-empty .me-fig b { font-size: 1.8rem; font-weight: 700; color: var(--ink-dim); font-variant-numeric: tabular-nums; letter-spacing: -.01em; text-transform: none; margin-right: .25rem; }
+.model-empty .me-sub { font-size: var(--small); color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+
+/* ── filters: one row above the charts ──────────────────────────────────── */
+
+/* The archive's filter row: a card of the app's chooser tiles — a small label over its control. */
+.filters {
+  margin: var(--gap) var(--gutter) 0; padding: .7rem .8rem;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--card-r);
+  display: flex; flex-wrap: wrap; align-items: stretch; gap: .45rem .5rem;
+}
+.filters > label {
+  display: flex; flex-direction: column; justify-content: center; gap: .05rem; min-width: 0;
+  background: var(--panel-2); border-radius: 8px; padding: .32rem .6rem .36rem;
+  font-size: var(--small); text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint);
+}
+.filters select {
+  background: transparent; color: var(--ink); border: 0; border-radius: 4px; padding: 0;
+  font: inherit; font-size: .86rem; font-weight: 600; text-transform: none; letter-spacing: 0;
+  min-width: 0; max-width: 100%;
+}
+/* The list a select opens is the browser's own surface: its rows need the page's colours named. */
+.filters select option { background: var(--panel-2); color: var(--ink); font-weight: 400; }
+.filters > label:focus-within { box-shadow: inset 0 0 0 1px var(--accent); }
+.filters select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.filters .count { font-size: .74rem; color: var(--ink-dim); margin-left: auto; align-self: center; }
+.filters .count b { color: var(--ink); font-weight: 600; }
+
+/* THE RANGE: the app's segmented picker — one row, the chosen range lit — over its summary card. The
+   segments are native radios (benchmarks.html): the input lies over its segment, invisible, so a click
+   and the arrow keys are the browser's own, and the focus ring is drawn on the segment it belongs to. */
+.filters.range { background: none; border: 0; border-radius: 0; padding: 0; display: grid; gap: var(--gap); }
+.seg {
+  display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 2px; padding: 3px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 11px; max-width: 38rem;
+}
+.seg-opt { position: relative; display: block; min-width: 0; cursor: pointer; }
+.seg-opt input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.seg-face {
+  display: block; text-align: center; padding: .4rem .4rem; border-radius: 8px; white-space: nowrap;
+  font-size: .84rem; font-weight: 500; color: var(--ink-dim); font-variant-numeric: tabular-nums;
+}
+.seg-opt:hover .seg-face { color: var(--ink); }
+/* Lit: #2d3440 carries --ink at 11.4:1, and stands 1.5:1 off the track — the selection is also the
+   weight of the words, never the fill alone. */
+.seg-opt input:checked + .seg-face { background: #2d3440; color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(0, 0, 0, .45); }
+.seg-opt input:focus-visible + .seg-face { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* A desk has room for the range in words; a phone draws the short form and still READS the words out. */
+.seg-short { display: none; }
+@media (max-width: 640px) {
+  .seg-short { display: inline; }
+  .seg-long { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+}
+@media (forced-colors: active) { .seg-opt input:checked + .seg-face { outline: 2px solid Highlight; outline-offset: -2px; } }
+
+/* The summary card: a small label over each figure (the app's `Stat`), the recorder's state at its end.
+   benchmarks.js writes the words in reading order — "633 busy minutes" — and the label is stood over
+   its figure here, so the text a screen reader gets is the sentence it always was. */
+.filters.range .count {
+  margin: 0; display: flex; flex-wrap: wrap; align-items: flex-end; gap: .45rem 1.6rem;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--card-r); padding: var(--card-pad);
+  font-size: .78rem; color: var(--ink-dim);
+}
+.count .stat { display: inline-flex; flex-direction: column-reverse; gap: .05rem; }
+.count .stat > span { display: block; font-size: var(--small); text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); }
+.count .stat > b { font-size: 1.05rem; font-weight: 700; line-height: 1.2; color: var(--ink); font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.count .sep { display: none; }
+.rec { margin-left: auto; display: inline-flex; align-items: center; gap: .45rem; min-height: 1.4rem; font-variant-numeric: tabular-nums; }
+.rec .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-faint); flex: none; }
+.rec.on { color: var(--ink); }
+.rec.on .dot { background: var(--ok); box-shadow: 0 0 0 3px rgba(63, 185, 80, .15); }
+.rec-open { color: var(--ink-dim); }
+
+/* The concurrency caps as toggles: the value that matters most gets the cheapest control.
+   Each chip carries its own ramp step, so the colour in the filter IS the colour in the chart. */
+.chips { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .35rem; background: var(--panel-2); border-radius: 8px; padding: .32rem .6rem; }
+.chips:empty { display: none; }
+.chip {
+  font: inherit; font-size: .76rem; font-variant-numeric: tabular-nums;
+  background: var(--panel); color: var(--ink-dim); cursor: pointer;
+  border: 1px solid var(--line); border-radius: 999px; padding: .18rem .65rem;
+  display: inline-flex; align-items: center; gap: .35rem; min-height: 1.75rem;
+}
+.chip .swatch { width: 9px; height: 9px; border-radius: 2px; flex: none; background: currentColor; }
+.chip[aria-pressed="true"] { color: var(--ink); border-color: currentColor; background: #1d2530; }
+.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.reset {
+  font: inherit; font-size: .74rem; background: none; border: 0; color: var(--accent);
+  cursor: pointer; padding: .2rem .3rem; text-decoration: underline; align-self: center;
+}
+.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+
+/* ── a chart card ───────────────────────────────────────────────────────── */
+
+/* The app's chart card: a small upper-case label, its series' key on the next line, the plot under them. */
+.charts { display: grid; gap: var(--gap); padding: var(--gap) var(--gutter) 0; }
+.charts.two { grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr)); }
+.chart {
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--card-r);
+  padding: .75rem .9rem .6rem; margin: 0; min-width: 0; display: flex; flex-direction: column; gap: .3rem;
+}
+.chart h3 {
+  order: -2; margin: 0; font-size: var(--small); font-weight: 600; text-transform: uppercase;
+  letter-spacing: .05em; color: var(--ink-dim);
+}
+/* The subtitle carries the unit and the caveat — an axis label cannot hold a sentence. */
+.chart .why { font-size: .74rem; line-height: 1.45; color: var(--ink-faint); margin: 0; }
+/* A chart's key is written after its plot (benchmarks.js) and READ before it, as the app sets it. */
+.chart .chart-key { order: -1; color: var(--ink-dim); }
+/* The plot sits at the FOOT of its card: along a row, a card with a key line and one without keep their
+   axes level. */
+.chart > svg { display: block; width: 100%; height: auto; overflow: visible; margin-top: auto; }
+.chart .empty { font-size: .78rem; color: var(--ink-faint); padding: 1.2rem 0; text-align: center; }
+
+/* Chart furniture. Every rule here is deliberately recessive: the grid is read past, not read. */
+.g-line { stroke: var(--grid); stroke-width: 1; }
+.g-axis { stroke: var(--axis); stroke-width: 1; }
+/* Tick labels in the page's own face with tabular digits (the app's), not the monospace: a tick is a
+   figure on a scale, and nine pixels of gutter came back with it. 10 px, as it was. */
+.g-tick { fill: var(--ink-faint); font-size: 10px; font-variant-numeric: tabular-nums; }
+/* An axis title is a phrase, set as one: sentence case at 10 px. Tracked-out capitals read as chrome and
+   were skipped — the reader needs "requests running in parallel", not a label that says LABEL. */
+.g-atitle { fill: var(--ink-faint); font-size: 11px; }
+/* The unit the y axis counts in: upright, over the top of the tick gutter (benchmarks.js `frame`). */
+.g-unit { font-size: var(--small); }
+/* An annotation is not a series: dashed, in ink, never in a series colour. */
+.g-ann { stroke: var(--ink-faint); stroke-width: 1; stroke-dasharray: 3 3; }
+/* A halo in the surface colour keeps a rule's label legible where a series runs through it (SM fill at 100%). */
+.g-annlab { fill: var(--ink-dim); font-size: 10px; font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--panel); stroke-width: 3px; stroke-linejoin: round; }
+/* The plate under a rule's label in the minute charts: the app's small dark tag on the rule. */
+.g-plate { fill: var(--bg); stroke: var(--line); stroke-width: 1; opacity: .92; }
+.g-plate + .g-annlab { stroke: none; }
+.g-band { opacity: .16; }
+.g-mark { fill: none; stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
+.g-mark.corpus { stroke-dasharray: 5 3; }
+/* The soft fill under a minute chart's own series: the line's colour, faint. Context for the line, never
+   a mark of its own — it takes no pointer and no tooltip. */
+.g-area { stroke: none; fill-opacity: .13; pointer-events: none; }
+/* A 2px surface ring keeps overlapping dots separable without a second hue. */
+.g-dot { stroke: var(--panel); stroke-width: 2; }
+.g-bar { stroke: var(--panel); stroke-width: 2; }      /* the 2px gap between adjacent bars */
+.g-whisk { stroke-width: 2; stroke-linecap: round; }
+.g-label { fill: var(--ink); font-size: 11px; font-variant-numeric: tabular-nums; }
+/* The distribution in a point's tooltip: one row per non-empty histogram bucket — its range, a bar of
+   its share in ink (context, not identity) and the share as a number. */
+.dist { display: grid; grid-template-columns: 5.6rem 1fr 2.2rem; gap: .1rem .4rem; align-items: center; margin-top: .3rem; font-size: .7rem; }
+.dist i { display: block; height: 5px; border-radius: 2px; background: var(--ink-dim); min-width: 1px; }
+.dist span:last-of-type { text-align: right; }
+
+/* crosshair + tooltip — an SVG chart in a browser IS interactive */
+.g-cross { stroke: var(--ink-faint); stroke-width: 1; stroke-dasharray: 2 3; pointer-events: none; }
+.g-hit { fill: transparent; }
+/* On a narrow window the tip is a sheet across the top (benchmarks.js showTip), dismissed by a tap on nothing. */
+.tip.sheet { left: 8px; right: 8px; top: 8px; max-width: none; }
+.tip {
+  position: fixed; z-index: 20; pointer-events: none; max-width: 17rem;
+  background: #10151c; border: 1px solid var(--line); border-radius: 10px;
+  padding: .45rem .6rem; font-size: .74rem; line-height: 1.45; color: var(--ink);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .55); font-variant-numeric: tabular-nums;
+}
+.tip[hidden] { display: none; }
+.tip .tk { color: var(--ink-faint); }
+.tip b { font-weight: 600; }
+
+/* ── the batch-size comparison ───────────────────────────────────────────── */
+
+/* A section: the app's quiet upper-case heading, what it shows in a sentence under it, then its cards. */
+.cmp, .spread { padding: 1.1rem var(--gutter) 0; }
+.charts-head .why { font-size: .8rem; line-height: 1.45; color: var(--ink-faint); margin: 0 0 .1rem; max-width: 72rem; }
+.charts-head code, .cmp-panel code { font-family: var(--mono); font-size: .92em; }
+.spread .charts { padding: var(--gap) 0 0; }
+/* A spread chart has one bar per RUN (24 in the synthetic series): two to a row at most. */
+.spread .charts.two { grid-template-columns: repeat(auto-fit, minmax(min(100%, 34rem), 1fr)); }
+.cmp-panel {
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--card-r);
+  padding: var(--card-pad); margin-top: var(--gap); min-width: 0; scroll-margin-top: .75rem;
+}
+.cmp-phead { display: flex; flex-wrap: wrap; align-items: baseline; gap: .15rem .8rem; }
+.cmp-phead h3 { margin: 0; font-size: 1rem; font-weight: 600; letter-spacing: .01em; }
+.cmp-phead .sub { font-size: .74rem; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+.cmp-panel > .why, .where .why { font-size: .76rem; line-height: 1.45; color: var(--ink-faint); margin: .25rem 0 0; }
+/* The legend is always there for a panel's series, the one identity channel colour does not
+   carry alone: each line is the series' own mark beside its name, text in ink, never in the hue. */
+.cmp-legend {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .25rem 1rem;
+  margin: .5rem 0 .2rem; font-size: .74rem; color: var(--ink-dim); font-variant-numeric: tabular-nums;
+}
+.lg { display: inline-flex; align-items: center; gap: .35rem; }
+.lg-mark { flex: none; overflow: visible; }
+.cmp-grid { display: grid; gap: .9rem .9rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15.5rem), 1fr)); margin-top: .5rem; }
+/* The by-max_num_seqs panel: up to three bars share a tick, so each chart gets room for their labels.
+   The batch-size curve has EIGHT slots on its axis: at 22 rem each label ("13–16") keeps its own slot on
+   one row; narrower than that (a phone) every other label drops to a second row. */
+#perf-cmp-panel .cmp-grid, #perf-curve .cmp-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); }
+.cmp-bar.alt-batched { stroke: var(--ink); stroke-width: 1; stroke-dasharray: 3 2; }
+/* A figure is a column with its plot at the foot: a title that wraps on one chart of a row does not push
+   that chart's axis below its neighbours'. */
+.cmp-chart { margin: 0; min-width: 0; display: flex; flex-direction: column; }
+/* A chart's title is the app's: a small upper-case label over the plot. */
+.cmp-chart h4 {
+  margin: 0 0 .2rem; font-size: var(--small); font-weight: 600; text-transform: uppercase; letter-spacing: .05em;
+  color: var(--ink-dim); display: flex; flex-wrap: wrap; align-items: baseline; gap: .1rem .6rem;
+}
+/* Which way is better, in words beside the title: it decides how every chart is read, so it is not a
+   0.6 rem arrow to be hovered — the arrow stays as the glance cue, the words say it. */
+.cmp-chart h4 .dir { font-size: var(--small); font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--ink-faint); white-space: nowrap; margin-left: auto; }
+.cmp-chart h4 .dir i { font-style: normal; font-size: .6rem; margin-right: .15rem; }
+.twin th .dir { font-size: .6rem; color: var(--ink-dim); margin-left: .3rem; cursor: help; font-style: normal; }
+.cmp-chart > svg { display: block; width: 100%; height: auto; overflow: visible; margin-top: auto; }
+.cmp-chart .empty { font-size: .74rem; color: var(--ink-faint); padding: 1rem 0; text-align: center; }
+/* The mean's bar is a WASH of its series' hue: the marks of the runs on it are the data and must
+   read first; the bar is the average they make, printed as a number above it too. */
+.cmp-bar { fill-opacity: .42; }
+.g-dot.hollow { stroke-width: 2; }
+.g-ring { fill: none; stroke: var(--ink); stroke-width: 1.5; pointer-events: none; }
+/* The hover targets are the strips under the marks (benchmarks.js compChart) and the bars; a mark or
+   a label painted over a neighbour's strip must not swallow the pointer there. */
+.cmp-chart .g-dot, .cmp-chart .g-label, .cmp-chart .g-none { pointer-events: none; }
+.g-hl { fill: #1d2530; }                 /* the open run's column: the table's selected-row colour */
+.g-none { fill: var(--ink-faint); font-size: 10px; font-style: italic; }
+.cmp-note { font-size: .72rem; }
+.cmp-note i { font-family: var(--mono); font-style: normal; font-size: .95em; }
+
+/* The table view of a panel: mean and range per setting, one decimal. */
+.cmp-table { margin-top: .7rem; font-size: .76rem; }
+.cmp-table summary { cursor: pointer; color: var(--accent); width: fit-content; }
+.cmp-table summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.cmp-table .tablewrap { margin-top: .4rem; background: var(--panel-2); border-radius: 10px; overflow-x: auto; }
+/* The first column stays put while the rest scrolls, so a row can always be named. */
+table.runs-t.twin th:first-child, table.runs-t.twin td:first-child { position: sticky; left: 0; z-index: 1; background: var(--panel-2); }
+/* The four load columns of the curve's table are off by default (the toggle under the summary). */
+table.runs-t.twin.no-load .load { display: none; }
+.table-tools { margin: .35rem 0 0; display: flex; flex-wrap: wrap; gap: .3rem 1rem; font-size: .72rem; color: var(--ink-dim); }
+.cols-toggle { cursor: pointer; display: inline-flex; align-items: center; gap: .35rem; }
+.cols-toggle input { margin: 0; accent-color: var(--accent); }
+.cols-toggle input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.scroll-hint { display: none; color: var(--ink-faint); }
+.cmp-table.overflows .scroll-hint { display: inline; }
+/* Shown, not compared — in a table row: one glyph (the hollow mark's own) with its reason on hover, in place of
+   a dashed tag that repeated in ten rows of eleven as the loudest thing on the screen. */
+.few-mark { color: var(--warn); cursor: help; font-size: .95em; margin-left: .15rem; }
+table.runs-t.twin { font-size: .74rem; }
+table.runs-t.twin th { background: var(--panel-2); text-transform: none; letter-spacing: 0; font-weight: 500; }
+table.runs-t.twin tbody tr { cursor: default; }
+table.runs-t.twin tbody tr:hover { background: none; }
+table.runs-t.twin td svg { vertical-align: -2px; }
+/* The second line of a twin cell — the p10 · median · p90 of a cell's minutes under its mean. Held AT the
+   page's floor (--small, 11.2 px): .92em of a .74rem table was 10.9 px, under the floor the rest of the page
+   keeps. The median is the one of the three a reader looks for, so it carries the ink. */
+.twin .rng { display: block; color: var(--ink-faint); font-size: var(--small); }
+.twin .rng b { color: var(--ink-dim); font-weight: 600; }
+
+/* The runs that are in NO comparison, and why — named, so nothing looks silently dropped. */
+.cmp-unplaced {
+  margin: .75rem 0 0; font-size: .74rem; color: var(--ink-faint);
+  display: flex; flex-direction: column; gap: .15rem;
+}
+.cmp-unplaced b { color: var(--ink-dim); font-weight: 600; }
+.cmp-unplaced .labels { font-family: var(--mono); color: var(--ink-dim); overflow-wrap: anywhere; }
+
+/* One run, opened: where it sits in its workload's comparison. */
+.where { margin-top: .75rem; }
+.where .cmp-panel { margin-top: .5rem; }
+.where-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: .3rem .8rem; }
+.where-head h3 { margin: 0; font-size: .88rem; }
+.where .jump { font-size: .74rem; color: var(--accent); }
+.where #d-where-read b { color: var(--ink); font-weight: 600; }
+.detail-note { font-size: .72rem; color: var(--ink-faint); margin: .6rem 0 0; }
+
+/* ── real traffic: the performance log ───────────────────────────────────── */
+
+/* The one sentence a reader of the comparison must not miss. Not an alert (nothing is wrong) and not a
+   status colour: an accent rule on the left, in the page's own ink. */
+.perf-caveat {
+  margin: 1rem var(--gutter) 0; padding: .1rem 0 .1rem .8rem; font-size: .82rem; line-height: 1.5; color: var(--ink-dim);
+  border-left: 3px solid var(--accent); max-width: 72rem;
+}
+.perf-caveat b { color: var(--ink); font-weight: 600; }
+.cmp .tablewrap { margin-top: .4rem; }
+.sub-h { margin: 1rem 0 .1rem; font-size: .84rem; font-weight: 600; }
+.cmp > .why { font-size: .72rem; color: var(--ink-faint); margin: 0 0 .1rem; }
+table.perf-t td.cfg { white-space: normal; min-width: 15rem; }
+table.perf-t .cfg-sub { display: block; font-size: .7rem; color: var(--ink-faint); }
+table.perf-t tbody tr { cursor: default; }
+table.perf-t th .th-unit { display: block; font-size: .62rem; letter-spacing: .04em; text-transform: none; font-weight: 500; }
+/* Too few minutes to compare: a word, in the derived-value colour, never a status colour. */
+.few-tag {
+  font-size: .64rem; text-transform: uppercase; letter-spacing: .06em; color: var(--warn);
+  border: 1px dashed var(--warn); border-radius: 4px; padding: 0 .25rem; margin-left: .2rem; cursor: help;
+}
+/* A cell with fewer than MIN_WINDOWS minutes: its bar is a ghost — its fill faded, a thin dashed edge in its
+   colour — shown and never compared. */
+.cmp-bar.few { fill-opacity: .22; stroke-width: 1; stroke-dasharray: 3 2; }
+/* A recorded minute in a dense cell: a small translucent dot, no ring — hundreds must still read as a spread. */
+.g-dot.dense { stroke: none; opacity: .3; }
+/* The pooled figure drawn over a dense cloud: ink, so it reads through the dots of any hue. */
+.g-meanline { stroke: var(--ink); stroke-width: 2.5; stroke-linecap: round; pointer-events: none; }
+/* Where idle time was cut out of a busy-time axis: the app's dashed rule — a break, never a zero. */
+.g-gap { stroke: var(--ink-faint); stroke-width: 1; stroke-dasharray: 2 3; opacity: .55; }
+/* A change of settings over time: the app's thin solid rule, labelled where it has room (.g-plate). An
+   annotation, not a series: ink, never a series colour. */
+.g-rule { stroke: var(--ink-dim); stroke-width: 1; opacity: .6; }
+/* A chart's second series: dashed and grey — context, not identity. */
+.g-mark.dashed { stroke-dasharray: 4 3; stroke-width: 1.25; }
+/* The batch-size curve: 2 px lines between neighbouring levels, the level's mark on top. */
+.g-curve { stroke-width: 2; stroke-linecap: round; fill: none; }
+.cmp-chart .g-curve { pointer-events: none; }
+.perf-time { padding: 1.1rem var(--gutter) 0; }
+.perf-time .charts { padding: var(--gap) 0 0; }
+/* A time axis needs width to carry more than one tick: three charts to a row at most. */
+.perf-time .charts.two { grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr)); }
+.chart .chart-key .lg { margin-right: .8rem; }
+
+/* ── context, and what it costs ──────────────────────────────────────────── */
+
+/* THE APP'S CONTEXT CARD. On a desk: the table, its headings the small upper-case labels the cards use,
+   the band in the weight of a headline. Where the panel is too narrow for nine columns — a phone — each
+   band becomes a block of the same card: the band and its mean on one line with its minutes at the end,
+   then a small label over each figure, four to a row. The label is the column's own heading (each cell's
+   data-label, benchmarks.js renderContext), so nothing is renamed and no cell is dropped; the table used
+   to be scrolled sideways to reach six of its columns. The roles written on the markup keep it a table
+   for a screen reader while CSS lays the rows out as a grid. */
+#perf-context-panel { container-type: inline-size; }
+#perf-context-panel > .why { font-size: .8rem; line-height: 1.45; color: var(--ink-faint); margin: .6rem 0 0; max-width: 72rem; }
+.cmp .tablewrap.ctx-wrap { margin-top: var(--gap); }
+table.runs-t.ctx-t { font-size: .86rem; }
+table.runs-t.twin.ctx-t th { position: static; background: transparent; white-space: normal; vertical-align: bottom; }
+table.runs-t.twin.ctx-t thead th { text-transform: uppercase; letter-spacing: .06em; }
+table.runs-t.twin.ctx-t tbody th { text-transform: none; letter-spacing: 0; font-size: 1rem; font-weight: 700; color: var(--ink); white-space: nowrap; padding: .5rem .65rem; border-bottom: 1px solid #1f242c; }
+table.runs-t.twin.ctx-t tbody tr:last-child th { border-bottom: 0; }
+.ctx-t .ctx-mean { display: block; font-size: var(--small); font-weight: 400; color: var(--ink-faint); }
+table.runs-t.ctx-t td { font-weight: 600; }
+@container (max-width: 640px) {
+  table.runs-t.ctx-t, table.runs-t.ctx-t tbody { display: block; }
+  table.runs-t.ctx-t thead { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); }
+  table.runs-t.ctx-t tbody tr {
+    display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .5rem .6rem;
+    padding: .8rem .9rem; border-bottom: 1px solid var(--line);
+  }
+  table.runs-t.ctx-t tbody tr:last-child { border-bottom: 0; }
+  table.runs-t.twin.ctx-t tbody th, table.runs-t.twin.ctx-t td { display: block; padding: 0; border: 0; text-align: left; white-space: normal; min-width: 0; align-self: end; }
+  table.runs-t.twin.ctx-t tbody th { grid-column: 1 / 4; font-size: 1.15rem; line-height: 1.25; white-space: normal; align-self: baseline; }
+  .ctx-t .ctx-mean { display: inline; margin-left: .35rem; font-size: .8rem; white-space: nowrap; }
+  table.runs-t.twin.ctx-t td.ctx-min { grid-column: 4; grid-row: 1; text-align: right; align-self: baseline; font-size: .86rem; font-weight: 400; color: var(--ink-dim); white-space: nowrap; }
+  table.runs-t.ctx-t td.ctx-min::after { content: "\00a0" attr(data-label); }
+  table.runs-t.ctx-t td:not(.ctx-min) { font-size: 1rem; font-weight: 700; line-height: 1.25; }
+  table.runs-t.ctx-t td:not(.ctx-min)::before {
+    content: attr(data-label); display: block; font-size: var(--small); font-weight: 500; line-height: 1.5;
+    text-transform: uppercase; letter-spacing: .05em; color: var(--ink-faint);
+  }
+}
+
+/* ── the archive: saved benchmark runs, only while any exist ─────────────── */
+
+#archive { margin-top: 1.5rem; border-top: 1px solid var(--line); }
+.archive-head { padding: 1.1rem var(--gutter) 0; }
+.archive-head .why { font-size: .8rem; line-height: 1.45; color: var(--ink-faint); margin: 0; max-width: 72rem; }
+
+/* ── the run list: the table view every chart is obliged to have ─────────── */
+
+.runs { padding: 1.1rem var(--gutter) 0; }
+/* THE SECTION HEADING, everywhere on the page: the app's — small, upper-case, grey, tracked out. It names
+   the cards under it and is never the loudest thing on the screen. */
+.runs h2, .charts-head h2, .archive-head h2 {
+  margin: 0 0 .35rem; font-size: .82rem; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-dim);
+}
+.detail h2 { margin: 0 0 .5rem; font-size: .95rem; }
+.tablewrap {
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--card-r); overflow-x: auto;
+}
+/* A quiet table: small grey headings, tabular digits, a hairline between rows and none under the last. */
+table.runs-t { border-collapse: collapse; width: 100%; font-size: .8rem; }
+table.runs-t th {
+  text-align: left; font-size: var(--small); text-transform: uppercase; letter-spacing: .06em;
+  color: var(--ink-faint); font-weight: 500; padding: .6rem .65rem .45rem; border-bottom: 1px solid var(--line);
+  white-space: nowrap; position: sticky; top: 0; background: var(--panel);
+}
+table.runs-t th.num { text-align: right; }
+table.runs-t td { padding: .42rem .65rem; border-bottom: 1px solid #1f242c; white-space: nowrap; font-variant-numeric: tabular-nums; }
+table.runs-t tbody tr:last-child > * { border-bottom: 0; }
+table.runs-t tbody tr { cursor: pointer; }
+table.runs-t tbody tr:hover { background: var(--panel-2); }
+table.runs-t tbody tr[aria-selected="true"] { background: #1d2530; }
+table.runs-t tbody tr[aria-selected="true"] td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+table.runs-t td.name { font-family: var(--mono); color: var(--ink); white-space: normal; min-width: 11rem; }
+table.runs-t td.num { text-align: right; }
+table.runs-t .dim { color: var(--ink-faint); }
+table.runs-t tr.broken td { color: var(--ink-faint); }
+table.runs-t tr.broken .why { color: var(--bad); font-family: var(--mono); font-size: .72rem; white-space: normal; }
+
+/* ── how good is this number? the value wash ─────────────────────────────── */
+
+/* The wash is a background IMAGE inset 2 px each side, not a background-colour. Two reasons:
+   the 4 px gutter keeps two washed columns from fusing into one band (adjacent fills get a
+   surface gap), and leaving background-color alone is what lets tr:hover and the selected row
+   go on showing through a washed cell. */
+table.runs-t td.heat {
+  background-image: linear-gradient(var(--heat-c), var(--heat-c));
+  background-repeat: no-repeat;
+  background-size: calc(100% - 4px) 100%;
+  background-position: center;
+}
+table.runs-t td.heat[data-heat="1"] { --heat-c: var(--heat-1); }
+table.runs-t td.heat[data-heat="2"] { --heat-c: var(--heat-2); }
+table.runs-t td.heat[data-heat="3"] { --heat-c: var(--heat-3); }
+table.runs-t td.heat[data-heat="4"] { --heat-c: var(--heat-4); }
+
+/* Which way this column counts as better, in the heading, from the same declaration the wash
+   normalises by — so "more colour" never has to be guessed at. It is a mark, not the message:
+   the word itself is in the heading's title and in text for a screen reader. */
+table.runs-t th .dir { font-size: .6rem; color: var(--ink-dim); margin-left: .3rem; cursor: help; }
+.vh {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
+}
+
+/* The key: worst → best, and what "worst" and "best" are being counted inside. */
+.heat-key {
+  margin: 0 0 .55rem; font-size: .72rem; line-height: 1.45; color: var(--ink-faint);
+  display: flex; flex-wrap: wrap; align-items: center; gap: .2rem .5rem;
+}
+.heat-key b { color: var(--ink-dim); font-weight: 600; }
+.heat-key .ramp {
+  display: inline-flex; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 4px; overflow: hidden; vertical-align: -2px;
+}
+.heat-key .ramp i { display: block; width: 17px; height: 9px; }
+
+/* Forced colours (and high-contrast print paths) drop the wash entirely rather than fight the
+   user's own palette. Nothing is lost that was not already printed: the number stays, and the
+   heading keeps its ▲/▼. */
+@media (forced-colors: active) {
+  table.runs-t td.heat, .heat-key .ramp i { background-image: none; }
+  /* Shape still tells the series apart when the system palette replaces every hue. */
+  .cmp-bar { fill-opacity: .25; }
+}
+
+/* A cap the page had to READ OUT OF THE LABEL is marked, every time it is shown. A derived number
+   that looks like a measured one is the whole failure this page is built to avoid. */
+.derived { color: var(--warn); cursor: help; border-bottom: 1px dotted var(--warn); }
+.seqdot { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: .35rem; vertical-align: -1px; }
+.kindtag {
+  font-size: var(--small); text-transform: uppercase; letter-spacing: .07em;
+  color: var(--ink-faint); border: 1px solid var(--line); border-radius: 4px; padding: .05rem .3rem;
+}
+/* No config stamp: the workload is the harness kind, a guess the tag must not pass off as a stamp. */
+.kindtag.unstamped { border-style: dashed; color: var(--warn); cursor: help; }
+
+/* ── one run, opened ────────────────────────────────────────────────────── */
+
+.detail { padding: 1.1rem var(--gutter) 0; }
+/* The opened run's figures: the gateway's own tiles, read the app's way round — the label over the figure. */
+.detail .kpis { margin-bottom: var(--gap); }
+.detail .kpi { display: flex; flex-direction: column-reverse; justify-content: flex-end; }
+.detail .charts { padding: var(--gap) 0 0; }
+.detail .head { display: flex; flex-wrap: wrap; align-items: baseline; gap: .4rem .8rem; margin-bottom: .5rem; }
+.detail .head h2 { margin: 0; font-family: var(--mono); font-size: .95rem; }
+.detail .head .sub { font-size: .74rem; color: var(--ink-faint); }
+.detail .close {
+  font: inherit; font-size: .74rem; background: none; border: 0; color: var(--accent);
+  cursor: pointer; text-decoration: underline; margin-left: auto;
+}
+
+/* ── the empty state, and what the directory held that is not a run ─────── */
+
+.blank {
+  margin: 1.5rem var(--gutter); padding: 1.3rem 1.1rem; text-align: center;
+  background: var(--panel); border: 1px dashed var(--line); border-radius: var(--card-r);
+  color: var(--ink-dim); font-size: .84rem;
+}
+.blank b { color: var(--ink); }
+.blank code {
+  display: inline-block; font-family: var(--mono); font-size: .76rem; color: var(--ink);
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px;
+  padding: .12rem .4rem; margin: .15rem 0; overflow-wrap: anywhere;
+}
+.skipped { padding: .9rem var(--gutter) 2rem; font-size: .74rem; color: var(--ink-faint); }
+.skipped b { color: var(--ink-dim); font-weight: 600; }
+.skipped li { font-family: var(--mono); overflow-wrap: anywhere; }
+.skipped ul { margin: .25rem 0 0; padding-left: 1.1rem; }
+
+@media (max-width: 560px) {
+  .filters .count { margin-left: 0; flex-basis: 100%; }
+  .filters.range .rec { margin-left: 0; }
+}
+
+/* ── THE PANEL: configurations compared, fixed to the bottom-LEFT corner ────────────────
+   The matrix of small squares (one per configuration; click = select) and, beside it, the selected
+   configuration's one line with `all` and `details`. It was a full-width bar with a key row under the
+   squares and an empty right half; the operator asked for it smaller, keyless, in the corner, so it is
+   now sized to its own content (`width: max-content`) and anchored bottom-left. What the key said now
+   lives on each square's title/aria-label (benchmarks.js renderPerfMatrix) — read on hover, read by a
+   screen reader, costing no height. It is still an overlay: the body gets its height as bottom padding
+   (pmPadBody), because the panel sits at left: 0 where the page's own content also starts. */
+
+/* THE GUTTER. On a wide window the page's content is indented by the panel's width, and the panel is fixed
+   bottom-left inside that empty column: it can cover nothing, open or folded, at any scroll position. */
+/* 17 rem: the six columns the cluster has run fit the panel whole (at 15 rem the sixth was cut and the
+   squares scrolled sideways) — and no wider, because the gutter is taken from the charts: with the frame's
+   narrower tick gutter (benchmarks.js `frame`) every plot on a 1280 or 1440 px window is still as wide as
+   it was, so a bar's printed figure that fitted its slot before still fits it. */
+:root { --pm-gutter: 17rem; }
+body.has-panel main.page { padding-left: var(--pm-gutter); }
+.perf-bar {
+  position: fixed; left: 0; bottom: 0; z-index: 15;
+  /* As wide as the squares and the selected line need, never wider than the gutter (the squares scroll
+     sideways inside it beyond that). The selected line sits ABOVE the matrix: the panel grows upward and the
+     squares stay where the cursor found them. */
+  width: max-content; max-width: calc(var(--pm-gutter) - 8px);
+  display: flex; flex-direction: column; align-items: flex-start; gap: .15rem;
+  padding: .4rem .4rem .4rem .4rem; background: var(--panel);
+  border-top: 1px solid var(--line); border-right: 1px solid var(--line); border-radius: 0 var(--card-r) 0 0;
+  box-shadow: 0 -4px 18px rgba(0, 0, 0, .45);
+}
+.perf-bar .pb-head { order: -1; padding-right: 1.4rem; }
+/* Docked in the flow (a phone): a card at the section head like the ones around it, no shadow, no corner. */
+.perf-bar.docked {
+  position: static; max-width: 100%; margin: var(--gap) 0 0; border: 1px solid var(--line); border-radius: var(--card-r);
+  box-shadow: none; position: relative; padding: .6rem .7rem;
+}
+.perf-bar[hidden] { display: none; }
+.pm-grids { display: flex; gap: .75rem; max-width: 100%; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
+/* MORE THAN ONE MODEL IS MORE THAN ONE GRID, and they stack DOWN the gutter, never across it. Measured: the
+   panel is 264 px wide and the three grids laid in a row came to 1,085 px, so two whole models sat behind a
+   sideways scroll with nothing on the page saying they were there — an inventory nobody can see is not one.
+   Stacked, every model is on screen; a grid wider than the gutter still scrolls sideways inside it, exactly
+   as a single model's 8-column grid always has. */
+.pm-grids.many { flex-direction: column; gap: .55rem; overflow-y: auto; max-height: min(58vh, 28rem); }
+.pm-grid { margin: 0; flex: none; }
+.pm-grid figcaption { font-size: var(--small); color: var(--ink-dim); margin-bottom: .15rem; white-space: nowrap; }
+/* THE INVENTORY LISTS EVERY MODEL, so each grid says whose it is — and the one the charts below are
+   comparing is the one in full ink, named as such. The others read as what they are: recorded, not charted.
+   The gutter is 264 px and a model's label is longer than that, so the NAME ellipsises on its own line and
+   the hint sits under it: a name cut mid-word ("…BF16 head · DFlas") names nothing. The whole caption is
+   the figcaption's `title`, so the full name is one hover away and a screen reader reads it entire. */
+.pm-grid > figcaption { display: flex; flex-direction: column; align-items: flex-start; gap: 0; max-width: 100%; }
+.pm-grid > figcaption .pm-who { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.pm-grid.on-show > figcaption .pm-who { color: var(--ink); font-weight: 600; }
+.pm-grid > figcaption .pm-whose { font-weight: 400; font-size: calc(var(--small) * .9); color: var(--ink-faint);
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+table.pm-m { border-collapse: separate; border-spacing: 1px 2px; }
+table.pm-m th { font-size: var(--small); font-weight: 500; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+table.pm-m thead th { vertical-align: bottom; text-align: center; }
+table.pm-m thead th span { display: block; line-height: 1.15; white-space: nowrap; }
+/* The column axis, named once over all the columns; each column then reads "8,192" over "spec 4". */
+table.pm-m th.pm-axis { text-align: left; color: var(--ink-faint); font-weight: 400; font-size: var(--small); padding: 0 0 .05rem .1rem; letter-spacing: 0; }
+table.pm-m thead th .pm-sub { color: var(--ink-faint); font-weight: 400; }
+table.pm-m th.pm-corner { text-align: right; color: var(--ink-faint); padding-right: .25rem; }
+table.pm-m tbody th { text-align: right; padding-right: .25rem; white-space: nowrap; }
+table.pm-m tbody th .seqdot { width: 6px; height: 6px; }
+table.pm-m td { padding: 0; }
+/* A column can carry more than "8,192 / spec 4" — every setting that differs among the model's configurations
+   ("KV 7.92 GiB", "131,072 ctx"): a little air between columns, and the square centred under its heading. */
+table.pm-m thead tr:last-child th[scope="col"]:not(.pm-corner) { padding: 0 .3rem; }
+table.pm-m td > .pm-sq { margin: 0 auto; }
+.pm-sq {
+  display: grid; place-items: center; width: 2rem; height: 1.45rem; padding: 0;
+  border-radius: 6px; border: 1px solid var(--line); background: var(--panel-2);
+  color: var(--ink); font: inherit; font-size: var(--small); font-weight: 700; line-height: 1;
+  font-variant-numeric: tabular-nums; cursor: pointer;
+}
+.pm-sq[data-heat="1"] { background: var(--heat-1); }
+.pm-sq[data-heat="2"] { background: var(--heat-2); }
+.pm-sq[data-heat="3"] { background: var(--heat-3); }
+.pm-sq[data-heat="4"] { background: var(--heat-4); }
+.pm-sq.few { border-style: dashed; color: var(--ink-dim); }
+/* A configuration that only ever BOOTED: not a number, so not a numbered square — no fill, a dotted edge
+   like the never-ran cell, and its boot count with the ↻; it stays a button (its boot figures open). */
+.pm-sq.boot { background: transparent; border-style: dotted; border-color: var(--ink-faint); }
+.pm-sq.empty { cursor: default; background: transparent; border-style: dotted; border-color: #1f242c; }
+/* No key row and no .pm-ks swatches any more: the conventions they drew — the shade's ramp step, the
+   outlined too-few cell, the dotted boot-only ↻, the never-ran cell — are each square's own title and
+   aria-label now. They cost the panel nothing and say more, because they say it about THAT square. */
+/* Only a square that can be pressed answers the pointer: a never-ran cell is not a control. */
+.pm-sq:where(button):hover { outline: 2px solid var(--ink-dim); outline-offset: 1px; }
+.pm-sq[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: 1px; box-shadow: 0 0 0 4px rgba(88, 166, 255, .18); }
+.pm-sq:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Beside the matrix: the selected configuration named in ONE line, then `all` and `details`. Empty while
+   nothing is selected (both buttons hidden), and it then adds no width and no height to the panel. */
+.pb-head { display: flex; align-items: center; flex-wrap: wrap; gap: .3rem .45rem; min-width: 0; padding-bottom: .1rem; }
+/* One line: the model and context line (.cfg-sub) is in the details card, where there is room for it —
+   here it would double the panel's height to repeat what the card says in full. */
+.pb-sel { margin: 0; min-width: 0; flex: 0 1 auto; font-size: .74rem; line-height: 1.35; }
+.pb-sel .cfg-sub { display: none; }
+.pb-sel .pb-fig { color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+.pb-sel .pb-fig::before { content: "\2014"; margin: 0 .3rem 0 .35rem; }
+.pb-all, .pb-toggle {
+  flex: none; font: inherit; font-size: var(--small); font-weight: 500; line-height: 1; color: var(--ink-dim); background: var(--panel-2);
+  border: 1px solid var(--line); border-radius: 6px; padding: .3rem .5rem; cursor: pointer;
+}
+.pb-all:focus-visible, .pb-toggle:focus-visible, .pm-close:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.pb-all:hover, .pb-toggle:hover { color: var(--ink); border-color: var(--ink-faint); }
+/* `details` is the ONE way into the read-out, so it is the accent the moment a square is selected; open,
+   it reads as pressed. */
+.pb-toggle { color: var(--accent); border-color: var(--accent); }
+.pb-toggle[aria-expanded="true"] { color: var(--ink); border-color: var(--ink-faint); background: #1d2530; }
+.pb-all[hidden], .pb-toggle[hidden] { display: none; }
+/* THE SELECTED CONFIGURATION'S FIGURES: a card above the charts, in the page's own flow — never an overlay,
+   so the charts the selection points at stay in view. Its left edge is the cap's ramp step (set where it is
+   filled): the same blue as the square's dot and the marks it brought forward. */
+.detail-host { padding: 0 var(--gutter); }
+.pm-detail {
+  margin: 1rem 0 0; background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--ink-faint);
+  border-radius: var(--card-r); padding: var(--card-pad); scroll-margin-top: .75rem;
+}
+.pm-detail[hidden] { display: none; }
+.pm-detail:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* The card's second half — the two pooled histograms and the cluster boot — behind a fold: open, the card was
+   839 px tall on a desktop and 1,601 on a phone, two screens of numbers over the charts it belongs with. */
+.pm-more { margin-top: .6rem; font-size: .78rem; }
+.pm-more summary { cursor: pointer; color: var(--accent); width: fit-content; }
+.pm-more summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.pm-more > .pm-tables { margin-top: .5rem; }
+.pm-dhead { display: flex; align-items: flex-start; justify-content: space-between; gap: .6rem; }
+.pm-close {
+  flex: none; font: inherit; font-size: .74rem; font-weight: 500; line-height: 1; color: var(--ink-dim); background: var(--panel-2);
+  border: 1px solid var(--line); border-radius: 7px; padding: .4rem .65rem; cursor: pointer;
+}
+.pm-close:hover { color: var(--ink); border-color: var(--ink-faint); }
+.pm-cfg { font-size: 1rem; }
+/* Under a latency's p99: why its mean can sit above its p90 (benchmarks.js tailNote) — a sentence in the
+   table, at the row where the two numbers meet, never left to be guessed. */
+table.pm-t tr.tail-row td { color: var(--ink-dim); font-size: .7rem; line-height: 1.35; white-space: normal; max-width: 24rem; padding: 0 .5rem .45rem 0; }
+/* A pooled latency histogram read out beside the tables: caption like theirs, then the rows. */
+.pm-dist { flex: 1 1 16rem; max-width: 26rem; }
+.pm-dist h5 { margin: 0; font-size: var(--small); font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-dim); }
+.pm-dist .dist { font-size: .74rem; grid-template-columns: 6.2rem 1fr 2.4rem; margin-top: .45rem; }
+.pm-cfg .cfg-sub { display: block; font-size: .72rem; color: var(--ink-dim); margin-top: .15rem; }
+.pm-n { font-size: .74rem; color: var(--ink-dim); margin: .35rem 0 .6rem; }
+.pm-tables { display: flex; flex-wrap: wrap; gap: 1rem; }
+table.pm-t { border-collapse: collapse; font-size: .78rem; flex: 1 1 14rem; }
+table.pm-t caption { text-align: left; font-size: var(--small); font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-dim); padding-bottom: .25rem; }
+table.pm-t th { text-align: left; font-weight: 500; text-transform: none; letter-spacing: 0; color: var(--ink-dim); padding: .3rem .5rem .3rem 0; border-bottom: 1px solid #1f242c; white-space: nowrap; }
+table.pm-t th .th-unit { color: var(--ink-faint); }
+table.pm-t tbody tr { cursor: default; }
+table.pm-t tbody tr:hover { background: transparent; }
+table.pm-t td { padding: .3rem .5rem; }
+table.runs-t.pm-t td.heat { background-image: linear-gradient(var(--heat-c), var(--heat-c)); background-repeat: no-repeat; background-size: 100% calc(100% - 4px); background-position: center; }
+table.runs-t.pm-t td.heat[data-heat="1"] { --heat-c: var(--heat-1); }
+table.runs-t.pm-t td.heat[data-heat="2"] { --heat-c: var(--heat-2); }
+table.runs-t.pm-t td.heat[data-heat="3"] { --heat-c: var(--heat-3); }
+table.runs-t.pm-t td.heat[data-heat="4"] { --heat-c: var(--heat-4); }
+
+/* "Switch between configurations": with one selected, every minute of the time charts that is not its
+   fades — the selected one keeps its own colour, so the charts still say which cap it ran at. The same
+   flip recedes the other configurations' points, bands, lines, bars and legend lines in the batch-size
+   curve and the by-max_num_seqs panel: they stay, faint, so the selected one is read among them. */
+#perf-time-grid.scoped [data-k].off, #perf-cmp.scoped [data-k].off:not(.lg) { opacity: .4; }
+/* A faded legend line keeps its WORDS in full ink — the reader must still be able to name the ghosts. */
+#perf-cmp.scoped .cmp-legend .lg.off .lg-mark { opacity: .4; }
+/* The stamp on a panel's header while a scope is on: a chart of faded marks alone reads as dim, not chosen. */
+.scope-tag { font-size: var(--small); color: var(--ink); background: #1d2530; border: 1px solid var(--line); border-radius: 999px; padding: .1rem .6rem; }
+.scope-tag[hidden] { display: none; }
+.charts-head .scope-tag { display: inline-block; margin: .1rem 0 .3rem; }
+.charts-head .scope-tag[hidden] { display: none; }
+
+/* A phone: the same corner panel, a little tighter. The selected line has no room beside the matrix on a
+   390 px screen, so it wraps under it — the panel is still a corner of the screen, not a band across it. */
+@media (max-width: 640px) {
+  .pb-head { max-width: 100%; }
+  /* The headline figure is the number ON the selected square, and the whole read-out is one tap away in
+     `details`: printing it again here is what pushed `details` on to a line of its own and made the panel
+     a band across the phone. The configuration's own settings stay — they are what the line is for. */
+  .pb-sel { font-size: .7rem; }
+  .pb-sel .pb-fig { display: none; }
+}
+/* The matrix's boot block (perflog.BootRecorder): a square with boots but no traffic minutes shows its count. */
+.pm-sq .pm-boot { font-weight: 500; color: var(--ink-dim); }
+table.pm-boot-t { flex: 1 1 100%; max-width: 34rem; }
+table.pm-boot-t td .pm-fail { display: inline-block; max-width: 22rem; white-space: normal; text-align: left; color: var(--ink-dim); font-size: .72rem; line-height: 1.3; }
+
+/* THIS PAGE'S header does not stick: with the bar fixed at the foot, a sticky 74 px header left a 600 px window
+   with no chart above the fold. Scoped to the body class this page sets — the gateway keeps its own. */
+body.benchmarks .top { position: static; }
+/* The honesty copy, folded: one sentence stays in view, "how to read this" opens the rest. Nothing is removed. */
+details.how { margin: .2rem 0 0; font-size: .72rem; }
+details.how summary { cursor: pointer; color: var(--accent); width: fit-content; }
+details.how summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+details.how > p { margin: .25rem 0 0; }
+.perf-caveat details.how { font-size: .78rem; color: var(--ink-dim); }
+.loading { margin: 0; padding: 1rem var(--gutter); font-size: .8rem; color: var(--ink-dim); }
+.loading[hidden] { display: none; }
+
+/* ── THE ONE ENCODING of a configuration (benchmarks.js cfgStyle), and the level charts ──────────────
+   Colour = the cap's ramp step (--seq-*, ordinal: max_num_seqs is ordered — yesterday's rule). A second
+   configuration at the same cap is told apart by FILL, never a second hue: hatched (an SVG <pattern> in
+   the chart's own defs), a third 135°, then a dotted outline. The same swatch is in every legend line
+   and, as a CSS gradient, on the dot beside a configuration's name. */
+.seqdot { background: var(--c, var(--ink-faint)); }
+.seqdot.v1 { background: repeating-linear-gradient(45deg, var(--c) 0 2px, color-mix(in srgb, var(--c) 28%, transparent) 2px 4px); }
+.seqdot.v2 { background: repeating-linear-gradient(135deg, var(--c) 0 2px, color-mix(in srgb, var(--c) 28%, transparent) 2px 4px); }
+.seqdot.v3 { background: color-mix(in srgb, var(--c) 20%, transparent); border: 1px dotted var(--c); }
+/* A level chart's bar: a configuration's pooled figure at one parallel level. `few` — shown, not compared —
+   is an outline in its own colour (its stroke is set where it is drawn); a compared bar keeps .g-bar's 2 px
+   surface stroke, the gap between neighbours. */
+.lv-bar.few { fill-opacity: .3; stroke-width: 1; stroke-dasharray: 3 2; opacity: .85; }
+/* THE SPREAD IS BACKGROUND. p10–p90 used to be an ink whisker in FRONT of the bars, with an arrowhead and a
+   printed p90 wherever it ran off the plot — and on time to first token, where a 145 s tail sits over a 10 s
+   mean, those annotations became the loudest thing in a chart they were only meant to annotate. So the band
+   is now a pale GREY wash around the bar (grey, never a cap's blue and never a status colour: it is context,
+   not a series), the MEDIAN is a tick across it, and the bar's own top edge stays the mean the reader sees
+   first. Hover brings the band forward and the hover text carries the exact figures — nothing is printed
+   into the plot, and a band past the top of the plot is simply cut off there.
+     `fill-opacity`, not `opacity`: the matrix's selection fades a whole cell by setting `opacity` on its
+   group, and the two must compose instead of overwriting each other. */
+.lv-band { fill: var(--ink-dim); fill-opacity: .16; stroke: none; pointer-events: none; }
+.lv-cell:hover .lv-band { fill-opacity: .34; }
+.lv-cell.few .lv-band { fill-opacity: .09; }
+.lv-cell.few:hover .lv-band { fill-opacity: .22; }
+/* The median of the very sample the band is over, in ink with a dark halo under it — so it reads on the
+   surface, on a solid bar, on a hatch, and on the pale bright end of the cap ramp alike. Dashed on a cell
+   shown-not-compared, the page's one meaning for a dashed mark. */
+.lv-med { stroke: var(--ink); stroke-width: 1.8; stroke-linecap: butt; pointer-events: none; }
+.lv-med.halo { stroke: var(--panel); stroke-width: 4; opacity: .8; }
+.lv-cell.few .lv-med { stroke-dasharray: 3 2; opacity: .7; }
+.lv-cell.few .lv-med.halo { stroke-dasharray: none; }
+/* The mean, printed over the bar's top edge: a surface halo keeps it legible where the band washes behind it. */
+.lv-lab { paint-order: stroke; stroke: var(--panel); stroke-width: 3px; stroke-linejoin: round; }
+/* The level charts answer the page's question: two to a row, so four bars in a band are 10–16 px each. */
+#perf-curve .cmp-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 28rem), 1fr)); }
+/* The section's one legend: one configuration per line — swatch, settings, minutes — then, quieter, the
+   conventions. It lives in the section head, above both panels that read from it, and it is a CARD: the
+   app's configurations table, with the configurations that are compared in full ink and weight and the
+   ones only shown set quieter (`few`, from the same MIN_WINDOWS rule that outlines their bars). */
+.charts-head #perf-legend, #perf-time-key {
+  margin: var(--gap) 0 0; padding: .7rem .9rem; min-width: 0;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--card-r);
+}
+.charts-head #perf-legend:empty, #perf-time-key:empty { display: none; }
+.cfg-legend {
+  display: block; columns: 25rem auto; column-gap: 2.2rem;
+  margin: 0; color: var(--ink); font-size: .8rem;
+}
+/* A configuration's name never breaks mid-setting (each is a nowrap .cfg-seg) but does break BETWEEN settings —
+   a name with the KV pin, the GPU fraction and the RAM tier is wider than a phone; where the row is too
+   narrow for name and count, its minutes drop to a line of their own under it. */
+.cfg-legend .lg { display: flex; flex-wrap: wrap; align-items: center; gap: 0 .5rem; padding: .17rem 0; min-width: 0; break-inside: avoid; }
+.cfg-legend .lg-name { font-weight: 600; min-width: 0; max-width: calc(100% - 18px - .5rem); }
+.cfg-legend .lg-name .cfg-seg { white-space: nowrap; }
+.cfg-legend .lg.few .lg-name { font-weight: 400; color: var(--ink-dim); }
+.cfg-legend .lg-n { margin-left: auto; color: var(--ink-faint); font-size: var(--small); white-space: nowrap; }
+@media (max-width: 640px) { .cfg-legend .lg-n { flex-basis: 100%; margin-left: 0; padding-left: calc(18px + .5rem); white-space: normal; } }
+/* The conventions, under a hairline: one to a line, its mark hung in the margin so the sentence wraps as
+   a sentence (as flex items its bold phrases were set apart from the words around them). */
+.cfg-key {
+  display: block; margin: .55rem 0 0; padding-top: .5rem; border-top: 1px solid var(--line);
+  font-size: var(--small); line-height: 1.45; color: var(--ink-faint);
+}
+.cfg-key .lg { display: block; position: relative; padding-left: calc(18px + .5rem); margin: .12rem 0; }
+.cfg-key .lg .lg-mark { position: absolute; left: 0; top: .15rem; }
+.cfg-key b { color: var(--ink-dim); font-weight: 600; }
+/* Seven more measures at each level, one fold away (drawn when it opens). */
+details.more-charts { margin: .8rem 0 .2rem; font-size: .76rem; }
+details.more-charts > summary { cursor: pointer; color: var(--accent); width: fit-content; padding: .2rem 0; }
+details.more-charts > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+details.more-charts[open] > summary { margin-bottom: .4rem; }
+/* The corner panel's fold: a small chevron at its top-right; folded, the panel is one word. */
+.pb-fold {
+  position: absolute; top: 2px; right: 3px; font: 500 .7rem/1 inherit; color: var(--ink-dim); background: none;
+  border: 0; border-radius: 4px; padding: .15rem .3rem; cursor: pointer;
+}
+.pb-fold:hover { color: var(--ink); background: var(--panel-2); }
+.pb-fold:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.perf-bar.folded, .perf-bar.docked.folded { padding: .3rem .55rem; }
+.perf-bar.folded .pm-grids, .perf-bar.folded .pb-head { display: none; }
+.perf-bar.folded .pb-fold { position: static; color: var(--accent); }

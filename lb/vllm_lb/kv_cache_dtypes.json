@@ -1,0 +1,341 @@
+{
+  "layouts": {
+    "bfloat16": {
+      "bytes_per_element": 2,
+      "source": "torch.bfloat16, 2 B an element: the KV pool's own dtype in vLLM (utils/torch_utils.py STR_DTYPE_TO_TORCH_DTYPE) and SGLang (srt/mem_cache/kv_cache_dtype.py)"
+    },
+    "float16": {
+      "bytes_per_element": 2,
+      "source": "torch.float16, 2 B an element (vLLM utils/torch_utils.py STR_DTYPE_TO_TORCH_DTYPE)"
+    },
+    "fp8": {
+      "bytes_per_element": 1,
+      "source": "vLLM's generic FP8 cache name, 1 B an element (utils/torch_utils.py:39 'fp8': torch.uint8, :68 'fp8' -> fp8_e4m3); DeepSeek-V4's sparse MLA backend takes it as the alias of its fp8_ds_mla page (models/deepseek_v4/sparse_mla.py:53-57), whose per-token bytes the catalog row states directly"
+    },
+    "fp8_e4m3": {
+      "bytes_per_element": 1,
+      "source": "torch.float8_e4m3fn, 1 B an element (vLLM utils/torch_utils.py; SGLang srt/mem_cache/kv_cache_dtype.py)"
+    },
+    "fp8_e5m2": {
+      "bytes_per_element": 1,
+      "source": "torch.float8_e5m2, 1 B an element (vLLM utils/torch_utils.py; SGLang srt/mem_cache/kv_cache_dtype.py)"
+    },
+    "nvfp4": {
+      "bytes_per_element": 0.5625,
+      "source": "vLLM's NVFP4 page, packed FP4 E2M1 data + one FP8 scale per 16 elements: nvfp4_kv_cache_full_dim(head) = head // 2 + head // 16 bytes per head (utils/torch_utils.py:546-550 @98dff2a81, :548-550 @2eb491e) = 9/16 B an element; flashinfer.py `_nvfp4_kv_views` reads K and V each as [data | scale]. Read 2026-10-22 in the images named under `images`; SGLang's FP4 pool the same 9/16 B for data + scales (model_executor/pool_configurator.py:409-417 @708f51e: cell // 2 + n·k·L·2 / 16)"
+    },
+    "int4_per_token_head": {
+      "bytes_per_element": 0.515625,
+      "source": "vLLM's INT4 per-token-head page (v1/attention/ops/int4_per_token_head.py: two 4-bit values a byte, RHT pre-rotated, a 4-bit zero-point in the scale): TritonAttentionBackend.customize_spec content = (head_k // 2 + head_v // 2) B + 2 fp32 scales per token and head — 264 B at head size 256 against bfloat16's 1,024, i.e. 264 / 512 B an element (read in myllmbox/qwen38-flash-next-cluster-vllm:v5 on box-a, 2026-10-26). The scale share grows at smaller heads (0.53125 at 128): this figure is head 256's, the Qwen3.8 rows' own"
+    },
+    "fp4_mx_block16": {
+      "bytes_per_element": 0.5625,
+      "source": "SGLang's MX-style block-16 FP4 pool: packed E2M1 data + one 1 B scale per 16 elements (model_executor/pool_configurator.py:409-417 @708f51e: cell // 2 + n·k·L·2 / 16) = 9/16 B an element"
+    }
+  },
+  "images": {
+    "myllmbox/sglang-27b-tp2:708f51e-fleet.2": {
+      "engine": "sglang",
+      "build": "SGLang 708f51e44bc6 (2026-09-09), image f6a09bc91a2e",
+      "source": "read 2026-10-22 in the image on box-a (docker run --rm --entrypoint grep|sed|md5sum; no engine started): srt/arg_groups/fields/model.py:196-219 (kv_cache_dtype choices auto, fp8_e5m2, fp8_e4m3, mxfp8, bf16, bfloat16, nvfp4, fp4_mx_block16, fp4_e2m1 — no float16), srt/mem_cache/kv_cache_dtype.py (configure_kv_cache_dtype: fp4_e2m1 raises as deprecated), srt/arg_groups/kv_cache_hook.py:37-110 (handle_kv4_compatibility, run at arg_groups/pipeline.py:264); every file md5-identical in -fleet.3",
+      "dtypes": {
+        "bfloat16": {
+          "source": "fields/model.py:213-214 'bf16', 'bfloat16' → torch.bfloat16 (kv_cache_dtype.py)"
+        },
+        "fp8_e4m3": {
+          "source": "fields/model.py:211 → torch.float8_e4m3fn (kv_cache_dtype.py); the pair's own launch since 2026-10-02 (tp-rank sglang_cmd default)"
+        },
+        "fp8_e5m2": {
+          "source": "fields/model.py:210 → torch.float8_e5m2 (kv_cache_dtype.py); not measured on this fleet"
+        },
+        "nvfp4": {
+          "arch": "sm_(10[0-9]|12[0-9])",
+          "attention_backends": {
+            "prefill": "flashinfer",
+            "decode": "trtllm_mha"
+          },
+          "workspace_layers": 1,
+          "source": "fields/model.py:215 'nvfp4' → torch.float4_e2m1fn_x2 (mem_cache/kv_cache_dtype.py). Its pool is READ by two backends only (layers/quantization/fp4_kv_cache_quant_method.py:766-767, 840-841): flashinfer for PREFILL, through an FP8 dequant workspace, and trtllm_mha for DECODE, native FP4 — no other backend has an access rule for it, triton included. So this launch runs prefill on flashinfer (as every dtype does) and decode on trtllm_mha: on sm_12x that backend is FlashInfer's XQA (layers/attention/trtllm_mha_backend.py:233, is_sm120 = any 12.x); a prefill backend unlike the decode one passes handle_kv4_compatibility with a warning (arg_groups/kv_cache_hook.py:57-64). The arch check takes sm_10x and any 12.x (kv_cache_hook.py:50-56; utils/common.py:291-294), so GB10 sm_121 passes. trtllm_mha's extend path refuses native FP4 ('supports decode only', trtllm_mha_backend.py:1330-1334) — whether a speculative VERIFY step reaches it is not read here. Its pool adds one FP8 dequant workspace layer per token (model_executor/pool_configurator.py:416-417). NOT MEASURED ON THIS HARDWARE: no FP4 KV and no trtllm_mha/XQA decode has run on the pair THE DRAFTER'S POOL is fp8_e4m3, its own (--speculative-draft-kv-cache-dtype, arg_groups/fields/spec.py:144-156; applied to the draft runner only, mem_cache/kv_cache_dtype.py:33-37): with the target's FP4 it died at init with the drafter on flashinfer (generation 214, 2026-10-22), at CUDA graph capture with it on trtllm_mha ('supports decode only', generation 215), and at the first batch on triton (the DFLASH writer copies BF16 into the pool, dflash_worker_v2.py:1554 -> memory_pool.py:2933, generation 217). fp8 rather than bf16: 5,120 B a token for the 5 draft layers per rank instead of 10,240.",
+          "draft_kv_cache_dtype": "fp8_e4m3",
+          "with_drafter": "refused with a drafter on this image: generations 214, 215 and 217 (2026-10-22) died on the DFLASH drafter over an FP4 pool (flashinfer cannot decode it; trtllm_mha cannot run the drafter's block pass; the DFLASH writer copies BF16 into it, dflash_worker_v2.py:1554), and 219 (the drafter on its own fp8 pool) started and served WRONG output; 218, the same pool with no drafter, was correct on every check — set num_speculative_tokens 0"
+        },
+        "fp4_mx_block16": {
+          "attention_backends": {
+            "prefill": "triton",
+            "decode": "triton"
+          },
+          "workspace_layers": 1,
+          "source": "fields/model.py:216 'fp4_mx_block16' → torch.float4_e2m1fn_x2 (mem_cache/kv_cache_dtype.py; no arch check beyond CUDA). Read PLAIN, dequantised to BF16, by triton, torch_native, flex_attention and trtllm_mha (prefill: also fa4) (fp4_kv_cache_quant_method.py:768-771, 844-845) — not by flashinfer, so this launch runs it on triton for prefill and decode, as handle_kv4_compatibility also demands (arg_groups/kv_cache_hook.py:99-108). Its pool adds one FP8 dequant workspace layer per token (pool_configurator.py:416-417). NOT MEASURED ON THIS HARDWARE: no FP4 KV and no triton attention has run on the pair THE DRAFTER'S POOL is fp8_e4m3, its own (--speculative-draft-kv-cache-dtype, arg_groups/fields/spec.py:144-156; applied to the draft runner only, mem_cache/kv_cache_dtype.py:33-37): with the target's FP4 it died at init with the drafter on flashinfer (generation 214, 2026-10-22), at CUDA graph capture with it on trtllm_mha ('supports decode only', generation 215), and at the first batch on triton (the DFLASH writer copies BF16 into the pool, dflash_worker_v2.py:1554 -> memory_pool.py:2933, generation 217). fp8 rather than bf16: 5,120 B a token for the 5 draft layers per rank instead of 10,240.",
+          "draft_kv_cache_dtype": "fp8_e4m3",
+          "with_drafter": "refused with a drafter on this image: generations 214, 215 and 217 (2026-10-22) died on the DFLASH drafter over an FP4 pool (flashinfer cannot decode it; trtllm_mha cannot run the drafter's block pass; the DFLASH writer copies BF16 into it, dflash_worker_v2.py:1554), and 219 (the drafter on its own fp8 pool) started and served WRONG output; 218, the same pool with no drafter, was correct on every check — set num_speculative_tokens 0"
+        }
+      },
+      "refused": {}
+    },
+    "myllmbox/sglang-27b-tp2:708f51e-fleet.3": {
+      "engine": "sglang",
+      "build": "SGLang 708f51e44bc6 (2026-09-09), image b40df1481b02",
+      "source": "md5-identical to -fleet.2 in every file read (arg_groups/kv_cache_hook.py 572fc442, arg_groups/fields/model.py 4da546d5, mem_cache/kv_cache_dtype.py ac3ea078, model_executor/pool_configurator.py ca2314f7, utils/common.py 15e0567f, arg_groups/pipeline.py 22b916dd), 2026-10-22",
+      "dtypes": {
+        "bfloat16": {
+          "source": "fields/model.py:213-214 → torch.bfloat16 (as -fleet.2)"
+        },
+        "fp8_e4m3": {
+          "source": "fields/model.py:211 → torch.float8_e4m3fn (as -fleet.2)"
+        },
+        "fp8_e5m2": {
+          "source": "fields/model.py:210 → torch.float8_e5m2 (as -fleet.2); not measured on this fleet"
+        },
+        "nvfp4": {
+          "arch": "sm_(10[0-9]|12[0-9])",
+          "attention_backends": {
+            "prefill": "flashinfer",
+            "decode": "trtllm_mha"
+          },
+          "workspace_layers": 1,
+          "source": "fields/model.py:215 'nvfp4' → torch.float4_e2m1fn_x2 (mem_cache/kv_cache_dtype.py). Its pool is READ by two backends only (layers/quantization/fp4_kv_cache_quant_method.py:766-767, 840-841): flashinfer for PREFILL, through an FP8 dequant workspace, and trtllm_mha for DECODE, native FP4 — no other backend has an access rule for it, triton included. So this launch runs prefill on flashinfer (as every dtype does) and decode on trtllm_mha: on sm_12x that backend is FlashInfer's XQA (layers/attention/trtllm_mha_backend.py:233, is_sm120 = any 12.x); a prefill backend unlike the decode one passes handle_kv4_compatibility with a warning (arg_groups/kv_cache_hook.py:57-64). The arch check takes sm_10x and any 12.x (kv_cache_hook.py:50-56; utils/common.py:291-294), so GB10 sm_121 passes. trtllm_mha's extend path refuses native FP4 ('supports decode only', trtllm_mha_backend.py:1330-1334) — whether a speculative VERIFY step reaches it is not read here. Its pool adds one FP8 dequant workspace layer per token (model_executor/pool_configurator.py:416-417). NOT MEASURED ON THIS HARDWARE: no FP4 KV and no trtllm_mha/XQA decode has run on the pair THE DRAFTER'S POOL is fp8_e4m3, its own (--speculative-draft-kv-cache-dtype, arg_groups/fields/spec.py:144-156; applied to the draft runner only, mem_cache/kv_cache_dtype.py:33-37): with the target's FP4 it died at init with the drafter on flashinfer (generation 214, 2026-10-22), at CUDA graph capture with it on trtllm_mha ('supports decode only', generation 215), and at the first batch on triton (the DFLASH writer copies BF16 into the pool, dflash_worker_v2.py:1554 -> memory_pool.py:2933, generation 217). fp8 rather than bf16: 5,120 B a token for the 5 draft layers per rank instead of 10,240.",
+          "draft_kv_cache_dtype": "fp8_e4m3",
+          "with_drafter": "refused with a drafter on this image: generations 214, 215 and 217 (2026-10-22) died on the DFLASH drafter over an FP4 pool (flashinfer cannot decode it; trtllm_mha cannot run the drafter's block pass; the DFLASH writer copies BF16 into it, dflash_worker_v2.py:1554), and 219 (the drafter on its own fp8 pool) started and served WRONG output; 218, the same pool with no drafter, was correct on every check — set num_speculative_tokens 0"
+        },
+        "fp4_mx_block16": {
+          "attention_backends": {
+            "prefill": "triton",
+            "decode": "triton"
+          },
+          "workspace_layers": 1,
+          "source": "fields/model.py:216 'fp4_mx_block16' → torch.float4_e2m1fn_x2 (mem_cache/kv_cache_dtype.py; no arch check beyond CUDA). Read PLAIN, dequantised to BF16, by triton, torch_native, flex_attention and trtllm_mha (prefill: also fa4) (fp4_kv_cache_quant_method.py:768-771, 844-845) — not by flashinfer, so this launch runs it on triton for prefill and decode, as handle_kv4_compatibility also demands (arg_groups/kv_cache_hook.py:99-108). Its pool adds one FP8 dequant workspace layer per token (pool_configurator.py:416-417). NOT MEASURED ON THIS HARDWARE: no FP4 KV and no triton attention has run on the pair THE DRAFTER'S POOL is fp8_e4m3, its own (--speculative-draft-kv-cache-dtype, arg_groups/fields/spec.py:144-156; applied to the draft runner only, mem_cache/kv_cache_dtype.py:33-37): with the target's FP4 it died at init with the drafter on flashinfer (generation 214, 2026-10-22), at CUDA graph capture with it on trtllm_mha ('supports decode only', generation 215), and at the first batch on triton (the DFLASH writer copies BF16 into the pool, dflash_worker_v2.py:1554 -> memory_pool.py:2933, generation 217). fp8 rather than bf16: 5,120 B a token for the 5 draft layers per rank instead of 10,240.",
+          "draft_kv_cache_dtype": "fp8_e4m3",
+          "with_drafter": "refused with a drafter on this image: generations 214, 215 and 217 (2026-10-22) died on the DFLASH drafter over an FP4 pool (flashinfer cannot decode it; trtllm_mha cannot run the drafter's block pass; the DFLASH writer copies BF16 into it, dflash_worker_v2.py:1554), and 219 (the drafter on its own fp8 pool) started and served WRONG output; 218, the same pool with no drafter, was correct on every check — set num_speculative_tokens 0"
+        }
+      },
+      "refused": {}
+    },
+    "myllmbox/qwen38-flash-next-cluster-vllm:v5": {
+      "engine": "vllm",
+      "build": "vLLM 0.29.0 (98dff2a81), image d9b79b5efa9f",
+      "source": "read 2026-10-22 in the image on box-a (docker run --rm --entrypoint grep|sed; no engine started): vllm/config/cache.py:39-57 CacheDType; v1/attention/backends/flashinfer.py (the only backend whose supported_kv_cache_dtypes names nvfp4); 2026-10-26: CacheDType also names int4_per_token_head (Triton-only), recorded",
+      "dtypes": {
+        "bfloat16": {
+          "source": "config/cache.py:42 CacheDType; what `auto` resolved to on the pair (kv_blocks: 816 tokens x 17 layers x 2,048 B)"
+        },
+        "float16": {
+          "source": "config/cache.py:41 CacheDType; not measured on this fleet"
+        },
+        "fp8_e4m3": {
+          "source": "config/cache.py:44 CacheDType; not measured with this image on this fleet"
+        },
+        "fp8_e5m2": {
+          "source": "config/cache.py:45 CacheDType; not measured on this fleet"
+        },
+        "nvfp4": {
+          "arch": "sm_10[0-9]",
+          "source": "config/cache.py:55; v1/attention/backends/flashinfer.py:491-498 supports_kv_cache_dtype: nvfp4 only on device capability family 100 with trtllm-gen attention, and :765-776 raises '--kv-cache-dtype nvfp4 requires the SM100 trtllm-gen FlashInfer path' — so a 12.x card (GB10 sm_121) has no backend for it. Not measured on any card"
+        },
+        "int4_per_token_head": {
+          "source": "config/cache.py CacheDType names it; only TritonAttentionBackend.supported_kv_cache_dtypes does (v1/attention/backends/triton_attn.py:301), with no arch rule — so GB10's sm_121 runs it where nvfp4 cannot; its write and read kernels are Triton (v1/attention/ops/int4_per_token_head.py). Read in the image on box-a 2026-10-26, no engine started. NOT MEASURED on this fleet",
+          "attention_backends": {
+            "prefill": "triton_attn",
+            "decode": "triton_attn"
+          }
+        }
+      },
+      "refused": {}
+    },
+    "myllmbox/glm53-flash-cluster-vllm:v2": {
+      "engine": "vllm",
+      "build": "vLLM 0.1.dev20051 (487ecf187), image 149a18f9d481 (arm64)",
+      "source": "read 2026-10-22 on box-c from the image's files (docker create + docker cp, nothing run): vllm/config/cache.py:19-37 CacheDType; v1/attention/backends/flashinfer.py:499-506; config/vllm.py:2539-2549",
+      "dtypes": {
+        "bfloat16": {
+          "source": "config/cache.py:22 CacheDType; not measured on this fleet"
+        },
+        "float16": {
+          "source": "config/cache.py:21 CacheDType; not measured on this fleet"
+        },
+        "fp8_e4m3": {
+          "source": "config/cache.py:24 CacheDType; the profile's own flag, per the 2x DGX Spark recipes (worklog/glm53-flash-pair.md)"
+        },
+        "fp8_e5m2": {
+          "source": "config/cache.py:25 CacheDType; not measured on this fleet"
+        },
+        "nvfp4": {
+          "arch": "sm_10[0-9]",
+          "source": "config/cache.py:35; v1/attention/backends/flashinfer.py:499-506 supports_kv_cache_dtype: nvfp4 only on device capability family 100 with trtllm-gen attention. Not measured on any card"
+        }
+      },
+      "refused": {}
+    },
+    "rocm/vllm@sha256:394194d36edcf9b36bcb563e143b21b80e64e7d04f33a447b448c0c0c00c04a8": {
+      "engine": "vllm",
+      "build": "vLLM 0.19.1+rocm7.13.0rc2, image 45e8eef0d945",
+      "source": "read 2026-10-22 on box-c (docker run --rm --entrypoint sh -c grep; no engine started): /opt/python/lib/python3.13/site-packages/vllm/config/cache.py:14-23 CacheDType (auto, float16, bfloat16, fp8, fp8_e4m3, fp8_e5m2, fp8_inc, fp8_ds_mla — no FP4); v1/attention/backends/triton_attn.py:264-271 and rocm_attn.py:167-174 list float16, bfloat16, fp8, fp8_e4m3, fp8_e5m2",
+      "dtypes": {
+        "bfloat16": {
+          "source": "config/cache.py:17; what `auto` resolved to on the gui node (2 B a token-element, mai-ui-2b's calibration)"
+        },
+        "float16": {
+          "source": "config/cache.py:16; not measured on this fleet"
+        },
+        "fp8_e4m3": {
+          "source": "config/cache.py:19; triton_attn.py:269; not measured on this hardware (gfx1151)"
+        },
+        "fp8_e5m2": {
+          "source": "config/cache.py:20; triton_attn.py:270; not measured on this hardware (gfx1151)"
+        }
+      },
+      "refused": {
+        "nvfp4": "this ROCm vLLM has no FP4 KV cache: config/cache.py:14-23 CacheDType ends at fp8_ds_mla"
+      }
+    },
+    "vllm/vllm-openai@sha256:514cd42702d29a7b8efe20b0a916523ac473ecebdec8d53b1a0d0f5439a48634": {
+      "engine": "vllm",
+      "build": "vLLM 0.31.1rc1.dev273 (2eb491e18), image 578a7e140507",
+      "source": "read 2026-10-22 in the running qwen38-5090 container on site-b (docker exec grep|sed only): vllm/config/cache.py:39-59 CacheDType; v1/attention/backends/flashinfer.py:110-111, :530-538, :837-847",
+      "dtypes": {
+        "bfloat16": {
+          "source": "config/cache.py:42 CacheDType; not measured on this fleet"
+        },
+        "float16": {
+          "source": "config/cache.py:41 CacheDType; not measured on this fleet"
+        },
+        "fp8_e4m3": {
+          "source": "config/cache.py:44; what `auto` resolved to on the 5090 node for the 27B (single_card_kv_blocks: 1,568 tokens x 16 layers x 2,048 B)"
+        },
+        "fp8_e5m2": {
+          "source": "config/cache.py:45 CacheDType; not measured on this fleet"
+        },
+        "nvfp4": {
+          "arch": "sm_(8[0-9]|9[0-9]|10[0-9]|12[0-9])",
+          "source": "config/cache.py:57; v1/attention/backends/flashinfer.py:110-111 `_nvfp4_kv_on_fa2`: device capability families 80, 90 and 120 read NVFP4 pages through FlashInfer FA2, and :530-538 family 100 through trtllm-gen; :837-847 refuse it under DCP and at head_size 64. NOT MEASURED ON THIS HARDWARE: the engine accepts it on an RTX 5090 (sm_120), no FP4 KV has run on this fleet"
+        }
+      },
+      "refused": {}
+    },
+    "sha256:7b35cbcf2a880e0e61233848f038417a04b1a94950ac691ae901948abff7f360": {
+      "engine": "vllm",
+      "build": "vLLM 0.31.1rc1.dev273 (2eb491e18) + deploy/images/vllm/priority/priority.patch: vllm-fleet:2eb491e-priority.1, built 2026-10-28 on site-b from vllm/vllm-openai@sha256:514cd427… (deploy/images/vllm/Dockerfile, stage priority)",
+      "source": "the base's (vllm/vllm-openai@sha256:514cd427…): the patch changes only entrypoints/anthropic/protocol.py, entrypoints/anthropic/serving.py and v1/engine/input_processor.py — config/cache.py CacheDType and the attention backends are the base's, byte for byte",
+      "dtypes": {
+        "bfloat16": {
+          "source": "config/cache.py:42 CacheDType; not measured on this fleet"
+        },
+        "float16": {
+          "source": "config/cache.py:41 CacheDType; not measured on this fleet"
+        },
+        "fp8_e4m3": {
+          "source": "config/cache.py:44; what `auto` resolved to on the 5090 node for the 27B (single_card_kv_blocks: 1,568 tokens x 16 layers x 2,048 B)"
+        },
+        "fp8_e5m2": {
+          "source": "config/cache.py:45 CacheDType; not measured on this fleet"
+        },
+        "nvfp4": {
+          "arch": "sm_(8[0-9]|9[0-9]|10[0-9]|12[0-9])",
+          "source": "config/cache.py:57; v1/attention/backends/flashinfer.py:110-111 `_nvfp4_kv_on_fa2`: device capability families 80, 90 and 120 read NVFP4 pages through FlashInfer FA2, and :530-538 family 100 through trtllm-gen; :837-847 refuse it under DCP and at head_size 64. NOT MEASURED ON THIS HARDWARE: the engine accepts it on an RTX 5090 (sm_120), no FP4 KV has run on this fleet"
+        }
+      },
+      "refused": {}
+    },
+    "myllmbox/deepseek-v4-flash-cluster-vllm:v1": {
+      "engine": "vllm",
+      "build": "vLLM 0.1.dev21830+g8244d1c44 (eugr/box-a-vllm-b12x nightly-20261015), base image a7f76ae9f18c (arm64)",
+      "source": "read 2026-10-23 on box-c from the base image's files (docker create + docker export, nothing run): vllm/config/cache.py:39-58 CacheDType; models/deepseek_v4/sparse_mla.py:53-57",
+      "dtypes": {
+        "fp8": {
+          "source": "config/cache.py:43 CacheDType; DeepSeek-V4's sparse MLA takes auto, fp8_ds_mla and fp8 (its alias) only (sparse_mla.py:53-57); the recipe's own flag (eugr/spark-vllm-docker recipes/deepseek-v4-flash-0731.yaml). Not measured on this fleet"
+        }
+      },
+      "refused": {}
+    },
+    "myllmbox/sglang-27b-tp2:708f51e-fleet.4": {
+      "engine": "sglang",
+      "build": "SGLang 708f51e44bc6 (2026-09-09), -fleet.3 + the qsa-fp8-kv patch (deploy/images/sglang)",
+      "source": "md5-identical to -fleet.2 in every file read (arg_groups/kv_cache_hook.py 572fc442, arg_groups/fields/model.py 4da546d5, mem_cache/kv_cache_dtype.py ac3ea078, model_executor/pool_configurator.py ca2314f7, utils/common.py 15e0567f, arg_groups/pipeline.py 22b916dd), 2026-10-22; -fleet.4 (2026-10-26) is -fleet.3 plus deploy/images/sglang/qsa-fp8-kv.patch, which changes only srt/layers/attention/qwen_sparse_attn_backend.py: the dtypes it accepts are -fleet.3's",
+      "dtypes": {
+        "bfloat16": {
+          "source": "fields/model.py:213-214 → torch.bfloat16 (as -fleet.2)"
+        },
+        "fp8_e4m3": {
+          "source": "fields/model.py:211 → torch.float8_e4m3fn (as -fleet.2)"
+        },
+        "fp8_e5m2": {
+          "source": "fields/model.py:210 → torch.float8_e5m2 (as -fleet.2); not measured on this fleet"
+        },
+        "nvfp4": {
+          "arch": "sm_(10[0-9]|12[0-9])",
+          "attention_backends": {
+            "prefill": "flashinfer",
+            "decode": "trtllm_mha"
+          },
+          "workspace_layers": 1,
+          "source": "fields/model.py:215 'nvfp4' → torch.float4_e2m1fn_x2 (mem_cache/kv_cache_dtype.py). Its pool is READ by two backends only (layers/quantization/fp4_kv_cache_quant_method.py:766-767, 840-841): flashinfer for PREFILL, through an FP8 dequant workspace, and trtllm_mha for DECODE, native FP4 — no other backend has an access rule for it, triton included. So this launch runs prefill on flashinfer (as every dtype does) and decode on trtllm_mha: on sm_12x that backend is FlashInfer's XQA (layers/attention/trtllm_mha_backend.py:233, is_sm120 = any 12.x); a prefill backend unlike the decode one passes handle_kv4_compatibility with a warning (arg_groups/kv_cache_hook.py:57-64). The arch check takes sm_10x and any 12.x (kv_cache_hook.py:50-56; utils/common.py:291-294), so GB10 sm_121 passes. trtllm_mha's extend path refuses native FP4 ('supports decode only', trtllm_mha_backend.py:1330-1334) — whether a speculative VERIFY step reaches it is not read here. Its pool adds one FP8 dequant workspace layer per token (model_executor/pool_configurator.py:416-417). NOT MEASURED ON THIS HARDWARE: no FP4 KV and no trtllm_mha/XQA decode has run on the pair THE DRAFTER'S POOL is fp8_e4m3, its own (--speculative-draft-kv-cache-dtype, arg_groups/fields/spec.py:144-156; applied to the draft runner only, mem_cache/kv_cache_dtype.py:33-37): with the target's FP4 it died at init with the drafter on flashinfer (generation 214, 2026-10-22), at CUDA graph capture with it on trtllm_mha ('supports decode only', generation 215), and at the first batch on triton (the DFLASH writer copies BF16 into the pool, dflash_worker_v2.py:1554 -> memory_pool.py:2933, generation 217). fp8 rather than bf16: 5,120 B a token for the 5 draft layers per rank instead of 10,240.",
+          "draft_kv_cache_dtype": "fp8_e4m3",
+          "with_drafter": "refused with a drafter on this image: generations 214, 215 and 217 (2026-10-22) died on the DFLASH drafter over an FP4 pool (flashinfer cannot decode it; trtllm_mha cannot run the drafter's block pass; the DFLASH writer copies BF16 into it, dflash_worker_v2.py:1554), and 219 (the drafter on its own fp8 pool) started and served WRONG output; 218, the same pool with no drafter, was correct on every check — set num_speculative_tokens 0"
+        },
+        "fp4_mx_block16": {
+          "attention_backends": {
+            "prefill": "triton",
+            "decode": "triton"
+          },
+          "workspace_layers": 1,
+          "source": "fields/model.py:216 'fp4_mx_block16' → torch.float4_e2m1fn_x2 (mem_cache/kv_cache_dtype.py; no arch check beyond CUDA). Read PLAIN, dequantised to BF16, by triton, torch_native, flex_attention and trtllm_mha (prefill: also fa4) (fp4_kv_cache_quant_method.py:768-771, 844-845) — not by flashinfer, so this launch runs it on triton for prefill and decode, as handle_kv4_compatibility also demands (arg_groups/kv_cache_hook.py:99-108). Its pool adds one FP8 dequant workspace layer per token (pool_configurator.py:416-417). NOT MEASURED ON THIS HARDWARE: no FP4 KV and no triton attention has run on the pair THE DRAFTER'S POOL is fp8_e4m3, its own (--speculative-draft-kv-cache-dtype, arg_groups/fields/spec.py:144-156; applied to the draft runner only, mem_cache/kv_cache_dtype.py:33-37): with the target's FP4 it died at init with the drafter on flashinfer (generation 214, 2026-10-22), at CUDA graph capture with it on trtllm_mha ('supports decode only', generation 215), and at the first batch on triton (the DFLASH writer copies BF16 into the pool, dflash_worker_v2.py:1554 -> memory_pool.py:2933, generation 217). fp8 rather than bf16: 5,120 B a token for the 5 draft layers per rank instead of 10,240.",
+          "draft_kv_cache_dtype": "fp8_e4m3",
+          "with_drafter": "refused with a drafter on this image: generations 214, 215 and 217 (2026-10-22) died on the DFLASH drafter over an FP4 pool (flashinfer cannot decode it; trtllm_mha cannot run the drafter's block pass; the DFLASH writer copies BF16 into it, dflash_worker_v2.py:1554), and 219 (the drafter on its own fp8 pool) started and served WRONG output; 218, the same pool with no drafter, was correct on every check — set num_speculative_tokens 0"
+        }
+      },
+      "refused": {}
+    },
+    "tensorfold-qwen38fn:zig-db28187-ghcr": {
+      "engine": "tensorfold",
+      "build": "TensorFold zig-flashnext db281878ddb8 + mia-ai patches f3e1300f4f62 (image config sha256:5eb5d4d38477, = ghcr.io/miaai-lab/qwen3.8-flash-dual-dgx-sparks-tensorfold@sha256:e188128d)",
+      "source": "read 2026-10-29 in the mia-ai recipe's patches on box-a (~/tensorfold-spike/recipe @ dc05c91, nothing started): patches/0001-build-registry-server.patch:651 — server/cli.zig `--kv-dtype` choices bf16, int8, int4, fp8 with native_values bf16, fp8 (the native engine serves those two; int8/int4 are the Python engine's); patches/0005-engine.patch:87 '[--kv-dtype bf16|fp8] (the attention caches' format; fp8: e4m3 rows, a power-of-two scale a head row)'. tp-rank `tensorfold_cmd` turns the LB's name into the engine's word",
+      "dtypes": {
+        "bfloat16": {
+          "source": "--kv-dtype bf16, the exact cache (recipe scripts/config.sh: 'bf16 is the exact cache'); not measured on this fleet"
+        },
+        "fp8_e4m3": {
+          "source": "--kv-dtype fp8 (e4m3 rows, a power-of-two scale a head row): the recipe's default and the spike's leg a (2026-10-29: 'fp8 KV cache, 528 bytes a position a layer')"
+        }
+      },
+      "refused": {}
+    },
+    "tensorfold-qwen38fn:zig-db28187-f3e1300f4f62-fleet.1": {
+      "engine": "tensorfold",
+      "build": "deploy/images/tensorfold (image sha256:2ad9cb03051b on both GB10 boxes): tensorfold-native rebuilt from the same tree + 0013-anthropic-merge-late-system (/v1/messages only, no KV code), over TensorFold zig-flashnext db281878ddb8 + mia-ai patches f3e1300f4f62 (image config sha256:5eb5d4d38477, = ghcr.io/miaai-lab/qwen3.8-flash-dual-dgx-sparks-tensorfold@sha256:e188128d)",
+      "source": "read 2026-10-29 in the mia-ai recipe's patches on box-a (~/tensorfold-spike/recipe @ dc05c91, nothing started): patches/0001-build-registry-server.patch:651 — server/cli.zig `--kv-dtype` choices bf16, int8, int4, fp8 with native_values bf16, fp8 (the native engine serves those two; int8/int4 are the Python engine's); patches/0005-engine.patch:87 '[--kv-dtype bf16|fp8] (the attention caches' format; fp8: e4m3 rows, a power-of-two scale a head row)'. tp-rank `tensorfold_cmd` turns the LB's name into the engine's word",
+      "dtypes": {
+        "bfloat16": {
+          "source": "--kv-dtype bf16, the exact cache (recipe scripts/config.sh: 'bf16 is the exact cache'); not measured on this fleet"
+        },
+        "fp8_e4m3": {
+          "source": "--kv-dtype fp8 (e4m3 rows, a power-of-two scale a head row): the recipe's default and the spike's leg a (2026-10-29: 'fp8 KV cache, 528 bytes a position a layer')"
+        }
+      },
+      "refused": {}
+    },
+    "tensorfold-qwen38fn:zig-db28187-f3e1300f4f62-fleet.2": {
+      "engine": "tensorfold",
+      "build": "deploy/images/tensorfold: -fleet.1 + 0014-work-counters (pass, computed-prompt and busy-time counters for /metrics; no KV code), image sha256:b9d1b0869fc9 (built once on box-b, copied to box-a by id); the KV formats are -fleet.1's: deploy/images/tensorfold (image sha256:2ad9cb03051b on both GB10 boxes): tensorfold-native rebuilt from the same tree + 0013-anthropic-merge-late-system (/v1/messages only, no KV code), over TensorFold zig-flashnext db281878ddb8 + mia-ai patches f3e1300f4f62 (image config sha256:5eb5d4d38477, = ghcr.io/miaai-lab/qwen3.8-flash-dual-dgx-sparks-tensorfold@sha256:e188128d)",
+      "source": "read 2026-10-29 in the mia-ai recipe's patches on box-a (~/tensorfold-spike/recipe @ dc05c91, nothing started): patches/0001-build-registry-server.patch:651 — server/cli.zig `--kv-dtype` choices bf16, int8, int4, fp8 with native_values bf16, fp8 (the native engine serves those two; int8/int4 are the Python engine's); patches/0005-engine.patch:87 '[--kv-dtype bf16|fp8] (the attention caches' format; fp8: e4m3 rows, a power-of-two scale a head row)'. tp-rank `tensorfold_cmd` turns the LB's name into the engine's word",
+      "dtypes": {
+        "bfloat16": {
+          "source": "--kv-dtype bf16, the exact cache (recipe scripts/config.sh: 'bf16 is the exact cache'); not measured on this fleet"
+        },
+        "fp8_e4m3": {
+          "source": "--kv-dtype fp8 (e4m3 rows, a power-of-two scale a head row): the recipe's default and the spike's leg a (2026-10-29: 'fp8 KV cache, 528 bytes a position a layer')"
+        }
+      },
+      "refused": {}
+    },
+    "tensorfold-py066:cb2ebf0": {
+      "engine": "tensorfold",
+      "build": "TensorFold 0.6.6 (cb2ebf0540f4) pip-installed on the mia-ai image (tf066.Dockerfile, sha256:717426f22760)",
+      "source": "read 2026-10-29 in TensorFold cb2ebf05 (the 0.6.6 pin, tf066.Dockerfile): src/tensorfold/cli_args.py:138 `--kv-dtype` choices bf16, int8, int4 (default bf16); families/qwen4_exp/__init__.py:166 CUDA_KV_DTYPES (bf16, int8, int4) refuses any other before a weight is read. int8/int4 (one fp16 scale per 32 values) have no layout in this library, so they are not offered",
+      "dtypes": {
+        "bfloat16": {
+          "source": "--kv-dtype bf16, the engine's default: the spike's leg b (2026-10-29)"
+        }
+      },
+      "refused": {}
+    }
+  }
+}

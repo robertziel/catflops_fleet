@@ -1,0 +1,44 @@
+--- a/vllm/entrypoints/anthropic/protocol.py
++++ b/vllm/entrypoints/anthropic/protocol.py
+@@ -229,6 +229,14 @@
+     top_p: float | None = None
+ 
+     # vLLM-specific fields that are not in Anthropic spec
++    priority: int = Field(
++        default=0,
++        description=(
++            "The priority of the request (lower means earlier handling; "
++            "default: 0), as on the OpenAI endpoints; refused unless the "
++            "server runs --scheduling-policy priority."
++        ),
++    )
+     return_mm_kwargs: bool = Field(
+         default=True,
+         description=(
+--- a/vllm/entrypoints/anthropic/serving.py
++++ b/vllm/entrypoints/anthropic/serving.py
+@@ -623,6 +623,7 @@
+             ec_transfer_params=anthropic_request.ec_transfer_params,
+             vllm_xargs=anthropic_request.vllm_xargs,
+             chat_template_kwargs=anthropic_request.chat_template_kwargs,
++            priority=anthropic_request.priority,
+         )
+ 
+     @classmethod
+--- a/vllm/v1/engine/input_processor.py
++++ b/vllm/v1/engine/input_processor.py
+@@ -386,6 +386,14 @@
+         session_id: str | None = None,
+         kv_hints: KvHintsEnvelope | None = None,
+     ) -> EngineCoreRequest:
++        # A priority the scheduler would IGNORE is refused, never dropped (its
++        # own field description promises the error; fcfs never read it).
++        if priority != 0 and self.scheduler_config.policy != "priority":
++            raise ValueError(
++                f"priority {priority} needs --scheduling-policy priority; this "
++                f"server schedules {self.scheduler_config.policy} and would "
++                f"ignore it"
++            )
+         watermarking = self._validate_params(params, supported_tasks)
+         self._validate_lora(lora_request)
+ 

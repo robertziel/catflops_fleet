@@ -1,0 +1,360 @@
+#!/usr/bin/env bash
+# sglang-rank — start, stop and observe THIS GB10 box's rank of the two-box TP=2 SGLang cluster
+# (Qwen3.8-27B NVFP4 target + DFlash2 block-diffusion drafter).
+#
+# This is the SGLang sibling of lb/cluster/tp-rank, and deliberately keeps that script's shape:
+# nothing is installed on a GB10 box, the bytes arrive on stdin over ssh —
+#
+#   ssh <box> 'env RANK_HOST_IP=<its fabric address> … bash -s -- up 0 16 262144' < sglang-rank
+#
+# — so the copy that runs is always the one the caller holds, and nothing on a box can drift.
+# launch-pair.sh is the WHEN; this is the HOW.
+#
+# What it keeps to, from tp-rank:
+# * Verbs, from argv only:
+#     status | preflight | up <rank> <max_running_requests> <context_length> | halt | down | logs [n]
+#   `halt` stops a rank and KEEPS it (its exit code and its log are the post-mortem of a failed
+#   start); `down` removes it.
+#   Every argument is range-checked, nothing is eval'd, and docker gets its arguments as one array,
+#   an element each, so no value is ever re-parsed.
+# * Nothing runs until the LAST line. The script arrives on stdin over a network and a connection
+#   that drops mid-transfer hands bash a prefix of it; everything above `main "$@"` only defines
+#   things, so a prefix does nothing.
+# * No state of its own. The container and its label ARE the state.
+# * "Absent" is only what docker calls absent ("no such object"); every other docker failure is a
+#   failure, so a dead daemon is never read as an empty box.
+#
+# Output: ONE JSON line for status/up/down/halt/preflight and for every refusal; logs prints the log.
+# Exit:   0 done · 1 could not be done here · 2 refused (bad request).
+set -euo pipefail
+
+# ssh carries the caller's LANG/LC_* along, and the locale decides both what [A-Za-z] matches and
+# whether awk prints 111.6 or 111,6. Neither is the caller's to choose.
+export LC_ALL=C
+IFS=$' \t\n'
+
+readonly NAME_PREFIX=qwen38-27b-sglang-tp2-r   # + the rank; ours alone, never the LB's names
+readonly RANK_FORMAT='{{.State.Running}}|{{.State.ExitCode}}|{{.State.StartedAt}}|{{index .Config.Labels "sglang.tp2.rank"}}'
+readonly USAGE='status | preflight | up <rank> <max_running_requests> <context_length> | halt | down | logs [n]'
+readonly TP_SIZE=2
+
+# ── names we must never touch ────────────────────────────────────────────────
+# The live vLLM TP=2 cluster is vllm-lb's (lb/vllm_lb/cluster.py) and the fleet lanes are
+# broker_parrot's. This script never stops, removes or waits on any of them: it only REFUSES to
+# start when one of the engines is up, because 128 GB of unified memory cannot hold two 27B pairs.
+readonly FOREIGN_ENGINES='qwen38-cluster-vllm vllm'
+readonly MEM_NEED_GIB=${MEM_NEED_GIB:-78}      # measured need per box; preflight refuses below this
+
+# ── configuration: the environment, over these defaults ─────────────────────
+# The image: the pin upstream's own start-dflash.sh carries today (MiaAI-Lab repo HEAD), a
+# linux/arm64 single-platform manifest. It contains sglang #35371 (DFlash2), #35496 (quantized
+# target lm_head in the DFlash2 selector — what lets a packed-FP4 head serve at all), #34763 and
+# #35255 (the zombie-request fix for a client that disconnects mid-stream).
+# NOT the forum thread's lmsysorg/sglang:qwen38-27b-dflash2-minoverlay: that tag is a LOCAL build
+# from a patch/ directory upstream deleted on 2026-09-05, and it exists in no registry
+# (`docker manifest inspect` → "no such manifest", checked 2026-10-02).
+: "${SGLANG_IMAGE:=lmsysorg/sglang@sha256:00205b89f74691f76a0ffbd6846376d9323971930a5d59bf63a65dadc7d67927}"
+
+# Where the checkpoints may be, best first; `up` mounts the first dir holding <TARGET>/config.json.
+# box-a reads its own NVMe; box-b reads box-a's export over pair-link. Same roots the vLLM cluster
+# uses, so one staged copy serves both engines.
+# NO DEFAULT: launch-pair.sh sends MODELS_SEARCH_DIRS from lb/.env; a guessed folder loads a stale copy.
+: "${SGLANG_MODELS_DIRS:=}"
+: "${SGLANG_TARGET:=Qwen3.8-27B-NVFP4}"        # dir name under the models root
+: "${SGLANG_DRAFT=Qwen3.8-27B-DFlash2}"       # dir name under the models root; empty = no spec decode
+: "${SGLANG_SERVED_NAME:=qwen38-27b-sglang-tp2}"
+: "${SGLANG_PORT:=8020}"                       # free on both GB10 boxes; the LB's cluster owns 8100
+: "${SGLANG_DIST_PORT:=50051}"                 # rendezvous; the LB's cluster owns 25000
+: "${SGLANG_DIST_ADDR:?SGLANG_DIST_ADDR is not set — rank 0 own fabric address (launch-pair.sh sends it)}"
+
+# The fabric. RANK_HOST_IP has no default on purpose — it is the one value that differs between the
+# boxes, and a guessed one would put NCCL on the wrong box (tp-rank's rule). Nor has the interface: it
+# is the deployment's fabric link (sglang-tp2.env, e.g. bond0 — the bond's master, not one of its
+# ports), sent by launch-pair.sh.
+: "${SGLANG_IFACE:?SGLANG_IFACE is not set — the fabric link interface on this box (launch-pair.sh sends it)}"
+# NCCL_IB_HCA is EMPTY by default, which is exactly what the working vLLM TP=2 launcher passes:
+# NCCL enumerates /sys/class/infiniband itself. A device outside the bond runs MTU 1500 (RoCE
+# active_mtu 1024) while the bond's own slaves run MTU 9000 (active_mtu 4096). If NCCL ever hangs
+# at warmup, the value to try is the bond's two devices, comma-separated.
+: "${SGLANG_NCCL_IB_HCA:=}"
+# Upstream pins the container to GB10's ten 3.9 GHz Cortex-X5 cores (5-9,15-19; the 2.8 GHz A725
+# efficiency cores are 0-4,10-14) and measures +2-7% decode. Empty = no pinning.
+: "${SGLANG_CPUSET:=5-9,15-19}"
+: "${SGLANG_MEM_FRACTION:=0.90}"               # 0.95 has hard-rebooted a GB10 at draft-graph capture
+: "${SGLANG_DRAFT_TOKENS:=8}"                  # DFlash2's verify window
+: "${SGLANG_MAMBA_SLOTS_PER_REQ:=4}"           # --max-mamba-cache-size = K x this (upstream's rule)
+: "${SGLANG_CHUNKED_PREFILL:=8192}"
+: "${SGLANG_CACHE_DIR:=$HOME/.cache/sglang-tp2}"
+: "${SGLANG_EXTRA_ARGS:=}"                     # appended LAST; argparse last-wins
+: "${HALT_GRACE_S:=20}"                        # SIGTERM, then SIGKILL: a rank hung in a collective ignores the first
+
+# ── plumbing ─────────────────────────────────────────────────────────────────
+
+json_str() { printf '%s' "$1" | python3 -I -c 'import json,sys; print(json.dumps(sys.stdin.read()))'; }
+
+fail() { local code=$1; shift; printf '{"ok": false, "error": %s}\n' "$(json_str "$*")"; exit "$code"; }
+
+int_in() { [[ $1 =~ ^[0-9]+$ ]] && (( $1 >= $2 && $1 <= $3 )); }
+
+# docker, with its exit code in DRC and its output in DOUT — never `set -e`'s business.
+DRC=0 DOUT=
+dock() { DOUT=$(docker "$@" 2>&1) && DRC=0 || DRC=$?; }
+
+# True only for docker's own word for absent. Every other failure is a failure.
+is_absent() { [[ $DOUT == *"No such object"* || $DOUT == *"no such object"* ]]; }
+
+RANK_PRESENT=false RANK_RUNNING=false RANK_EXIT= RANK_STARTED= RANK_LABEL=
+observe_rank() {
+  local name=$1
+  RANK_PRESENT=false RANK_RUNNING=false RANK_EXIT= RANK_STARTED= RANK_LABEL=
+  dock inspect -f "$RANK_FORMAT" "$name"
+  if (( DRC != 0 )); then
+    is_absent || fail 1 "docker inspect $name failed (exit $DRC): $DOUT"
+    return 0
+  fi
+  RANK_PRESENT=true
+  IFS='|' read -r RANK_RUNNING RANK_EXIT RANK_STARTED RANK_LABEL <<<"${DOUT##*$'\n'}"
+  return 0
+}
+
+# Any FOREIGN engine running on this box, space separated — the reason a launch is refused.
+foreign_up() {
+  local found=() n
+  dock ps --format '{{.Names}}'
+  (( DRC == 0 )) || fail 1 "docker ps failed (exit $DRC): $DOUT"
+  for n in $FOREIGN_ENGINES; do
+    grep -qx -- "$n" <<<"$DOUT" && found+=("$n")
+  done
+  # Any other container whose name looks like a TP=2 engine or an sglang server, ours excepted.
+  while read -r n; do
+    [[ -z $n ]] && continue
+    [[ $n == "$NAME_PREFIX"* ]] && continue
+    [[ $n == *tp2* || $n == *tp-2* || $n == *sglang* ]] && found+=("$n")
+  done <<<"$DOUT"
+  printf '%s' "${found[*]-}"
+}
+
+# MemAvailable, in GiB.
+mem_avail_gib() {
+  awk '/^MemAvailable:/ {printf "%d", $2/1048576}' "${RANK_MEMINFO:-/proc/meminfo}"
+}
+
+# The first dir on SGLANG_MODELS_DIRS holding the target, in MODELS_DIR — or a failure naming every
+# dir tried. The draft, when one is configured, must live in the SAME root: both ranks mount one
+# directory, and a drafter the peer cannot see would not survive the first all-reduce.
+MODELS_DIR=
+find_checkpoint() {
+  local dir tried=() list
+  IFS=: read -ra dirs <<<"$SGLANG_MODELS_DIRS"
+  for dir in ${dirs[@]+"${dirs[@]}"}; do
+    dir=${dir/#\~/$HOME}                          # `~` is this box's home
+    [[ -n $dir && -f $dir/$SGLANG_TARGET/config.json ]] || { tried+=("$dir"); continue; }
+    if [[ -n $SGLANG_DRAFT && ! -f $dir/$SGLANG_DRAFT/config.json ]]; then
+      tried+=("$dir (target but no $SGLANG_DRAFT)")
+      continue
+    fi
+    MODELS_DIR=$dir
+    return 0
+  done
+  (( ${#tried[@]} > 0 )) || fail 1 "SGLANG_MODELS_DIRS names no directory — launch-pair.sh sends MODELS_SEARCH_DIRS (lb/.env)"
+  printf -v list '%s, ' "${tried[@]}"
+  fail 1 "no $SGLANG_TARGET/config.json${SGLANG_DRAFT:+ (with $SGLANG_DRAFT/config.json)} in any of: ${list%, }"
+}
+
+# ── verbs ────────────────────────────────────────────────────────────────────
+
+cmd_status() {
+  local rank name out=()
+  for rank in 0 1; do
+    name=$NAME_PREFIX$rank
+    observe_rank "$name"
+    [[ $RANK_PRESENT == true ]] || continue
+    out+=("$(printf '{"rank": %d, "name": %s, "running": %s, "exit_code": %s, "started_at": %s}' \
+      "$rank" "$(json_str "$name")" "${RANK_RUNNING:-false}" "${RANK_EXIT:-null}" "$(json_str "${RANK_STARTED:-}")")")
+  done
+  printf '{"ok": true, "host": %s, "ranks": [%s], "mem_available_gib": %s, "foreign_engines": %s}\n' \
+    "$(json_str "$(hostname)")" "$(IFS=,; printf '%s' "${out[*]-}")" \
+    "$(mem_avail_gib)" "$(json_str "$(foreign_up)")"
+}
+
+# Everything `up` needs, checked and reported, with NOTHING started and nothing written. This is the
+# gate launch-pair.sh runs on both boxes before it launches either rank.
+cmd_preflight() {
+  local foreign avail port_busy=false
+  foreign=$(foreign_up)
+  avail=$(mem_avail_gib)
+  find_checkpoint
+  if ss -ltnH 2>/dev/null | awk '{print $4}' | grep -qE ":($SGLANG_PORT|$SGLANG_DIST_PORT)\$"; then
+    port_busy=true
+  fi
+  local ok=true reasons=()
+  [[ -n $foreign ]] && { ok=false; reasons+=("another engine is running: $foreign"); }
+  (( avail >= MEM_NEED_GIB )) || { ok=false; reasons+=("only ${avail} GiB available, need $MEM_NEED_GIB"); }
+  [[ $port_busy == false ]] || { ok=false; reasons+=("port $SGLANG_PORT or $SGLANG_DIST_PORT is already bound"); }
+  [[ -r /dev/infiniband/rdma_cm ]] || reasons+=("note: /dev/infiniband/rdma_cm not readable by $(id -un)")
+  printf '{"ok": %s, "host": %s, "models_dir": %s, "mem_available_gib": %s, "foreign_engines": %s, "ports_free": %s, "iface_ip": %s, "notes": %s}\n' \
+    "$ok" "$(json_str "$(hostname)")" "$(json_str "$MODELS_DIR")" "$avail" \
+    "$(json_str "$foreign")" "$([[ $port_busy == false ]] && echo true || echo false)" \
+    "$(json_str "$(ip -4 -o addr show "$SGLANG_IFACE" 2>/dev/null | awk '{print $4}')")" \
+    "$(json_str "${reasons[*]-}")"
+  [[ $ok == true ]]
+}
+
+cmd_up() {
+  local rank=$1 seats=$2 len=$3
+  int_in "$rank" 0 1 || fail 2 "rank must be 0 or 1, not $rank"
+  # 8 is this task's thermal ceiling for a BENCHMARK; the engine's own cap may be set higher by the
+  # operator. 48 is SGLang's own default ceiling for speculative decoding.
+  int_in "$seats" 1 48 || fail 2 "max_running_requests must be 1..48, not $seats"
+  # 262144 is the hard top: DFlash2 is not YaRN-compatible on this build, and a longer
+  # --context-length crashes the draft config (AttributeError: max_position_embeddings).
+  int_in "$len" 1024 262144 || fail 2 "context_length must be 1024..262144, not $len"
+  [[ -n ${RANK_HOST_IP:-} ]] \
+    || fail 1 "RANK_HOST_IP is not set: NCCL and SGLang need this box's own interconnect address"
+
+  local name=$NAME_PREFIX$rank
+  observe_rank "$name"
+  if [[ $RANK_RUNNING == true ]]; then
+    printf '{"ok": true, "action": "already-running", "name": %s}\n' "$(json_str "$name")"
+    return 0
+  fi
+
+  # A second 27B pair cannot share 128 GiB with the live one. Refuse, never make room: the LB owns
+  # qwen38-cluster-vllm and this script is not allowed to stop it.
+  local foreign
+  foreign=$(foreign_up)
+  [[ -z $foreign ]] && : || fail 1 "refusing to start: another engine is running on $(hostname): $foreign"
+
+  # The checkpoint is found and the cache dir made ready BEFORE anything is removed: a launch that
+  # cannot happen changes nothing.
+  find_checkpoint
+  local out
+  out=$(mkdir -p -- "$SGLANG_CACHE_DIR/huggingface" "$SGLANG_CACHE_DIR/triton" 2>&1) \
+    || fail 1 "cannot create the cache dir $SGLANG_CACHE_DIR: $out"
+
+  local spec=()
+  if [[ -n $SGLANG_DRAFT ]]; then
+    # DFLASH, and extra_buffer NOT extra_buffer_lazy: lazy was rejected by the build this recipe was
+    # validated on. A local draft path takes no --speculative-draft-model-revision: the pin is the
+    # staged directory, verified by hash at staging time.
+    spec=(--speculative-algorithm DFLASH
+      --speculative-draft-model-path "/models/$SGLANG_DRAFT"
+      --speculative-num-draft-tokens "$SGLANG_DRAFT_TOKENS"
+      --mamba-radix-cache-strategy extra_buffer)
+  fi
+
+  local hca=()
+  [[ -n $SGLANG_NCCL_IB_HCA ]] && hca=(-e "NCCL_IB_HCA=$SGLANG_NCCL_IB_HCA")
+  local pin=()
+  [[ -n $SGLANG_CPUSET ]] && pin=(--cpuset-cpus "$SGLANG_CPUSET")
+  read -ra extra <<<"$SGLANG_EXTRA_ARGS"
+
+  # Whatever holds the name — an exited rank of ours, a stranger — goes first. Its failure is not
+  # the verdict: `run` says whether the name is free. Only OUR OWN name is ever removed.
+  dock rm -f "$name"
+
+  # --restart no: a rank that dies stays dead until a human decides. Docker bringing back half of a
+  # TP pair on its own cannot rejoin the group; it would only hold the memory.
+  #
+  # The fabric env is lb/cluster/tp-rank's proven set, not the forum thread's:
+  #   --device /dev/infiniband --cap-add IPC_LOCK --ulimit memlock=-1:-1  NCCL_IB_DISABLE=0
+  # The thread reaches the same place with --privileged; this is the narrower form that is already
+  # carrying our vLLM TP=2 pair. NCCL_CUMEM_ENABLE/NCCL_NVLS_ENABLE=0 are the thread's and kept:
+  # NVLS has no meaning without NVLink between the boxes.
+  # No --shm-size: --ipc=host gives the container the host's /dev/shm, which makes it a no-op.
+  local run=(run -d --restart no --name "$name"
+    --label "sglang.tp2.rank=$rank" --label "sglang.tp2.served=$SGLANG_SERVED_NAME"
+    --gpus all --ipc=host --network host
+    --cap-add SYS_PTRACE --cap-add IPC_LOCK --device /dev/infiniband --ulimit memlock=-1:-1
+    ${pin[@]+"${pin[@]}"}
+    -v "$MODELS_DIR:/models:ro"
+    -v "$SGLANG_CACHE_DIR/huggingface:/root/.cache/huggingface"
+    -v "$SGLANG_CACHE_DIR/triton:/root/.triton"
+    -e HF_HOME=/root/.cache/huggingface -e TRITON_CACHE_DIR=/root/.triton
+    -e HF_HUB_OFFLINE=1 -e TRANSFORMERS_OFFLINE=1
+    -e "NCCL_SOCKET_IFNAME=$SGLANG_IFACE" -e "GLOO_SOCKET_IFNAME=$SGLANG_IFACE"
+    -e NCCL_IB_DISABLE=0 -e NCCL_CUMEM_ENABLE=0 -e NCCL_NVLS_ENABLE=0
+    -e TORCH_NCCL_ASYNC_ERROR_HANDLING=1
+    ${hca[@]+"${hca[@]}"}
+    "$SGLANG_IMAGE"
+    python3 -m sglang.launch_server
+    --model-path "/models/$SGLANG_TARGET"
+    --served-model-name "$SGLANG_SERVED_NAME"
+    --trust-remote-code
+    --tp "$TP_SIZE" --nnodes 2 --node-rank "$rank"
+    --dist-init-addr "$SGLANG_DIST_ADDR:$SGLANG_DIST_PORT"
+    --attention-backend flashinfer            # required on SM120/SM121; trtllm_mha is SM100-only
+    --chunked-prefill-size "$SGLANG_CHUNKED_PREFILL"
+    --disable-prefill-cuda-graph
+    --kv-cache-dtype fp8_e4m3
+    --mamba-ssm-dtype bfloat16
+    --mamba-full-memory-ratio 4.21
+    --max-mamba-cache-size "$(( seats * SGLANG_MAMBA_SLOTS_PER_REQ ))"
+    --max-running-requests "$seats"
+    --context-length "$len"
+    ${spec[@]+"${spec[@]}"}
+    --reasoning-parser qwen3
+    --tool-call-parser qwen3_coder
+    --sampling-defaults model
+    --enable-metrics --enable-cache-report
+    --stream-interval 1                       # one token per SSE event; DFlash2 otherwise batches 2-4
+    --sleep-on-idle                           # without it the scheduler busy-spins ~97% CPU when idle
+    --mem-fraction-static "$SGLANG_MEM_FRACTION"
+    --host 0.0.0.0 --port "$SGLANG_PORT"
+    ${extra[@]+"${extra[@]}"})
+
+  dock "${run[@]}"
+  (( DRC == 0 )) || fail 1 "docker run failed (exit $DRC): $DOUT"
+  local id=${DOUT##*$'\n'}
+  printf '{"ok": true, "action": "started", "name": %s, "container": %s, "models_dir": %s}\n' \
+    "$(json_str "$name")" "$(json_str "${id:0:12}")" "$(json_str "$MODELS_DIR")"
+}
+
+# Take our rank out of service. Nothing to act on is a success: every verb is idempotent.
+end_rank() {
+  local needed=$1 key=$2
+  shift 2
+  local rank name acted=()
+  for rank in 0 1; do
+    name=$NAME_PREFIX$rank
+    observe_rank "$name"
+    [[ ${!needed} == true ]] || continue
+    dock "$@" "$name"
+    (( DRC == 0 )) || fail 1 "docker $* $name failed (exit $DRC): $DOUT"
+    acted+=("$name")
+  done
+  printf '{"ok": true, "%s": %s}\n' "$key" "$(json_str "${acted[*]-}")"
+}
+
+# A FAILED rank is halted, never removed: the process and its memory go, the container stays with
+# its exit code and its log — the only record of why it died — until `down` removes it.
+cmd_halt() { end_rank RANK_RUNNING halted stop -t "$HALT_GRACE_S"; }
+cmd_down() { end_rank RANK_PRESENT removed rm -f; }
+
+cmd_logs() {
+  local n=${1:-200} rank name
+  int_in "$n" 1 5000 || fail 2 "logs takes a line count of 1..5000, not $n"
+  for rank in 0 1; do
+    name=$NAME_PREFIX$rank
+    observe_rank "$name"
+    [[ $RANK_PRESENT == true ]] || continue
+    echo "===== $name on $(hostname) ====="
+    docker logs --tail "$n" "$name" 2>&1      # SGLang writes its log to stderr
+  done
+}
+
+main() {
+  local verb=${1-}
+  shift || true
+  case $verb in
+    status)    cmd_status ;;
+    preflight) cmd_preflight ;;
+    up)        (( $# == 3 )) || fail 2 "up takes <rank> <max_running_requests> <context_length>"; cmd_up "$@" ;;
+    halt)      cmd_halt ;;
+    down)      cmd_down ;;
+    logs)      cmd_logs "$@" ;;
+    *)         fail 2 "usage: $USAGE" ;;
+  esac
+}
+
+main "$@"

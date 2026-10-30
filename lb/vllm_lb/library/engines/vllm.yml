@@ -1,0 +1,9 @@
+# vLLM — an ENGINE's capabilities (vllm_lb/engine_library.py): what checkpoints it serves, as data. Its BEHAVIOUR
+# (the command it is launched with, the knobs it refuses, its metrics) is code: catalog.py VLLM_FLAGS / ENGINE_REFUSES,
+# fleet.py VllmEngine, engine_metrics.py. The KV dtypes it serves are its IMAGES' (kv_cache_dtypes.json, per image,
+# with the arch each runs on) — not restated here. Every figure {value, source}; null = not established, and why.
+name: vLLM
+facts:
+  formats: {value: [hf], source: "vLLM loads a Hugging Face checkpoint: a folder whose config.json names its `architectures` (vllm/model_executor/models/registry.py resolves the class by that name)"}
+  architectures: {value: [Qwen4ExpForConditionalGeneration, Qwen3_5ForConditionalGeneration, Glm5NextForConditionalGeneration, DeepseekV4ForCausalLM, Qwen3VLForConditionalGeneration, WhisperForConditionalGeneration], source: "each served by a vLLM image on this project's fleet (the model catalog's rows): Qwen4ExpForConditionalGeneration (Qwen3.8 Flash-Next hibrid48 on the fleet image myllmbox/qwen38-flash-next-cluster-vllm, worklog/vllm-cluster-ram-headroom.md), Qwen3_5ForConditionalGeneration (Qwen3.8-27B NVFP4, worklog/prefill-audit.md), Glm5NextForConditionalGeneration (GLM-5.3-Flash, 2026-10-20), DeepseekV4ForCausalLM (DeepSeek-V4-Flash, 2026-10-23), Qwen3VLForConditionalGeneration (MAI-UI-2B, 2026-10-17), WhisperForConditionalGeneration (whisper-large-v3-turbo) — each name read from the checkpoint's config.json"}
+  quant_formats: {value: [none, modelopt, modelopt_mixed, compressed-tensors, fp8], source: "vLLM's quantization methods (vllm/model_executor/layers/quantization/__init__.py QUANTIZATION_METHODS: modelopt, modelopt_mixed, compressed-tensors, fp8 — a DeepSeek-V4 fp8 checkpoint runs as deepseek_v4_fp8 through the B12X image's quant_config.py, deploy/images/vllm/deepseek-v4-b12x), each served on this fleet; none = unquantised weights"}

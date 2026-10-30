@@ -1,0 +1,182 @@
+diff --git a/zig/src/server/anthropic.zig b/zig/src/server/anthropic.zig
+index 44ac171b..7852ab61 100644
+--- a/zig/src/server/anthropic.zig
++++ b/zig/src/server/anthropic.zig
+@@ -71,9 +71,7 @@ pub fn post(srv: *Server, conn: *Conn, a: Allocator) void {
+             .ok => |v| v,
+             .err => |m| return sendError(conn, a, m, 400),
+         };
+-        const chat = translate(&cx, body, count) catch return sendError(conn, a, cx.message, cx.status());
+-        if (!std.mem.eql(u8, srv.late_system, "system")) for (body.get("messages").?.array) |m| if (m.get("role")) |r| if (r == .string and std.mem.eql(u8, r.string, "system"))
+-            return sendError(conn, a, "the model's chat template does not support mid-conversation system messages", 400);
++        const chat = translate(&cx, body, count, srv.late_system) catch return sendError(conn, a, cx.message, cx.status());
+         if (count) {
+             const n = countTokens(srv, &cx, chat) catch return sendError(conn, a, cx.message, if (cx.kind == .capacity) 503 else 400);
+             const o = json.newObject(a) catch return;
+diff --git a/zig/src/server/anthropic_translate.zig b/zig/src/server/anthropic_translate.zig
+index f70b6a11..6db42570 100644
+--- a/zig/src/server/anthropic_translate.zig
++++ b/zig/src/server/anthropic_translate.zig
+@@ -58,12 +58,50 @@ fn roleIs(v: Value, names: []const []const u8) bool {
+     return false;
+ }
+ 
+-fn messages(cx: *Cx, value: ?Value, system: ?Value) errors.Refused!Value {
++/// A later system message's own text for the leading system block: its text blocks stripped, blank ones dropped,
++/// joined by "\n" (``_extract_system_text`` in SGLang's Anthropic adapter); null when nothing is left.
++fn inlineSystemText(cx: *Cx, message: Value) errors.Refused!?[]const u8 {
++    var texts: std.ArrayList([]const u8) = .empty;
++    for (try parts(cx, message.get("content"))) |block| {
++        if (!block.typeIs("text")) return cx.refuse("system accepts text blocks only");
++        const t = std.mem.trim(u8, try string(cx, block.get("text"), "text", true), " \t\n\r\x0b\x0c");
++        if (t.len > 0) try texts.append(cx.a, t);
++    }
++    return if (texts.items.len == 0) null else try std.mem.join(cx.a, "\n", texts.items);
++}
++
++/// `late_system` is the role the chat template renders a later system message as (``Server.late_system``). Where
++/// that is not "system" the template cannot keep one in place, so every system text — the top-level blocks as sent,
++/// then each inline message's — joins ONE leading system message with "\n" and the inline messages leave the
++/// conversation: the prompt SGLang's and vLLM's Anthropic adapters build for the same request on such a template
++/// (their `_merge_inline_system`), so the pair's engines answer Claude Code's reminders alike.
++fn messages(cx: *Cx, value: ?Value, system: ?Value, late_system: []const u8) errors.Refused!Value {
+     const a = cx.a;
+     const list = value orelse Value.null;
+     if (list != .array or list.array.len == 0) return cx.refuse("messages must be a nonempty array");
+     var out: std.ArrayList(Value) = .empty;
+-    if (system) |sys| if (sys != .null) {
++    const merge = !std.mem.eql(u8, late_system, "system");
++    if (merge) {
++        var texts: std.ArrayList([]const u8) = .empty;
++        if (system) |sys| if (sys != .null) {
++            const ps = try parts(cx, sys);
++            for (ps) |p| if (!p.typeIs("text")) return cx.refuse("system accepts text blocks only");
++            for (ps) |p| {
++                const t = try string(cx, p.get("text"), "system.text", true);
++                const blank = if (sys == .string) std.mem.trim(u8, t, " \t\n\r\x0b\x0c").len == 0 else t.len == 0;
++                if (!blank) try texts.append(a, t);
++            }
++        };
++        for (list.array) |message| if (message == .object and roleIs(message, &.{"system"})) {
++            if (try inlineSystemText(cx, message)) |t| try texts.append(a, t);
++        };
++        if (texts.items.len > 0) {
++            const m = try json.newObject(a);
++            try m.put(a, "role", .{ .string = "system" });
++            try m.put(a, "content", .{ .string = try std.mem.join(a, "\n", texts.items) });
++            try out.append(a, .{ .object = m });
++        }
++    } else if (system) |sys| if (sys != .null) {
+         const ps = try parts(cx, sys);
+         for (ps) |p| if (!p.typeIs("text")) return cx.refuse("system accepts text blocks only");
+         var joined: std.ArrayList(u8) = .empty;
+@@ -79,6 +117,12 @@ fn messages(cx: *Cx, value: ?Value, system: ?Value) errors.Refused!Value {
+     for (list.array, 0..) |message, index| {
+         if (message != .object or !roleIs(message, &.{ "user", "assistant", "system" })) return cx.refuse("message role must be user, assistant or system");
+         const role = message.get("role").?.string;
++        if (std.mem.eql(u8, role, "system") and merge) {
++            const clear = message.get("clear_at");
++            const clear_ok = clear == null or clear.? == .null or (clear.? == .string and std.mem.eql(u8, clear.?.string, "never"));
++            if (!clear_ok or json.truthyField(message, "output_config")) return cx.refuse("turn-scoped system messages and per-message output_config are unsupported");
++            continue; // its text is in the leading system message
++        }
+         if (std.mem.eql(u8, role, "system")) {
+             const previous: Value = if (index > 0) list.array[index - 1] else .{ .object = try json.newObject(a) };
+             const following: Value = if (index + 1 < list.array.len) list.array[index + 1] else blk: {
+@@ -174,14 +218,15 @@ fn positiveInt(v: ?Value) ?i64 {
+     return if (n > 0) n else null;
+ }
+ 
+-/// The chat request a Messages request runs as; ``count`` for count_tokens (max_tokens is not required).
+-pub fn translate(cx: *Cx, body: Value, count: bool) errors.Refused!Value {
++/// The chat request a Messages request runs as; ``count`` for count_tokens (max_tokens is not required);
++/// ``late_system`` the template's role for a later system message (see ``messages``).
++pub fn translate(cx: *Cx, body: Value, count: bool, late_system: []const u8) errors.Refused!Value {
+     const a = cx.a;
+     if (body != .object) return cx.refuse("request body must be an object");
+     const model = try string(cx, body.get("model"), "model", false);
+     const chat = try json.newObject(a);
+     try chat.put(a, "model", .{ .string = model });
+-    try chat.put(a, "messages", try messages(cx, body.get("messages"), body.get("system")));
++    try chat.put(a, "messages", try messages(cx, body.get("messages"), body.get("system"), late_system));
+     if (!count) {
+         _ = positiveInt(body.get("max_tokens")) orelse return cx.refuse("max_tokens must be a positive integer");
+         try chat.put(a, "max_tokens", body.get("max_tokens").?);
+@@ -291,3 +336,54 @@ pub fn translate(cx: *Cx, body: Value, count: bool) errors.Refused!Value {
+     }
+     return .{ .object = chat };
+ }
++
++fn translatedMessages(a: Allocator, body: []const u8, late_system: []const u8) !Value {
++    var cx: Cx = .{ .a = a };
++    return (try translate(&cx, (try json.parse(a, body)).ok, false, late_system)).get("messages").?;
++}
++
++// Claude Code (beta mid-conversation-system-2026-04-07) sends its reminders as a trailing `role: system` message.
++const claude_code_turn =
++    \\{"model": "m", "max_tokens": 8, "system": [{"type": "text", "text": "S1"}, {"type": "text", "text": "S2"}],
++    \\ "messages": [{"role": "user", "content": "hi"}, {"role": "assistant", "content": "yo"}, {"role": "user", "content": "go"},
++    \\              {"role": "system", "content": [{"type": "text", "text": "  reminder  "}, {"type": "text", "text": " "}]}]}
++;
++
++test "a template without late system text: every system text merges into the leading system message, as SGLang's adapter does" {
++    var arena: std.heap.ArenaAllocator = .init(std.testing.allocator);
++    defer arena.deinit();
++    const out = try translatedMessages(arena.allocator(), claude_code_turn, "user");
++    try std.testing.expectEqual(@as(usize, 4), out.array.len);
++    try std.testing.expectEqualStrings("system", out.array[0].get("role").?.string);
++    // SGLang serving.py: top-level blocks as sent, inline texts stripped (blank blocks dropped), all joined by "\n"
++    try std.testing.expectEqualStrings("S1\nS2\nreminder", out.array[0].get("content").?.string);
++    for (out.array[1..], [_][]const u8{ "user", "assistant", "user" }) |m, role| try std.testing.expectEqualStrings(role, m.get("role").?.string);
++}
++
++test "a template without late system text: an inline system message alone becomes the leading one, wherever it stands" {
++    var arena: std.heap.ArenaAllocator = .init(std.testing.allocator);
++    defer arena.deinit();
++    const out = try translatedMessages(arena.allocator(),
++        \\{"model": "m", "max_tokens": 8, "messages": [{"role": "user", "content": "hi"}, {"role": "system", "content": "r"}, {"role": "user", "content": "go"}]}
++    , "user");
++    try std.testing.expectEqual(@as(usize, 3), out.array.len);
++    try std.testing.expectEqualStrings("system", out.array[0].get("role").?.string);
++    try std.testing.expectEqualStrings("r", out.array[0].get("content").?.string);
++}
++
++test "a template without late system text still refuses turn-scoped system messages" {
++    var arena: std.heap.ArenaAllocator = .init(std.testing.allocator);
++    defer arena.deinit();
++    try std.testing.expectError(error.Refused, translatedMessages(arena.allocator(),
++        \\{"model": "m", "max_tokens": 8, "messages": [{"role": "user", "content": "hi"}, {"role": "system", "content": "r", "clear_at": "next_turn"}]}
++    , "user"));
++}
++
++test "a template that renders late system text keeps it in place, unchanged" {
++    var arena: std.heap.ArenaAllocator = .init(std.testing.allocator);
++    defer arena.deinit();
++    const out = try translatedMessages(arena.allocator(), claude_code_turn, "system");
++    try std.testing.expectEqual(@as(usize, 5), out.array.len);
++    try std.testing.expectEqualStrings("S1\n\nS2", out.array[0].get("content").?.string);
++    try std.testing.expectEqualStrings("system", out.array[4].get("role").?.string);
++}
+diff --git a/zig/src/server/root.zig b/zig/src/server/root.zig
+index 6942e7aa..4368fa83 100644
+--- a/zig/src/server/root.zig
++++ b/zig/src/server/root.zig
+@@ -36,4 +36,5 @@ test {
+     _ = @import("log.zig");
+     _ = @import("messages.zig");
+     _ = @import("stream_preflight_test.zig");
++    _ = @import("anthropic_translate.zig");
+ }
+diff --git a/zig/src/server/stream_preflight_test.zig b/zig/src/server/stream_preflight_test.zig
+index c33defe2..eff6b713 100644
+--- a/zig/src/server/stream_preflight_test.zig
++++ b/zig/src/server/stream_preflight_test.zig
+@@ -154,7 +154,7 @@ fn sendTo(route: Route, body: []const u8, start: Seen) !Seen {
+     var cx: errors.Cx = .{ .a = a };
+     const chat = switch (route) {
+         .chat => raw,
+-        .messages => try anthropic_translate.translate(&cx, raw, false),
++        .messages => try anthropic_translate.translate(&cx, raw, false, srv.late_system),
+         .responses => (try responses_translate.translate(&cx, raw, NoHistory{})).chat,
+     };
+     var conn: Conn = .{ .fd = -1, .peer = "", .buf = &.{}, .gpa = a };

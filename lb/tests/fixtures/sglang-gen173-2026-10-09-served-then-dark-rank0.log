@@ -1,0 +1,856 @@
+/sgl-workspace/sglang/python/sglang/launch_server.py:63: UserWarning: 'python -m sglang.launch_server' is still supported, but 'sglang serve' is the recommended entrypoint.
+  Example: sglang serve --model-path <model> [options]
+  warnings.warn(
+[2026-10-09 07:16:18] Failed to get GPU memory capacity from nvidia-smi. Falling back to torch.cuda.mem_get_info(). Reported total GPU memory per device (MiB): [124610], using min: 124610 MiB.
+[2026-10-09 07:16:19] server_args={'model_path': '/models/Qwen3.8-27B-NVFP4_uncensored', 'tokenizer_path': '/models/Qwen3.8-27B-NVFP4_uncensored', 'tokenizer_mode': 'auto', 'tokenizer_backend': 'huggingface', 'tokenizer_worker_num': 1, 'detokenizer_worker_num': 1, 'skip_tokenizer_init': False, 'load_format': 'auto', 'model_loader_extra_config': '{}', 'trust_remote_code': True, 'context_length': 262144, 'is_embedding': False, 'enable_multimodal': None, 'revision': None, 'model_impl': 'auto', 'model_config_parser': 'auto', 'json_model_override_args': '{}', 'dtype': 'auto', 'quantization': None, 'quantization_param_path': None, 'kv_cache_dtype': 'fp8_e4m3', 'enable_fp32_lm_head': False, 'modelopt_quant': None, 'modelopt_checkpoint_restore_path': None, 'modelopt_checkpoint_save_path': None, 'modelopt_export_path': None, 'quantize_and_serve': False, 'rl_quant_profile': None, 'enable_tf32_matmul': False, 'mem_fraction_static': 0.8, 'max_running_requests': 32, 'max_queued_requests': None, 'max_total_tokens': 3415301, 'chunked_prefill_size': 4096, 'prefill_decode_interval': 0, 'enable_dynamic_chunking': False, 'max_prefill_tokens': 16384, 'prefill_max_requests': None, 'schedule_policy': 'fcfs', 'enable_priority_scheduling': False, 'disable_priority_preemption': False, 'default_priority_value': None, 'abort_on_priority_when_disabled': False, 'schedule_low_priority_values_first': False, 'priority_scheduling_preemption_threshold': 10, 'retraction_policy': 'length', 'schedule_conservativeness': 1.0, 'page_size': 1, 'c128_page_size': 16, 'swa_full_tokens_ratio': 0.8, 'disable_hybrid_swa_memory': False, 'radix_eviction_policy': 'lru', 'radix_eviction_policy_config': None, 'prefill_only_disable_kv_cache': False, 'disable_radix_cache': False, 'enable_page_major_kv_layout': False, 'enable_unified_memory': False, 'disable_chunked_prefix_cache': False, 'disable_overlap_schedule': False, 'num_continuous_decode_steps': 1, 'scheduler_recv_interval': 1, 'enable_mixed_chunk': False, 'nccl_port': None, 'dist_timeout': None, 'dist_init_addr': '203.0.113.1:25000', 'gated_launch_port': None, 'nnodes': 2, 'node_rank': 0, 'tp_size': 2, 'dcp_size': 1, 'pp_size': 1, 'pp_max_micro_batch_size': None, 'pp_async_batch_depth': 0, 'dp_size': 1, 'load_balance_method': 'round_robin', 'attn_cp_size': 1, 'moe_dp_size': 1, 'dwdp_size': 1, 'dcp_comm_backend': 'ag_rs', 'dcp_replicate_q_proj': None, 'enable_prefill_cp': False, 'cp_strategy': None, 'enable_dsa_cache_layer_split': False, 'enable_cp_decode_attn_tp': False, 'enable_dp_attention': False, 'enable_dp_attention_local_control_broadcast': False, 'enable_dp_lm_head': False, 'enable_tp_lm_head_all_to_all': False, 'enable_attn_tp_input_scattered': False, 'enable_shared_experts_attn_tp': False, 'enable_dense_mlp_attn_tp': False, 'enable_layernorm_sp': False, 'disable_attn_tp_gather': False, 'enable_p2p_check': False, 'device': 'cuda', 'base_gpu_id': 0, 'gpu_id_step': 1, 'random_seed': 114790059, 'mlx_enable_sampling': False, 'watchdog_timeout': 300, 'soft_watchdog_timeout': None, 'sleep_on_idle': False, 'use_ray': False, 'custom_sigquit_handler': None, 'numa_node': None, 'gc_threshold': None, 'host': '0.0.0.0', 'port': 8100, 'fastapi_root_path': '', 'smg_grpc_mode': False, 'grpc_mode': False, 'grpc_port': None, 'grpc_worker_threads': 4, 'sidecar': None, 'sidecar_args': None, 'skip_server_warmup': False, 'warmups': None, 'enable_http2': False, 'http2_max_concurrent_streams': 200, 'http2_initial_connection_window_size': 1048576, 'ssl_keyfile': None, 'ssl_certfile': None, 'ssl_ca_certs': None, 'ssl_keyfile_password': None, 'enable_ssl_refresh': False, 'api_key': None, 'admin_api_key': None, 'served_model_name': 'Qwen/Qwen3.8-27B-SGLang', 'weight_version': 'default', 'chat_template': None, 'hf_chat_template_name': None, 'completion_template': None, 'file_storage_path': 'sglang_storage', 'enable_cache_report': True, 'return_input_ids': False, 'return_output_ids': False, 'reasoning_parser': 'qwen3', 'default_chat_template_kwargs': None, 'strip_thinking_cache': False, 'enable_strict_thinking': False, 'tool_call_parser': 'qwen3_coder', 'tool_server': None, 'sampling_defaults': 'model', 'asr_max_buffer_seconds': 60, 'asr_max_concurrent_sessions': 32, 'preferred_sampling_params': None, 'allow_auto_truncate': False, 'stream_interval': 1, 'batch_notify_size': 16, 'stream_response_default_include_usage': False, 'incremental_streaming_output': False, 'enable_streaming_session': False, 'enable_session_radix_cache': False, 'log_level': 'info', 'log_level_http': None, 'log_requests': False, 'log_requests_level': 2, 'log_requests_format': 'text', 'log_requests_target': None, 'uvicorn_access_log_exclude_prefixes': [], 'crash_dump_folder': None, 'show_time_cost': False, 'enable_metrics': True, 'smg_http_sidecar_port': None, 'enable_mfu_metrics': True, 'enable_metrics_for_all_schedulers': False, 'load_snapshot_publish_interval': 15, 'tokenizer_metrics_custom_labels_header': 'x-custom-labels', 'tokenizer_metrics_allowed_custom_labels': None, 'extra_metric_labels': None, 'bucket_time_to_first_token': None, 'bucket_inter_token_latency': None, 'bucket_e2e_request_latency': None, 'prompt_tokens_buckets': None, 'generation_tokens_buckets': None, 'gc_warning_threshold_secs': 0.0, 'decode_log_interval': 40, 'enable_request_time_stats_logging': False, 'kv_events_config': None, 'load_publish_endpoint': None, 'enable_forward_pass_metrics': False, 'forward_pass_metrics_worker_id': '', 'forward_pass_metrics_ipc_name': None, 'enable_trace': False, 'trace_modules': 'request', 'otlp_traces_endpoint': 'localhost:4317', 'export_metrics_to_file': False, 'export_metrics_to_file_dir': None, 'stat_loggers': None, 'constrained_json_whitespace_pattern': None, 'constrained_json_disable_any_whitespace': False, 'attention_backend': 'flashinfer', 'decode_attention_backend': None, 'enable_lean_attention': None, 'prefill_attention_backend': None, 'sampling_backend': 'flashinfer', 'grammar_backend': 'xgrammar', 'radix_cache_backend': None, 'mm_attention_backend': None, 'fp8_gemm_runner_backend': 'auto', 'fp4_gemm_runner_backend': 'auto', 'bf16_gemm_backend': 'auto', 'dsa_prefill_backend': None, 'dsv4_prefill_backend': 'auto', 'dsa_decode_backend': None, 'dsa_paged_mqa_logits_backend': 'auto', 'dsa_topk_backend': 'sgl-kernel', 'disable_flashinfer_autotune': False, 'flashinfer_autotune_skip_ops': None, 'mamba_backend': 'triton', 'cuda_graph_config': {'decode': {'backend': 'full', 'max_bs': 256, 'bs': [1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 40, 44, 48, 52, 56, 60, 64, 72, 80, 88, 96, 104, 112, 120, 128, 136, 144, 152, 160, 168, 176, 184, 192, 200, 208, 216, 224, 232, 240, 248, 256], 'tc_compiler': 'eager', 'full_prefill_max_req': None, 'full_prefill_prefix_chunk_tokens': None}, 'prefill': {'backend': 'disabled', 'max_bs': 4096, 'bs': [4, 8, 12, 16, 20, 24, 28, 32, 48, 64, 80, 96, 112, 128, 144, 160, 176, 192, 208, 224, 240, 256, 288, 320, 352, 384, 416, 448, 480, 512, 576, 640, 704, 768, 832, 896, 960, 1024, 1280, 1536, 1792, 2048, 2304, 2560, 2816, 3072, 3328, 3584, 3840, 4096], 'tc_compiler': 'eager', 'full_prefill_max_req': None, 'full_prefill_prefix_chunk_tokens': None}}, 'cuda_graph_backend_decode': None, 'cuda_graph_backend_prefill': None, 'cuda_graph_max_bs_decode': None, 'cuda_graph_max_bs_prefill': None, 'cuda_graph_bs_decode': None, 'cuda_graph_bs_prefill': None, 'cuda_graph_tc_compiler': None, 'disable_prefill_cuda_graph': True, 'disable_decode_cuda_graph': False, 'disable_cuda_graph': False, 'disable_cuda_graph_padding': False, 'enable_profile_cuda_graph': False, 'enable_cudagraph_gc': False, 'debug_cuda_graph': False, 'enable_layerwise_nvtx_marker': False, 'enable_nccl_nvls': False, 'enable_symm_mem': False, 'triton_attention_reduce_in_fp32': False, 'triton_attention_num_kv_splits': 8, 'triton_attention_split_tile_size': None, 'flashinfer_mla_disable_ragged': False, 'enable_fused_qk_norm_rope': False, 'enable_precise_embedding_interpolation': False, 'enable_fused_moe_sum_all_reduce': False, 'enable_deepseek_v4_fp4_indexer': False, 'disable_custom_all_reduce': False, 'enable_mscclpp': False, 'enable_torch_symm_mem': False, 'enable_scattered_sconv': False, 'pre_warm_nccl': False, 'enable_quant_communications': False, 'enable_flashinfer_allreduce_fusion': False, 'enforce_disable_flashinfer_allreduce_fusion': False, 'flashinfer_allreduce_fusion_backend': None, 'enable_aiter_allreduce_fusion': False, 'enable_torch_compile': False, 'enable_torch_compile_debug_mode': False, 'torch_compile_max_bs': 32, 'speculative_algorithm': 'DFLASH', 'uno_lora_path': None, 'speculative_draft_model_path': '/models/Qwen3.8-27B-DFlash2', 'speculative_draft_model_revision': 'main', 'speculative_draft_load_format': None, 'speculative_num_steps': 1, 'speculative_eagle_topk': 1, 'speculative_num_draft_tokens': 4, 'speculative_dflash_block_size': None, 'speculative_dspark_block_size': None, 'speculative_dspark_sps_table_path': None, 'speculative_dspark_confidence_sts_path': None, 'speculative_dspark_align_verify_tokens_to_graph_tier': False, 'speculative_accept_threshold_single': 1.0, 'speculative_accept_threshold_acc': 1.0, 'speculative_use_rejection_sampling': False, 'speculative_token_map': None, 'speculative_attention_mode': 'prefill', 'speculative_draft_attention_backend': 'flashinfer', 'speculative_dsa_topk_backend': 'sgl-kernel', 'speculative_draft_kv_cache_dtype': None, 'speculative_draft_window_size': None, 'speculative_moe_runner_backend': 'auto', 'speculative_moe_a2a_backend': None, 'speculative_draft_model_quantization': None, '_speculative_draft_quantization_explicitly_set': False, 'speculative_skip_dp_mlp_sync': False, 'enable_multi_layer_eagle': False, 'speculative_adaptive': False, 'speculative_adaptive_config': None, 'decoupled_spec_bind_endpoint': None, 'decoupled_spec_connect_endpoints': None, 'decoupled_spec_rank': None, 'decoupled_spec_role': 'null', 'spec_trace_dir': None, 'speculative_ngram_min_bfs_breadth': 1, 'speculative_ngram_max_bfs_breadth': 10, 'speculative_ngram_match_type': 'BFS', 'speculative_ngram_max_trie_depth': 18, 'speculative_ngram_capacity': 10000000, 'speculative_ngram_external_corpus_path': None, 'speculative_ngram_external_sam_budget': 0, 'speculative_ngram_external_corpus_max_tokens': 10000000, 'ep_size': 1, 'moe_a2a_backend': 'none', 'enable_w4a4_mxfp4_megamoe': False, 'deepep_v2_mode': 'direct', 'moe_runner_backend': 'auto', 'flashinfer_mxfp4_moe_precision': 'default', 'deepep_mode': 'auto', 'fuseep_mode': 2, 'deepep_dispatcher_output_dtype': 'auto', 'ep_num_redundant_experts': 0, 'ep_dispatch_algorithm': None, 'init_expert_location': 'trivial', 'enable_eplb': False, 'eplb_algorithm': 'auto', 'eplb_rebalance_num_iterations': 1000, 'eplb_rebalance_layers_per_chunk': None, 'eplb_min_rebalancing_utilization_threshold': 1.0, 'expert_distribution_recorder_mode': None, 'expert_distribution_recorder_buffer_size': 1000, 'expert_balancedness_report_mode': 'off', 'deepep_config': None, 'moe_dense_tp_size': None, 'elastic_ep_backend': None, 'enable_elastic_expert_backup': False, 'mooncake_ib_device': None, 'enable_waterfill': False, 'ep_join_mode': None, 'ep_join_rank_offset': 0, 'elastic_ep_initial_size': None, 'max_ep_size': None, 'elastic_ep_scale_timeout': 600, 'elastic_ep_rejoin': False, 'disable_flashinfer_cutlass_moe_fp4_allgather': False, 'disable_shared_experts_fusion': False, 'enforce_shared_experts_fusion': False, 'max_mamba_cache_size': 320, 'mamba_ssm_dtype': 'bfloat16', 'mamba_max_states_per_path': -1, 'enable_mamba_cache_stochastic_rounding': False, 'mamba_cache_philox_rounds': 0, 'mamba_full_memory_ratio': 0.9, 'mamba_radix_cache_strategy': 'extra_buffer', 'uses_mamba_radix_cache': True, 'mamba_track_interval': 256, 'enable_int8_mamba_checkpoint': False, 'int8_mamba_ckpt_size': None, 'linear_attn_backend': 'triton', 'linear_attn_decode_backend': None, 'linear_attn_prefill_backend': 'flashinfer', 'linear_attn_verify_backend': None, 'enable_linear_replayssm': False, 'linear_replayssm_cache_len': 16, 'enable_linear_replayssm_spec': False, 'enable_hierarchical_cache': False, 'hicache_host_memory_mode': 'cache', 'hicache_ratio': 2.0, 'hicache_size': 0, 'hicache_write_policy': 'write_through', 'hicache_io_backend': 'kernel', 'hicache_mem_layout': 'page_first', 'hicache_storage_backend': None, 'hicache_storage_prefetch_policy': 'timeout', 'hicache_storage_backend_extra_config': None, 'hicache_storage_prefetch_retry_poll_interval': 0, 'hicache_storage_prefetch_retry_max_attempts': 4, 'enable_unified_cache_external_linker': False, 'unified_cache_external_linker_backend': 'mooncake', 'enable_hisparse': False, 'hisparse_config': None, 'enable_broadcast_mm_inputs_process': False, 'enable_prefix_mm_cache': False, 'mm_enable_dp_encoder': False, 'mm_process_config': {}, 'mm_processor_worker_num': 0, 'mm_io_worker_num': 0, 'allowed_media_domains': [], 'media_url_max_file_size_mb': 64, 'mm_preprocess_cache_size_mb': None, 'trust_mm_content_hashes': False, 'limit_mm_data_per_request': None, 'enable_mm_global_cache': False, 'image_processor_backend': 'auto', 'mm_global_cache_backend': 'mooncake', 'disable_fast_image_processor': False, 'mm_feature_transport': 'cpu', 'keep_mm_feature_on_device': False, 'enable_lora': None, 'enable_lora_overlap_loading': None, 'max_lora_rank': None, 'lora_target_modules': None, 'lora_paths': None, 'max_loaded_loras': None, 'max_loras_per_batch': 8, 'lora_eviction_policy': 'lru', 'lora_backend': 'csgmv', 'max_lora_chunk_size': 16, 'experts_shared_outer_loras': None, 'lora_use_virtual_experts': False, 'lora_strict_loading': False, 'lora_drain_wait_threshold': 0.0, 'enable_two_batch_overlap': False, 'enable_single_batch_overlap': False, 'tbo_token_distribution_threshold': 0.48, 'cpu_offload_gb': 0, 'offload_group_size': -1, 'offload_num_in_group': 1, 'offload_prefetch_step': 1, 'offload_mode': 'cpu', 'enable_lmcache': False, 'lmcache_config_file': None, 'enable_flexkv': False, 'flexkv_config_file': None, 'kt_weight_path': None, 'kt_method': 'AMXINT4', 'kt_cpuinfer': None, 'kt_threadpool_count': 2, 'kt_num_gpu_experts': None, 'kt_max_deferred_experts_per_token': None, 'dllm_algorithm': None, 'dllm_algorithm_config': None, 'dllm_fdfo': True, 'disaggregation_mode': 'null', 'disaggregation_transfer_backend': 'mooncake', 'disaggregation_bootstrap_port': 8998, 'disaggregation_ib_device': None, 'disaggregation_decode_enable_radix_cache': False, 'disaggregation_decode_enable_offload_kvcache': False, 'disaggregation_decode_retraction_backup': None, 'num_reserved_decode_tokens': 512, 'disaggregation_decode_extra_slots': None, 'disaggregation_decode_polling_interval': 1, 'optimistic_prefill_attempts': 0, 'encoder_only': False, 'language_only': False, 'language_model_only': False, 'encoder_transfer_backend': 'zmq_to_scheduler', 'encoder_urls': [], 'encoder_bootstrap_port': 8997, 'encoder_register_urls': [], 'enable_adaptive_dispatch_to_encoder': False, 'enable_pdmux': False, 'pdmux_config_path': None, 'sm_group_num': 8, 'startup_weight_load_mode': 'serial', 'custom_weight_loader': [], 'weight_loader_disable_mmap': False, 'weight_loader_prefetch_checkpoints': False, 'weight_loader_prefetch_num_threads': 4, 'weight_loader_drop_cache_after_load': False, 'remote_instance_weight_loader_seed_instance_ip': None, 'remote_instance_weight_loader_seed_instance_service_port': None, 'remote_instance_weight_loader_send_weights_group_ports': None, 'remote_instance_weight_loader_backend': 'nccl', 'remote_instance_weight_loader_start_seed_via_transfer_engine': False, 'engine_info_bootstrap_port': 6789, 'modelexpress_config': None, 'download_dir': None, 'model_checksum': None, 'delete_ckpt_after_loading': False, 'decrypted_config_file': None, 'decrypted_draft_config_file': None, 'checkpoint_engine_wait_weights_before_ready': False, 'enable_prefill_delayer': False, 'prefill_delayer_max_delay_passes': 30, 'prefill_delayer_token_usage_low_watermark': None, 'prefill_delayer_forward_passes_buckets': None, 'prefill_delayer_wait_seconds_buckets': None, 'prefill_delayer_queue_min_ratio': None, 'prefill_delayer_max_delay_ms': None, 'min_free_slots_delay': None, 'enable_deterministic_inference': False, 'rl_on_policy_target': None, 'kv_canary': 'none', 'kv_canary_real_data': 'none', 'kv_canary_sweep_interval': 0, 'enable_dynamic_batch_tokenizer': False, 'dynamic_batch_tokenizer_batch_size': 32, 'dynamic_batch_tokenizer_batch_timeout': 0.002, 'enable_tokenizer_batch_encode': False, 'disable_tokenizer_batch_decode': False, 'debug_tensor_dump_output_folder': None, 'debug_tensor_dump_layers': None, 'debug_tensor_dump_input_file': None, 'enable_memory_saver': False, 'enable_weights_cpu_backup': False, 'enable_draft_weights_cpu_backup': False, 'enable_custom_logit_processor': False, 'enable_return_hidden_states': False, 'return_hidden_states_mode': None, 'enable_return_routed_experts': False, 'enable_return_indexer_topk': False, 'disable_outlines_disk_cache': False, 'enable_mis': False, 'weight_cache_mode': 'off', 'weight_cache_socket': None, 'weight_cache_timeout': 1800, 'forward_hooks': None, 'msprobe_dump_config': None, 'ple_offload_embedding': False}
+/opt/sglang/lib/python3.12/site-packages/torch/jit/_script.py:1491: FutureWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+  warnings.warn(
+/opt/sglang/lib/python3.12/site-packages/torch/jit/_script.py:1491: FutureWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+  warnings.warn(
+/opt/sglang/lib/python3.12/site-packages/torch/jit/_script.py:1643: FutureWarning: `torch.jit.interface` is deprecated. Please use `torch.compile` instead.
+  warnings.warn(
+/opt/sglang/lib/python3.12/site-packages/torch/jit/_script.py:1643: FutureWarning: `torch.jit.interface` is deprecated. Please use `torch.compile` instead.
+  warnings.warn(
+[2026-10-09 07:16:27] torchcodec is not installed; audio inputs will fail at request time
+[2026-10-09 07:16:27 TP0] torchcodec is not installed; audio inputs will fail at request time
+[2026-10-09 07:16:27] Ignore import error when loading sglang.srt.multimodal.processors.mimo_v2: No module named 'torchcodec'
+[2026-10-09 07:16:27 TP0] Ignore import error when loading sglang.srt.multimodal.processors.mimo_v2: No module named 'torchcodec'
+[2026-10-09 07:16:27 TP0] Multimodal data loading enabled with 16 worker threads (auto).
+[2026-10-09 07:16:27 TP0] Init torch distributed begin.
+[2026-10-09 07:16:28 TP0] sglang is using nccl==2.30.7
+/opt/sglang/lib/python3.12/site-packages/torch/jit/_script.py:1491: FutureWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+  warnings.warn(
+[2026-10-09 07:16:28] Multimodal data loading enabled with 16 worker threads (auto).
+[2026-10-09 07:16:28] Using default HuggingFace chat template with detected content format: openai
+[2026-10-09 07:16:28] Auto-detected template features: reasoning_config=ReasoningToggleConfig(toggle_param='enable_thinking', default_enabled=True, special_case=None, effort_kwarg=None), reasoning_parser=qwen3, tool_call_parser=qwen3_coder
+[2026-10-09 07:16:30 TP0] CustomAllreduce is disabled because this process group spans across nodes.
+[2026-10-09 07:16:30 TP0] Init torch distributed ends. elapsed=2.79 s, mem usage=2.23 GB
+/opt/sglang/lib/python3.12/site-packages/torch/jit/_script.py:1491: FutureWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+  warnings.warn(
+[2026-10-09 07:16:30 TP0] Load weight begin. avail mem=109.89 GB
+[2026-10-09 07:16:30 TP0] Using ModelOptModelLoader due to ModelOpt quantization config.
+[2026-10-09 07:16:30 TP0] ModelOptModelLoader: Loading base model...
+[2026-10-09 07:16:30 TP0] Model is already quantized, loading directly...
+[2026-10-09 07:16:30 TP0] Detected ModelOpt FP8 checkpoint. The format is experimental and subject to change.
+[2026-10-09 07:16:30 TP0] Detected fp8 checkpoint.
+[2026-10-09 07:16:30 TP0] Detected fp8 checkpoint.
+[2026-10-09 07:16:30 TP0] Detected nvfp4 checkpoint.
+[2026-10-09 07:16:30 TP0] Detected nvfp4 checkpoint.
+[2026-10-09 07:16:30 TP0] Multimodal attention backend not set. Use triton_attn.
+[2026-10-09 07:16:30 TP0] Using triton_attn as multimodal attention backend.
+[2026-10-09 07:16:31 TP0] Enabled fused SiLU+mul+FP4-quant for dense MLP down_proj input.
+[2026-10-09 07:16:31 TP0] Enabled fused SiLU+mul+FP4-quant for dense MLP down_proj input.
+[2026-10-09 07:16:31 TP0] Enabled fused SiLU+mul+FP4-quant for dense MLP down_proj input.
+[2026-10-09 07:16:31 TP0] using attn output gate!
+[2026-10-09 07:16:31 TP0] Enabled fused SiLU+mul+FP4-quant for dense MLP down_proj input.
+[2026-10-09 07:16:31 TP0] Enabled fused SiLU+mul+FP4-quant for dense MLP down_proj input.
+[2026-10-09 07:16:31 TP0] Enabled fused SiLU+mul+FP4-quant for dense MLP down_proj input.
+[2026-10-09 07:16:31 TP0] Enabled fused SiLU+mul+FP4-quant for dense MLP down_proj input.
+[2026-10-09 07:16:31 TP0] Enabled fused SiLU+mul+FP4-quant for dense MLP down_proj input.
+[2026-10-09 07:16:31 TP0] Enabled fused SiLU+mul+FP4-quant for dense MLP down_proj input.
+[2026-10-09 07:16:31 TP0] Enabled fused SiLU+mul+FP4-quant for dense MLP down_proj input.
+[2026-10-09 07:16:31 TP0] Enabled fused SiLU+mul+FP4-quant for dense MLP down_proj input.
+[2026-10-09 07:16:31 TP0] Enabled fused SiLU+mul+FP4-quant for dense MLP down_proj input.
+[2026-10-09 07:16:31 TP0] Enabled fused SiLU+mul+FP4-quant for dense MLP down_proj input.
+[2026-10-09 07:16:31 TP0] Enabled fused SiLU+mul+FP4-quant for dense MLP down_proj input.
+[2026-10-09 07:16:31 TP0] Enabled fused SiLU+mul+FP4-quant for dense MLP down_proj input.
+[2026-10-09 07:16:31 TP0] Enabled fused SiLU+mul+FP4-quant for dense MLP down_proj input.
+[2026-10-09 07:16:31 TP0] Enabled fused SiLU+mul+FP4-quant for dense MLP down_proj input.
+[2026-10-09 07:16:31 TP0] Enabled fused SiLU+mul+FP4-quant for dense MLP down_proj input.
+[2026-10-09 07:16:31 TP0] Enabled fused SiLU+mul+FP4-quant for dense MLP down_proj input.
+[2026-10-09 07:16:31 TP0] Enabled fused SiLU+mul+FP4-quant for dense MLP down_proj input.
+[2026-10-09 07:16:31 TP0] Enabled fused SiLU+mul+FP4-quant for dense MLP down_proj input.
+[2026-10-09 07:16:31 TP0] Enabled fused SiLU+mul+FP4-quant for dense MLP down_proj input.
+[2026-10-09 07:16:31 TP0] Enabled fused SiLU+mul+FP4-quant for dense MLP down_proj input.
+[2026-10-09 07:16:31 TP0] Enabled fused SiLU+mul+FP4-quant for dense MLP down_proj input.
+[2026-10-09 07:16:31 TP0] Enabled fused SiLU+mul+FP4-quant for dense MLP down_proj input.
+[2026-10-09 07:16:31 TP0] Enabled fused SiLU+mul+FP4-quant for dense MLP down_proj input.
+[2026-10-09 07:16:31 TP0] Enabled fused SiLU+mul+FP4-quant for dense MLP down_proj input.
+[2026-10-09 07:16:31 TP0] Enabled fused SiLU+mul+FP4-quant for dense MLP down_proj input.
+[2026-10-09 07:16:31 TP0] Enabled fused SiLU+mul+FP4-quant for dense MLP down_proj input.
+[2026-10-09 07:16:31 TP0] Enabled fused SiLU+mul+FP4-quant for dense MLP down_proj input.
+[2026-10-09 07:16:31 TP0] Enabled fused SiLU+mul+FP4-quant for dense MLP down_proj input.
+[2026-10-09 07:16:31 TP0] Enabled fused SiLU+mul+FP4-quant for dense MLP down_proj input.
+[2026-10-09 07:16:31 TP0] Enabled fused SiLU+mul+FP4-quant for dense MLP down_proj input.
+[2026-10-09 07:16:31 TP0] Enabled fused SiLU+mul+FP4-quant for dense MLP down_proj input.
+[2026-10-09 07:16:31 TP0] Enabled fused SiLU+mul+FP4-quant for dense MLP down_proj input.
+[2026-10-09 07:16:31 TP0] Enabled fused SiLU+mul+FP4-quant for dense MLP down_proj input.
+[2026-10-09 07:16:31 TP0] Enabled fused SiLU+mul+FP4-quant for dense MLP down_proj input.
+[2026-10-09 07:16:31 TP0] Enabled fused SiLU+mul+FP4-quant for dense MLP down_proj input.
+[2026-10-09 07:16:31 TP0] Enabled fused SiLU+mul+FP4-quant for dense MLP down_proj input.
+[2026-10-09 07:16:31 TP0] Enabled fused SiLU+mul+FP4-quant for dense MLP down_proj input.
+[2026-10-09 07:16:31 TP0] Enabled fused SiLU+mul+FP4-quant for dense MLP down_proj input.
+[2026-10-09 07:16:31 TP0] Enabled fused SiLU+mul+FP4-quant for dense MLP down_proj input.
+[2026-10-09 07:16:31 TP0] Enabled fused SiLU+mul+FP4-quant for dense MLP down_proj input.
+[2026-10-09 07:16:31 TP0] Enabled fused SiLU+mul+FP4-quant for dense MLP down_proj input.
+[2026-10-09 07:16:31 TP0] Enabled fused SiLU+mul+FP4-quant for dense MLP down_proj input.
+[2026-10-09 07:16:31 TP0] Enabled fused SiLU+mul+FP4-quant for dense MLP down_proj input.
+[2026-10-09 07:16:31 TP0] Enabled fused SiLU+mul+FP4-quant for dense MLP down_proj input.
+[2026-10-09 07:16:31 TP0] Enabled fused SiLU+mul+FP4-quant for dense MLP down_proj input.
+[2026-10-09 07:16:31 TP0] multimem all-gather disabled because the TP group spans across nodes.
+Multi-thread loading shards:   0% Completed | 0/3 [00:00<?, ?it/s]Multi-thread loading shards:  33% Completed | 1/3 [00:14<00:28, 14.14s/it]Multi-thread loading shards:  67% Completed | 2/3 [00:33<00:17, 17.34s/it]Multi-thread loading shards: 100% Completed | 3/3 [00:37<00:00, 11.18s/it]Multi-thread loading shards: 100% Completed | 3/3 [00:37<00:00, 12.52s/it]
+[2026-10-09 07:17:14 TP0] Using FP8 KV cache but no scaling factors provided. Defaulting to scaling factors of 1.0.
+[2026-10-09 07:17:14 TP0] Load weight end. elapsed=43.27 s, type=Qwen3_5ForConditionalGeneration, quant=modelopt_mixed, quant_algo=MIXED_PRECISION, avail mem=98.70 GB, mem usage=11.19 GB.
+[2026-10-09 07:17:14 TP0] Init torch distributed begin.
+[2026-10-09 07:17:14 TP0] Init torch distributed ends. elapsed=0.00 s, mem usage=0.00 GB
+[2026-10-09 07:17:14 TP0] Load weight begin. avail mem=98.46 GB
+Multi-thread loading shards:   0% Completed | 0/1 [00:00<?, ?it/s]Multi-thread loading shards: 100% Completed | 1/1 [00:09<00:00,  9.53s/it]Multi-thread loading shards: 100% Completed | 1/1 [00:09<00:00,  9.53s/it]
+[2026-10-09 07:17:24 TP0] Using FP8 KV cache but no scaling factors provided. Defaulting to scaling factors of 1.0.
+[2026-10-09 07:17:24 TP0] Load weight end. elapsed=9.88 s, type=DFlash2DraftModel, avail mem=96.36 GB, mem usage=2.10 GB.
+[2026-10-09 07:17:24 TP0] DFLASH block size mismatch: using speculative_num_draft_tokens=4 but draft config block_size=8.
+[2026-10-09 07:17:24 TP0] Initialized DFLASH draft runner. attention_backend=flashinfer, model=DFlash2DraftModel, block_size=4, draft_window_size=None, compact_cache=False
+[2026-10-09 07:17:24 TP0] DFLASH draft runner ready. mask_token=<|MASK|>, mask_token_id=248070, mask_token_id_override=248070, noise_embed_scale=1.0
+[2026-10-09 07:17:24 TP0] DFLASH fused KV materialization enabled. n_layers=5, num_kv_heads=4, head_dim=128
+[2026-10-09 07:17:24 TP0] Reserving 0.10 GB of the KV budget for post-sizing multimodal allocations (feature-transport pools + embedding cache).
+[2026-10-09 07:17:24 TP0] max_total_tokens=3415301 is larger than the profiled value 2876803. Use the profiled value instead.
+[2026-10-09 07:17:25 TP0] Mamba Cache is allocated. max_mamba_cache_size: 320, conv_state size: 0.44GB, ssm_state size: 11.29GB intermediate_ssm_state_cache size: 4.64GB intermediate_conv_window_cache size: 0.09GB 
+[2026-10-09 07:17:27 TP0] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2876803, K size: 21.95 GB, V size: 21.95 GB
+[2026-10-09 07:17:27 TP0] Memory pool end. avail mem=35.01 GB
+[2026-10-09 07:17:28 TP0] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2876803, K size: 6.86 GB, V size: 6.86 GB
+[2026-10-09 07:17:28 TP0] Memory pool end. avail mem=21.60 GB
+[2026-10-09 07:17:29 TP0] Linear attention kernel backend: decode=triton, prefill=flashinfer, verify=triton
+[2026-10-09 07:17:29 TP0] Using hybrid linear attention backend for hybrid GDN models.
+[2026-10-09 07:17:29 TP0] FlashInfer GDN kernels loaded successfully
+[2026-10-09 07:17:29 TP0] Using FlashInfer GDN kernels
+[2026-10-09 07:17:29 TP0] GDN kernel dispatcher: decode=TritonGDNKernel, extend=FlashInferGDNKernel, verify=TritonGDNKernel packed_decode=True
+[2026-10-09 07:17:29 TP0] Overriding draft attention backend to flashinfer.
+[2026-10-09 07:17:29 TP0] Running FlashInfer autotune with cache: /root/.cache/sglang/flashinfer/autotune/0.6.18/sm121/ceb17caf3eb8d96d/rank_tp0_pp0_dp0.json
+[AutoTuner]: Tuning fp8_gemm:   0%|          | 0/8 [00:00<?, ?profile/s][AutoTuner]: Tuning fp8_gemm:  38%|███▊      | 3/8 [00:00<00:00, 24.28profile/s][AutoTuner]: Tuning fp8_gemm:  88%|████████▊ | 7/8 [00:00<00:00, 25.79profile/s][AutoTuner]: Tuning fp8_gemm: 100%|██████████| 8/8 [00:00<00:00, 25.30profile/s]
+[AutoTuner]: Tuning fp8_gemm:   0%|          | 0/8 [00:00<?, ?profile/s][AutoTuner]: Tuning fp8_gemm:  50%|█████     | 4/8 [00:00<00:00, 38.94profile/s][AutoTuner]: Tuning fp8_gemm: 100%|██████████| 8/8 [00:00<00:00, 26.56profile/s][AutoTuner]: Tuning fp8_gemm: 100%|██████████| 8/8 [00:00<00:00, 27.88profile/s]
+[AutoTuner]: Tuning fp4_gemm:   0%|          | 0/8 [00:00<?, ?profile/s][AutoTuner]: Tuning fp4_gemm:  12%|█▎        | 1/8 [00:00<00:01,  4.29profile/s][AutoTuner]: Tuning fp4_gemm:  25%|██▌       | 2/8 [00:00<00:01,  4.46profile/s][AutoTuner]: Tuning fp4_gemm:  38%|███▊      | 3/8 [00:00<00:00,  5.04profile/s][AutoTuner]: Tuning fp4_gemm:  50%|█████     | 4/8 [00:00<00:00,  5.29profile/s][AutoTuner]: Tuning fp4_gemm:  62%|██████▎   | 5/8 [00:00<00:00,  5.33profile/s][AutoTuner]: Tuning fp4_gemm:  75%|███████▌  | 6/8 [00:01<00:00,  5.38profile/s][AutoTuner]: Tuning fp4_gemm:  88%|████████▊ | 7/8 [00:01<00:00,  5.44profile/s][AutoTuner]: Tuning fp4_gemm: 100%|██████████| 8/8 [00:01<00:00,  5.53profile/s][AutoTuner]: Tuning fp4_gemm: 100%|██████████| 8/8 [00:01<00:00,  5.28profile/s]
+[AutoTuner]: Tuning fp4_gemm:   0%|          | 0/8 [00:00<?, ?profile/s][AutoTuner]: Tuning fp4_gemm:  12%|█▎        | 1/8 [00:00<00:00,  9.73profile/s][AutoTuner]: Tuning fp4_gemm:  25%|██▌       | 2/8 [00:00<00:00,  8.35profile/s][AutoTuner]: Tuning fp4_gemm:  38%|███▊      | 3/8 [00:00<00:00,  7.81profile/s][AutoTuner]: Tuning fp4_gemm:  50%|█████     | 4/8 [00:00<00:00,  8.18profile/s][AutoTuner]: Tuning fp4_gemm:  62%|██████▎   | 5/8 [00:00<00:00,  8.29profile/s][AutoTuner]: Tuning fp4_gemm:  75%|███████▌  | 6/8 [00:00<00:00,  8.72profile/s][AutoTuner]: Tuning fp4_gemm:  88%|████████▊ | 7/8 [00:00<00:00,  9.00profile/s][AutoTuner]: Tuning fp4_gemm: 100%|██████████| 8/8 [00:00<00:00,  9.16profile/s][AutoTuner]: Tuning fp4_gemm: 100%|██████████| 8/8 [00:00<00:00,  8.74profile/s]
+[AutoTuner]: Tuning fp8_gemm:   0%|          | 0/8 [00:00<?, ?profile/s][AutoTuner]: Tuning fp8_gemm:  50%|█████     | 4/8 [00:00<00:00, 35.32profile/s][AutoTuner]: Tuning fp8_gemm: 100%|██████████| 8/8 [00:00<00:00, 30.58profile/s][AutoTuner]: Tuning fp8_gemm: 100%|██████████| 8/8 [00:00<00:00, 31.19profile/s]
+[2026-10-09 07:17:43 TP0] FlashInfer autotune completed.
+[2026-10-09 07:17:43 TP0] Disable prefill CUDA graph because cuda_graph_config resolved prefill.backend='disabled' (e.g. via --cuda-graph-backend-prefill=disabled or auto-disable rules).
+[2026-10-09 07:17:43 TP0] Capture target verify CUDA graph begin. backend=full, num_tokens_per_req=4, bs=[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32], avail mem=18.22 GB
+  0%|          | 0/20 [00:00<?, ?it/s]Capturing batches (bs=32 avail_mem=17.94 GB):   0%|          | 0/20 [00:00<?, ?it/s]Capturing batches (bs=32 avail_mem=17.94 GB):   5%|▌         | 1/20 [00:00<00:07,  2.43it/s]Capturing batches (bs=30 avail_mem=17.56 GB):   5%|▌         | 1/20 [00:00<00:07,  2.43it/s]Capturing batches (bs=30 avail_mem=17.56 GB):  10%|█         | 2/20 [00:00<00:06,  2.57it/s]Capturing batches (bs=28 avail_mem=17.31 GB):  10%|█         | 2/20 [00:00<00:06,  2.57it/s]Capturing batches (bs=28 avail_mem=17.31 GB):  15%|█▌        | 3/20 [00:01<00:06,  2.73it/s]Capturing batches (bs=26 avail_mem=17.20 GB):  15%|█▌        | 3/20 [00:01<00:06,  2.73it/s]Capturing batches (bs=26 avail_mem=17.20 GB):  20%|██        | 4/20 [00:01<00:05,  2.79it/s]Capturing batches (bs=24 avail_mem=17.15 GB):  20%|██        | 4/20 [00:01<00:05,  2.79it/s]Capturing batches (bs=24 avail_mem=17.15 GB):  25%|██▌       | 5/20 [00:01<00:05,  2.71it/s]Capturing batches (bs=22 avail_mem=17.06 GB):  25%|██▌       | 5/20 [00:01<00:05,  2.71it/s]Capturing batches (bs=22 avail_mem=17.06 GB):  30%|███       | 6/20 [00:02<00:05,  2.75it/s]Capturing batches (bs=20 avail_mem=17.00 GB):  30%|███       | 6/20 [00:02<00:05,  2.75it/s]Capturing batches (bs=20 avail_mem=17.00 GB):  35%|███▌      | 7/20 [00:02<00:04,  2.79it/s]Capturing batches (bs=18 avail_mem=17.46 GB):  35%|███▌      | 7/20 [00:02<00:04,  2.79it/s]Capturing batches (bs=18 avail_mem=17.46 GB):  40%|████      | 8/20 [00:02<00:04,  2.88it/s]Capturing batches (bs=16 avail_mem=17.39 GB):  40%|████      | 8/20 [00:02<00:04,  2.88it/s]Capturing batches (bs=16 avail_mem=17.39 GB):  45%|████▌     | 9/20 [00:03<00:03,  2.98it/s]Capturing batches (bs=14 avail_mem=17.31 GB):  45%|████▌     | 9/20 [00:03<00:03,  2.98it/s]Capturing batches (bs=14 avail_mem=17.31 GB):  50%|█████     | 10/20 [00:03<00:03,  3.15it/s]Capturing batches (bs=12 avail_mem=17.26 GB):  50%|█████     | 10/20 [00:03<00:03,  3.15it/s]Capturing batches (bs=12 avail_mem=17.26 GB):  55%|█████▌    | 11/20 [00:03<00:02,  3.31it/s]Capturing batches (bs=10 avail_mem=17.19 GB):  55%|█████▌    | 11/20 [00:03<00:02,  3.31it/s]Capturing batches (bs=10 avail_mem=17.19 GB):  60%|██████    | 12/20 [00:03<00:02,  3.49it/s]Capturing batches (bs=8 avail_mem=17.08 GB):  60%|██████    | 12/20 [00:03<00:02,  3.49it/s] Capturing batches (bs=8 avail_mem=17.08 GB):  65%|██████▌   | 13/20 [00:04<00:01,  3.61it/s]Capturing batches (bs=7 avail_mem=16.65 GB):  65%|██████▌   | 13/20 [00:04<00:01,  3.61it/s]Capturing batches (bs=7 avail_mem=16.65 GB):  70%|███████   | 14/20 [00:04<00:01,  3.86it/s]Capturing batches (bs=6 avail_mem=16.58 GB):  70%|███████   | 14/20 [00:04<00:01,  3.86it/s]Capturing batches (bs=6 avail_mem=16.58 GB):  75%|███████▌  | 15/20 [00:04<00:01,  4.01it/s]Capturing batches (bs=5 avail_mem=16.48 GB):  75%|███████▌  | 15/20 [00:04<00:01,  4.01it/s]Capturing batches (bs=5 avail_mem=16.48 GB):  80%|████████  | 16/20 [00:04<00:00,  4.13it/s]Capturing batches (bs=4 avail_mem=16.45 GB):  80%|████████  | 16/20 [00:04<00:00,  4.13it/s]Capturing batches (bs=4 avail_mem=16.45 GB):  85%|████████▌ | 17/20 [00:05<00:00,  4.34it/s]Capturing batches (bs=3 avail_mem=16.38 GB):  85%|████████▌ | 17/20 [00:05<00:00,  4.34it/s]Capturing batches (bs=3 avail_mem=16.38 GB):  90%|█████████ | 18/20 [00:05<00:00,  4.53it/s]Capturing batches (bs=2 avail_mem=16.82 GB):  90%|█████████ | 18/20 [00:05<00:00,  4.53it/s]Capturing batches (bs=2 avail_mem=16.82 GB):  95%|█████████▌| 19/20 [00:05<00:00,  4.64it/s]Capturing batches (bs=1 avail_mem=16.75 GB):  95%|█████████▌| 19/20 [00:05<00:00,  4.64it/s]Capturing batches (bs=1 avail_mem=16.75 GB): 100%|██████████| 20/20 [00:05<00:00,  4.79it/s]Capturing batches (bs=1 avail_mem=16.75 GB): 100%|██████████| 20/20 [00:05<00:00,  3.50it/s]
+[2026-10-09 07:17:49 TP0] Capture target verify CUDA graph end. elapsed=6.18 s, mem usage=1.61 GB, avail mem=16.61 GB.
+[2026-10-09 07:17:49 TP0] DFLASH selector decode folded into the draft cuda graph (sampling_enabled=True).
+[2026-10-09 07:17:49 TP0] Disable prefill CUDA graph because cuda_graph_config resolved prefill.backend='disabled' (e.g. via --cuda-graph-backend-prefill=disabled or auto-disable rules).
+[2026-10-09 07:17:49 TP0] Capture draft verify CUDA graph begin. backend=full, num_tokens_per_req=4, bs=[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32], avail mem=16.27 GB
+  0%|          | 0/20 [00:00<?, ?it/s]Capturing batches (bs=32 avail_mem=15.98 GB):   0%|          | 0/20 [00:00<?, ?it/s][rank0]:W1009 07:17:52.574000 56 torch/_inductor/utils.py:1807] [1/0] Not enough SMs to use max_autotune_gemm mode
+Capturing batches (bs=32 avail_mem=15.98 GB):   5%|▌         | 1/20 [00:03<01:04,  3.41s/it]Capturing batches (bs=30 avail_mem=15.53 GB):   5%|▌         | 1/20 [00:03<01:04,  3.41s/it]Capturing batches (bs=28 avail_mem=15.50 GB):   5%|▌         | 1/20 [00:03<01:04,  3.41s/it]Capturing batches (bs=28 avail_mem=15.50 GB):  15%|█▌        | 3/20 [00:03<00:15,  1.08it/s]Capturing batches (bs=26 avail_mem=15.45 GB):  15%|█▌        | 3/20 [00:03<00:15,  1.08it/s]Capturing batches (bs=24 avail_mem=15.41 GB):  15%|█▌        | 3/20 [00:03<00:15,  1.08it/s]Capturing batches (bs=24 avail_mem=15.41 GB):  25%|██▌       | 5/20 [00:03<00:07,  2.00it/s]Capturing batches (bs=22 avail_mem=15.40 GB):  25%|██▌       | 5/20 [00:03<00:07,  2.00it/s]Capturing batches (bs=20 avail_mem=15.37 GB):  25%|██▌       | 5/20 [00:03<00:07,  2.00it/s]Capturing batches (bs=20 avail_mem=15.37 GB):  35%|███▌      | 7/20 [00:03<00:04,  3.09it/s]Capturing batches (bs=18 avail_mem=15.33 GB):  35%|███▌      | 7/20 [00:03<00:04,  3.09it/s]Capturing batches (bs=16 avail_mem=15.27 GB):  35%|███▌      | 7/20 [00:03<00:04,  3.09it/s]Capturing batches (bs=16 avail_mem=15.27 GB):  45%|████▌     | 9/20 [00:04<00:02,  4.36it/s]Capturing batches (bs=14 avail_mem=15.25 GB):  45%|████▌     | 9/20 [00:04<00:02,  4.36it/s]Capturing batches (bs=12 avail_mem=15.22 GB):  45%|████▌     | 9/20 [00:04<00:02,  4.36it/s]Capturing batches (bs=12 avail_mem=15.22 GB):  55%|█████▌    | 11/20 [00:04<00:01,  5.73it/s]Capturing batches (bs=10 avail_mem=15.12 GB):  55%|█████▌    | 11/20 [00:04<00:01,  5.73it/s]Capturing batches (bs=8 avail_mem=15.03 GB):  55%|█████▌    | 11/20 [00:04<00:01,  5.73it/s] Capturing batches (bs=8 avail_mem=15.03 GB):  65%|██████▌   | 13/20 [00:04<00:00,  7.51it/s]Capturing batches (bs=7 avail_mem=14.99 GB):  65%|██████▌   | 13/20 [00:04<00:00,  7.51it/s]Capturing batches (bs=6 avail_mem=15.01 GB):  65%|██████▌   | 13/20 [00:04<00:00,  7.51it/s]Capturing batches (bs=6 avail_mem=15.01 GB):  75%|███████▌  | 15/20 [00:04<00:00,  9.36it/s]Capturing batches (bs=5 avail_mem=14.89 GB):  75%|███████▌  | 15/20 [00:04<00:00,  9.36it/s]Capturing batches (bs=4 avail_mem=14.85 GB):  75%|███████▌  | 15/20 [00:04<00:00,  9.36it/s]Capturing batches (bs=4 avail_mem=14.85 GB):  85%|████████▌ | 17/20 [00:04<00:00, 11.14it/s]Capturing batches (bs=3 avail_mem=14.72 GB):  85%|████████▌ | 17/20 [00:04<00:00, 11.14it/s]Capturing batches (bs=2 avail_mem=14.65 GB):  85%|████████▌ | 17/20 [00:04<00:00, 11.14it/s]Capturing batches (bs=1 avail_mem=14.59 GB):  85%|████████▌ | 17/20 [00:04<00:00, 11.14it/s]Capturing batches (bs=1 avail_mem=14.59 GB): 100%|██████████| 20/20 [00:05<00:00,  7.44it/s]Capturing batches (bs=1 avail_mem=14.59 GB): 100%|██████████| 20/20 [00:05<00:00,  3.93it/s]
+[2026-10-09 07:17:55 TP0] Capture draft verify CUDA graph end. elapsed=5.62 s, mem usage=1.71 GB, avail mem=14.55 GB.
+[2026-10-09 07:17:55 TP0] DFLASH sampling pre-warm: borrowing=False bs=32 peak=394053632 B headroom=521193472 B
+[2026-10-09 07:17:55 TP0] max_total_num_tokens=2876803, chunked_prefill_size=4096, max_prefill_tokens=16384, max_running_requests=32, context_len=262144, available_gpu_mem=13.75 GB
+[2026-10-09 07:17:55 TP0] Init Unified Radix Cache. Components: (<ComponentType.FULL: 0>, <ComponentType.MAMBA: 2>). Tree Core: UnifiedTreeCore
+[2026-10-09 07:17:55 TP0] Tree cache initialized: source=default impl=UnifiedRadixCache hybrid_swa=False hybrid_ssm=True hicache_attached=False streaming_wrapped=False
+[2026-10-09 07:17:55] Engine startup timings (s): load_weight=53.15, kv_cache_allocation=3.93, scheduler_e2e=91.04, cuda_graph={prefill=0.00, decode=0.00, target_verify=6.18, draft_prefill=0.00, draft_decode=5.62, draft_extend=0.00}, tokenizer_e2e=95.99
+[2026-10-09 07:17:55] INFO:     Started server process [1]
+[2026-10-09 07:17:55] INFO:     Waiting for application startup.
+[2026-10-09 07:17:55] Using default chat sampling params from model generation config: {'temperature': 1.0, 'top_k': 20, 'top_p': 0.95}
+[2026-10-09 07:17:55] INFO:     Application startup complete.
+[2026-10-09 07:17:55] INFO:     Uvicorn running on http://0.0.0.0:8100 (Press CTRL+C to quit)
+[2026-10-09 07:17:56] INFO:     127.0.0.1:45976 - "GET /health HTTP/1.1" 503 Service Unavailable
+[2026-10-09 07:17:56] INFO:     127.0.0.1:45988 - "GET /model_info HTTP/1.1" 200 OK
+[2026-10-09 07:17:58] INFO:     127.0.0.1:46002 - "GET /health HTTP/1.1" 503 Service Unavailable
+[2026-10-09 07:18:00] INFO:     192.0.2.1:35774 - "GET /health HTTP/1.1" 503 Service Unavailable
+[2026-10-09 07:18:00] INFO:     127.0.0.1:46012 - "GET /health HTTP/1.1" 503 Service Unavailable
+/opt/sglang/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: FutureWarning: `torch.distributed.all_gather_into_tensor` is deprecated. Please use `torch.distributed.all_gather_single` instead.
+  return func(*args, **kwargs)
+[2026-10-09 07:18:01 TP0] Prefill batch, #new-seq: 1, #new-token: 122, #cached-token: 0, full token usage: 0.00, mamba usage: 0.01, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 20.03, est. prefill TFLOPS/s (per GPU): 0.78
+[2026-10-09 07:18:01] INFO:     127.0.0.1:45994 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+[2026-10-09 07:18:01] INFO:     127.0.0.1:46020 - "POST /freeze_gc HTTP/1.1" 200 OK
+[2026-10-09 07:18:01] The server is fired up and ready to roll!
+[2026-10-09 07:18:08] INFO:     192.0.2.1:57194 - "GET /v1/models HTTP/1.1" 200 OK
+/sgl-workspace/sglang/python/sglang/srt/entrypoints/http_server.py:454: FastAPIDeprecationWarning: ORJSONResponse is deprecated, FastAPI now serializes data directly to JSON bytes via Pydantic when a return type or response model is set, which is faster and doesn't need a custom response class. Read more in the FastAPI docs: https://fastapi.tiangolo.com/advanced/custom-response/#orjson-or-response-model and https://fastapi.tiangolo.com/tutorial/response-model/
+  return await original_handler(ORJSONRequest(request.scope, request.receive))
+[2026-10-09 07:18:08] INFO:     192.0.2.1:57208 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:18:13] INFO:     192.0.2.1:33392 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:18:13] INFO:     192.0.2.1:33396 - "GET /metrics HTTP/1.1" 200 OK
+/opt/sglang/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: FutureWarning: `torch.distributed.all_gather_into_tensor` is deprecated. Please use `torch.distributed.all_gather_single` instead.
+  return func(*args, **kwargs)
+[2026-10-09 07:18:15 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.07, est. prefill TFLOPS/s (per GPU): 0.00
+[2026-10-09 07:18:15] INFO:     127.0.0.1:59942 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:18:18 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.37, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:18:19] INFO:     192.0.2.1:33412 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:18:19] INFO:     192.0.2.1:33424 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:18:19] INFO:     192.0.2.1:33438 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:18:23 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:18:24] INFO:     192.0.2.1:36322 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:18:24] INFO:     192.0.2.1:36332 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:18:24] INFO:     192.0.2.1:36346 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:18:28 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:18:29] INFO:     192.0.2.1:36356 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:18:29] INFO:     192.0.2.1:36358 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:18:29] INFO:     192.0.2.1:36374 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:18:33 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:18:34] INFO:     192.0.2.1:49224 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:18:34] INFO:     192.0.2.1:49226 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:18:34] INFO:     192.0.2.1:49236 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:18:39 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:18:40] INFO:     192.0.2.1:49252 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:18:40] INFO:     192.0.2.1:49260 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:18:40] INFO:     192.0.2.1:49270 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:18:44 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:18:45] INFO:     192.0.2.1:49718 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:18:45] INFO:     192.0.2.1:49730 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:18:45] INFO:     192.0.2.1:49740 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:18:49 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:18:50] INFO:     192.0.2.1:49756 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:18:50] INFO:     192.0.2.1:49758 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:18:50] INFO:     192.0.2.1:49768 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:18:54 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:18:55] INFO:     192.0.2.1:38782 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:18:55] INFO:     192.0.2.1:38786 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:18:55] INFO:     192.0.2.1:38794 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:19:00 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:19:00] INFO:     192.0.2.1:38798 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:19:00] INFO:     192.0.2.1:37582 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:19:00] INFO:     192.0.2.1:37594 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:19:05 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:19:06] INFO:     192.0.2.1:37602 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:19:06] INFO:     192.0.2.1:37612 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:19:06] INFO:     192.0.2.1:37614 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:19:10 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:19:11] INFO:     192.0.2.1:37618 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:19:11] INFO:     192.0.2.1:40798 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:19:11] INFO:     192.0.2.1:40810 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:19:15 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:19:16] INFO:     192.0.2.1:40824 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:19:16] INFO:     192.0.2.1:40836 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:19:16] INFO:     192.0.2.1:40838 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:19:20 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:19:21] INFO:     192.0.2.1:39534 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:19:21] INFO:     192.0.2.1:39546 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:19:21] INFO:     192.0.2.1:39550 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:19:26 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:19:27] INFO:     192.0.2.1:39562 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:19:27] INFO:     192.0.2.1:39574 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:19:27] INFO:     192.0.2.1:39588 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:19:31 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:19:32] INFO:     192.0.2.1:33500 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:19:32] INFO:     192.0.2.1:33510 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:19:32] INFO:     192.0.2.1:33520 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:19:36 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.18, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:19:37] INFO:     192.0.2.1:33528 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:19:37] INFO:     192.0.2.1:33530 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:19:37] INFO:     192.0.2.1:33532 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:19:42 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:19:42] INFO:     192.0.2.1:48606 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:19:42] INFO:     192.0.2.1:48616 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:19:42] INFO:     192.0.2.1:48632 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:19:47 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:19:48] INFO:     192.0.2.1:48638 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:19:48] INFO:     192.0.2.1:48650 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:19:48] INFO:     192.0.2.1:48654 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:19:52 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:19:53] INFO:     192.0.2.1:38522 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:19:53] INFO:     192.0.2.1:38530 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:19:53] INFO:     192.0.2.1:38534 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:19:57 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:19:58] INFO:     192.0.2.1:38550 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:19:58] INFO:     192.0.2.1:38552 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:19:58] INFO:     192.0.2.1:38568 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:20:02 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:20:03] INFO:     192.0.2.1:38726 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:20:03] INFO:     192.0.2.1:38742 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:20:03] INFO:     192.0.2.1:38754 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:20:08 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:20:09] INFO:     192.0.2.1:38770 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:20:09] INFO:     192.0.2.1:38782 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:20:09] INFO:     192.0.2.1:38786 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:20:13 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:20:14] INFO:     192.0.2.1:41158 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:20:14] INFO:     192.0.2.1:41162 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:20:14] INFO:     192.0.2.1:41178 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:20:18 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:20:19] INFO:     192.0.2.1:41186 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:20:19] INFO:     192.0.2.1:41192 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:20:19] INFO:     192.0.2.1:41196 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:20:23 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:20:24] INFO:     192.0.2.1:36190 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:20:24] INFO:     192.0.2.1:36196 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:20:24] INFO:     192.0.2.1:36198 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:20:28 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:20:29] INFO:     192.0.2.1:36202 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:20:29] INFO:     192.0.2.1:36214 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:20:29] INFO:     192.0.2.1:36230 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:20:34 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:20:35] INFO:     192.0.2.1:46588 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:20:35] INFO:     192.0.2.1:46592 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:20:35] INFO:     192.0.2.1:46594 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:20:39 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:20:40] INFO:     192.0.2.1:46606 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:20:40] INFO:     192.0.2.1:46610 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:20:40] INFO:     192.0.2.1:46618 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:20:44 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:20:45] INFO:     192.0.2.1:47130 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:20:45] INFO:     192.0.2.1:47132 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:20:45] INFO:     192.0.2.1:47140 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:20:49 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:20:50] INFO:     192.0.2.1:47154 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:20:50] INFO:     192.0.2.1:59026 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:20:50] INFO:     192.0.2.1:59040 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:20:55 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:20:56] INFO:     192.0.2.1:59046 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:20:56] INFO:     192.0.2.1:59050 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:20:56] INFO:     192.0.2.1:59064 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:21:00 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:21:01] INFO:     192.0.2.1:59076 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:21:01] INFO:     192.0.2.1:35362 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:21:01] INFO:     192.0.2.1:35372 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:21:05 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:21:06] INFO:     192.0.2.1:35388 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:21:06] INFO:     192.0.2.1:35402 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:21:06] INFO:     192.0.2.1:35406 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:21:10 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:21:11] INFO:     192.0.2.1:59564 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:21:11] INFO:     192.0.2.1:59572 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:21:11] INFO:     192.0.2.1:59584 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:21:16 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:21:16 TP0] Decode batch, #running-req: 1, #full token: 0, full token usage: 0.00, mamba num: 0, mamba usage: 0.00, accept len: 1.18, accept rate: 0.06, cuda graph: True, gen throughput (token/s): 0.23, #queue-req: 0, est. decode TFLOPS/s (per GPU): 0.01, est. read BW (GB/s per GPU): 9.11, est. write BW (GB/s per GPU): 0.00
+[2026-10-09 07:21:16] INFO:     192.0.2.1:59590 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:21:16] INFO:     192.0.2.1:59606 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:21:16] INFO:     192.0.2.1:59612 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:21:21 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:21:22] INFO:     192.0.2.1:47264 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:21:22] INFO:     192.0.2.1:47268 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:21:22] INFO:     192.0.2.1:47270 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:21:26 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:21:27] INFO:     192.0.2.1:47276 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:21:27] INFO:     192.0.2.1:47278 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:21:27] INFO:     192.0.2.1:47286 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:21:31 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:21:32] INFO:     192.0.2.1:33720 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:21:32] INFO:     192.0.2.1:33728 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:21:32] INFO:     192.0.2.1:33734 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:21:36 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:21:37] INFO:     192.0.2.1:33742 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:21:37] INFO:     192.0.2.1:33758 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:21:37] INFO:     192.0.2.1:33768 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:21:42 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:21:43] INFO:     192.0.2.1:34754 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:21:43] INFO:     192.0.2.1:34766 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:21:43] INFO:     192.0.2.1:34770 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:21:47 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:21:48] INFO:     192.0.2.1:34782 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:21:48] INFO:     192.0.2.1:34790 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:21:48] INFO:     192.0.2.1:34802 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:21:52 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:21:53] INFO:     192.0.2.1:40840 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:21:53] INFO:     192.0.2.1:40852 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:21:53] INFO:     192.0.2.1:40864 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:21:57 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:21:58] INFO:     192.0.2.1:40870 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:21:58] INFO:     192.0.2.1:40874 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:21:58] INFO:     192.0.2.1:40884 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:22:03 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:22:03] INFO:     192.0.2.1:43306 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:22:03] INFO:     192.0.2.1:43310 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:22:03] INFO:     192.0.2.1:43320 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:22:08 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:22:09] INFO:     192.0.2.1:43326 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:22:09] INFO:     192.0.2.1:43332 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:22:09] INFO:     192.0.2.1:43338 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:22:13 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:22:14] INFO:     192.0.2.1:39374 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:22:14] INFO:     192.0.2.1:39384 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:22:14] INFO:     192.0.2.1:39398 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:22:18 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:22:19] INFO:     192.0.2.1:39412 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:22:19] INFO:     192.0.2.1:39422 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:22:19] INFO:     192.0.2.1:39434 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:22:23 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:22:24] INFO:     192.0.2.1:55712 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:22:24] INFO:     192.0.2.1:55716 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:22:24] INFO:     192.0.2.1:55728 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:22:29 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:22:30] INFO:     192.0.2.1:55744 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:22:30] INFO:     192.0.2.1:55756 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:22:30] INFO:     192.0.2.1:55762 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:22:34 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:22:35] INFO:     192.0.2.1:53210 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:22:35] INFO:     192.0.2.1:53220 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:22:35] INFO:     192.0.2.1:53230 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:22:39 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:22:40] INFO:     192.0.2.1:53232 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:22:40] INFO:     192.0.2.1:53246 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:22:40] INFO:     192.0.2.1:53260 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:22:44 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:22:45] INFO:     192.0.2.1:55628 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:22:45] INFO:     192.0.2.1:55630 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:22:45] INFO:     192.0.2.1:55644 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:22:50 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:22:51] INFO:     192.0.2.1:55648 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:22:51] INFO:     192.0.2.1:54062 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:22:51] INFO:     192.0.2.1:54070 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:22:55 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:22:56] INFO:     192.0.2.1:54076 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:22:56] INFO:     192.0.2.1:54082 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:22:56] INFO:     192.0.2.1:54098 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:23:00 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:23:01] INFO:     192.0.2.1:54108 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:23:01] INFO:     192.0.2.1:45976 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:23:01] INFO:     192.0.2.1:45984 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:23:05 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:23:06] INFO:     192.0.2.1:46000 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:23:06] INFO:     192.0.2.1:46002 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:23:06] INFO:     192.0.2.1:46006 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:23:10 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:23:11] INFO:     192.0.2.1:58712 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:23:11] INFO:     192.0.2.1:58728 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:23:11] INFO:     192.0.2.1:58732 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:23:16 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:23:17] INFO:     192.0.2.1:58744 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:23:17] INFO:     192.0.2.1:58752 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:23:17] INFO:     192.0.2.1:58760 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:23:21 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:23:22] INFO:     192.0.2.1:43570 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:23:22] INFO:     192.0.2.1:43576 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:23:22] INFO:     192.0.2.1:43582 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:23:26 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:23:27] INFO:     192.0.2.1:43592 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:23:27] INFO:     192.0.2.1:43600 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:23:27] INFO:     192.0.2.1:43602 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:23:31 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:23:32] INFO:     192.0.2.1:46776 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:23:32] INFO:     192.0.2.1:46790 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:23:32] INFO:     192.0.2.1:46794 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:23:37 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:23:37] INFO:     192.0.2.1:46798 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:23:37] INFO:     192.0.2.1:46814 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:23:37] INFO:     192.0.2.1:46828 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:23:42 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:23:43] INFO:     192.0.2.1:35926 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:23:43] INFO:     192.0.2.1:35936 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:23:43] INFO:     192.0.2.1:35944 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:23:47 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:23:48] INFO:     192.0.2.1:35956 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:23:48] INFO:     192.0.2.1:35970 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:23:48] INFO:     192.0.2.1:35978 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:23:52 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:23:53] INFO:     192.0.2.1:34792 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:23:53] INFO:     192.0.2.1:34798 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:23:53] INFO:     192.0.2.1:34810 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:23:58 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:23:58] INFO:     192.0.2.1:34824 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:23:58] INFO:     192.0.2.1:34830 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:23:58] INFO:     192.0.2.1:34846 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:24:03 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:24:04] INFO:     192.0.2.1:59918 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:24:04] INFO:     192.0.2.1:59932 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:24:04] INFO:     192.0.2.1:59936 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:24:08 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:24:09] INFO:     192.0.2.1:59938 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:24:09] INFO:     192.0.2.1:59950 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:24:09] INFO:     192.0.2.1:59958 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:24:13 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:24:14] INFO:     192.0.2.1:32886 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:24:14] INFO:     192.0.2.1:32900 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:24:14] INFO:     192.0.2.1:32908 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:24:18 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:24:19] INFO:     192.0.2.1:32920 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:24:19] INFO:     192.0.2.1:32924 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:24:19] INFO:     192.0.2.1:32928 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:24:24 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:24:25] INFO:     192.0.2.1:47232 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:24:25] INFO:     192.0.2.1:47248 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:24:25] INFO:     192.0.2.1:47260 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:24:29 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:24:30] INFO:     192.0.2.1:47264 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:24:30] INFO:     192.0.2.1:47274 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:24:30] INFO:     192.0.2.1:47282 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:24:34 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:24:35] INFO:     192.0.2.1:47718 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:24:35] INFO:     192.0.2.1:47722 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:24:35] INFO:     192.0.2.1:47734 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:24:39 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:24:40] INFO:     192.0.2.1:47748 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:24:40] INFO:     192.0.2.1:47758 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:24:40] INFO:     192.0.2.1:47764 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:24:44 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:24:45 TP0] Decode batch, #running-req: 1, #full token: 0, full token usage: 0.00, mamba num: 0, mamba usage: 0.00, accept len: 1.00, accept rate: 0.00, cuda graph: True, gen throughput (token/s): 0.19, #queue-req: 0, est. decode TFLOPS/s (per GPU): 0.01, est. read BW (GB/s per GPU): 7.45, est. write BW (GB/s per GPU): 0.00
+[2026-10-09 07:24:45] INFO:     192.0.2.1:32862 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:24:45] INFO:     192.0.2.1:32868 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:24:45] INFO:     192.0.2.1:32872 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:24:50 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.18, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:24:51] INFO:     192.0.2.1:32884 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:24:51] INFO:     192.0.2.1:37064 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:24:51] INFO:     192.0.2.1:37070 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:24:55 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:24:56] INFO:     192.0.2.1:37082 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:24:56] INFO:     192.0.2.1:37088 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:24:56] INFO:     192.0.2.1:37090 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:25:00 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:25:01] INFO:     192.0.2.1:52692 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:25:01] INFO:     192.0.2.1:52704 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:25:01] INFO:     192.0.2.1:52718 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:25:06 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:25:06] INFO:     192.0.2.1:52726 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:25:06] INFO:     192.0.2.1:52736 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:25:06] INFO:     192.0.2.1:52742 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:25:11 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:25:12] INFO:     192.0.2.1:46516 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:25:12] INFO:     192.0.2.1:46528 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:25:12] INFO:     192.0.2.1:46538 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:25:16 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:25:17] INFO:     192.0.2.1:46542 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:25:17] INFO:     192.0.2.1:46552 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:25:17] INFO:     192.0.2.1:46558 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:25:21 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:25:22] INFO:     192.0.2.1:37148 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:25:22] INFO:     192.0.2.1:37158 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:25:22] INFO:     192.0.2.1:37164 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:25:26 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:25:27] INFO:     192.0.2.1:37180 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:25:27] INFO:     192.0.2.1:37194 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:25:27] INFO:     192.0.2.1:37198 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:25:32 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:25:33] INFO:     192.0.2.1:38424 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:25:33] INFO:     192.0.2.1:38430 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:25:33] INFO:     192.0.2.1:38444 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:25:37 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:25:38] INFO:     192.0.2.1:38446 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:25:38] INFO:     192.0.2.1:38452 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:25:38] INFO:     192.0.2.1:38468 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:25:42 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:25:43] INFO:     192.0.2.1:47258 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:25:43] INFO:     192.0.2.1:47262 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:25:43] INFO:     192.0.2.1:47266 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:25:47 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:25:48] INFO:     192.0.2.1:47274 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:25:48] INFO:     192.0.2.1:47282 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:25:48] INFO:     192.0.2.1:47284 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:25:53 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:25:54] INFO:     192.0.2.1:58956 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:25:54] INFO:     192.0.2.1:58962 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:25:54] INFO:     192.0.2.1:58970 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:25:58 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:25:59] INFO:     192.0.2.1:58978 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:25:59] INFO:     192.0.2.1:58994 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:25:59] INFO:     192.0.2.1:59000 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:26:03 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:26:04] INFO:     192.0.2.1:60904 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:26:04] INFO:     192.0.2.1:60918 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:26:04] INFO:     192.0.2.1:60932 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:26:08 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:26:09] INFO:     192.0.2.1:60934 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:26:09] INFO:     192.0.2.1:60936 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:26:09] INFO:     192.0.2.1:60942 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:26:14 TP0] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.19, est. prefill TFLOPS/s (per GPU): 0.01
+[2026-10-09 07:26:14] Anthropic thinking.display='updates' is accepted for SDK compatibility but reasoning text will still be emitted to the client
+[2026-10-09 07:26:14] INFO:     192.0.2.1:42890 - "POST /v1/messages?beta=true HTTP/1.1" 200 OK
+[2026-10-09 07:26:14] INFO:     192.0.2.1:42884 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:26:14] INFO:     192.0.2.1:42906 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:26:14] INFO:     192.0.2.1:42918 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:26:17 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.00, mamba usage: 0.01, #running-req: 0, #queue-req: 0, #pending-token: 118530, cuda graph: False, input throughput (token/s): 1142.58, est. prefill TFLOPS/s (per GPU): 46.31
+[2026-10-09 07:26:17] Anthropic thinking.display='updates' is accepted for SDK compatibility but reasoning text will still be emitted to the client
+[2026-10-09 07:26:18] INFO:     192.0.2.1:42920 - "POST /v1/messages?beta=true HTTP/1.1" 200 OK
+[2026-10-09 07:26:18 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.00, mamba usage: 0.01, #running-req: 0, #queue-req: 0, #pending-token: 114434, cuda graph: False, input throughput (token/s): 3451.28, est. prefill TFLOPS/s (per GPU): 151.01
+[2026-10-09 07:26:20 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.01, mamba usage: 0.01, #running-req: 0, #queue-req: 1, #pending-token: 110338, cuda graph: False, input throughput (token/s): 3276.19, est. prefill TFLOPS/s (per GPU): 153.90
+[2026-10-09 07:26:20] INFO:     192.0.2.1:41172 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:26:20] INFO:     192.0.2.1:41184 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:26:21 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.01, mamba usage: 0.01, #running-req: 0, #queue-req: 1, #pending-token: 191278, cuda graph: False, input throughput (token/s): 3126.13, est. prefill TFLOPS/s (per GPU): 156.92
+[2026-10-09 07:26:22 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.01, mamba usage: 0.01, #running-req: 0, #queue-req: 1, #pending-token: 187182, cuda graph: False, input throughput (token/s): 2999.09, est. prefill TFLOPS/s (per GPU): 160.21
+[2026-10-09 07:26:24 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.01, mamba usage: 0.01, #running-req: 0, #queue-req: 1, #pending-token: 183086, cuda graph: False, input throughput (token/s): 2886.50, est. prefill TFLOPS/s (per GPU): 163.49
+[2026-10-09 07:26:25 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.01, mamba usage: 0.01, #running-req: 0, #queue-req: 1, #pending-token: 178990, cuda graph: False, input throughput (token/s): 2727.28, est. prefill TFLOPS/s (per GPU): 163.26
+[2026-10-09 07:26:26] INFO:     192.0.2.1:41206 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:26:26] INFO:     192.0.2.1:41218 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:26:27 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.01, mamba usage: 0.01, #running-req: 0, #queue-req: 1, #pending-token: 174894, cuda graph: False, input throughput (token/s): 2606.05, est. prefill TFLOPS/s (per GPU): 164.40
+[2026-10-09 07:26:28 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.01, mamba usage: 0.01, #running-req: 0, #queue-req: 1, #pending-token: 170798, cuda graph: False, input throughput (token/s): 2502.08, est. prefill TFLOPS/s (per GPU): 165.90
+[2026-10-09 07:26:30 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.02, mamba usage: 0.01, #running-req: 0, #queue-req: 1, #pending-token: 166702, cuda graph: False, input throughput (token/s): 2379.95, est. prefill TFLOPS/s (per GPU): 165.47
+[2026-10-09 07:26:32] INFO:     192.0.2.1:49252 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:26:32] INFO:     192.0.2.1:49262 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:26:32 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.02, mamba usage: 0.01, #running-req: 0, #queue-req: 1, #pending-token: 162606, cuda graph: False, input throughput (token/s): 2269.24, est. prefill TFLOPS/s (per GPU): 165.08
+[2026-10-09 07:26:34 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.02, mamba usage: 0.01, #running-req: 0, #queue-req: 1, #pending-token: 158510, cuda graph: False, input throughput (token/s): 2197.05, est. prefill TFLOPS/s (per GPU): 166.90
+[2026-10-09 07:26:36 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.02, mamba usage: 0.01, #running-req: 0, #queue-req: 1, #pending-token: 154414, cuda graph: False, input throughput (token/s): 2117.28, est. prefill TFLOPS/s (per GPU): 167.67
+[2026-10-09 07:26:37] INFO:     192.0.2.1:49286 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:26:37] INFO:     192.0.2.1:49300 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:26:38 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.02, mamba usage: 0.01, #running-req: 0, #queue-req: 1, #pending-token: 150318, cuda graph: False, input throughput (token/s): 2018.05, est. prefill TFLOPS/s (per GPU): 166.31
+[2026-10-09 07:26:40 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.02, mamba usage: 0.01, #running-req: 0, #queue-req: 1, #pending-token: 146222, cuda graph: False, input throughput (token/s): 1988.97, est. prefill TFLOPS/s (per GPU): 170.32
+[2026-10-09 07:26:40] INFO:     192.0.2.1:52610 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:26:41] Anthropic thinking.display='updates' is accepted for SDK compatibility but reasoning text will still be emitted to the client
+[2026-10-09 07:26:41] INFO:     192.0.2.1:54184 - "POST /v1/messages?beta=true HTTP/1.1" 200 OK
+[2026-10-09 07:26:41] INFO:     192.0.2.1:35258 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:26:42 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.02, mamba usage: 0.01, #running-req: 0, #queue-req: 1, #pending-token: 142126, cuda graph: False, input throughput (token/s): 1930.35, est. prefill TFLOPS/s (per GPU): 171.52
+[2026-10-09 07:26:42] INFO:     192.0.2.1:35274 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:26:43] INFO:     192.0.2.1:54210 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:26:43] INFO:     192.0.2.1:54214 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:26:44 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.03, mamba usage: 0.01, #running-req: 0, #queue-req: 2, #pending-token: 138030, cuda graph: False, input throughput (token/s): 1868.14, est. prefill TFLOPS/s (per GPU): 172.01
+[2026-10-09 07:26:46 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.03, mamba usage: 0.01, #running-req: 0, #queue-req: 2, #pending-token: 167117, cuda graph: False, input throughput (token/s): 1817.90, est. prefill TFLOPS/s (per GPU): 173.24
+[2026-10-09 07:26:49 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.03, mamba usage: 0.01, #running-req: 0, #queue-req: 2, #pending-token: 163021, cuda graph: False, input throughput (token/s): 1763.45, est. prefill TFLOPS/s (per GPU): 173.73
+[2026-10-09 07:26:49] INFO:     192.0.2.1:54230 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:26:49] INFO:     192.0.2.1:54234 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:26:51 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.03, mamba usage: 0.01, #running-req: 0, #queue-req: 2, #pending-token: 158925, cuda graph: False, input throughput (token/s): 1551.38, est. prefill TFLOPS/s (per GPU): 157.83
+[2026-10-09 07:26:54 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.03, mamba usage: 0.01, #running-req: 0, #queue-req: 2, #pending-token: 154829, cuda graph: False, input throughput (token/s): 1644.88, est. prefill TFLOPS/s (per GPU): 172.64
+[2026-10-09 07:26:55] INFO:     192.0.2.1:60654 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:26:55] INFO:     192.0.2.1:60670 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:26:56 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.03, mamba usage: 0.01, #running-req: 0, #queue-req: 2, #pending-token: 150733, cuda graph: False, input throughput (token/s): 1615.27, est. prefill TFLOPS/s (per GPU): 174.74
+[2026-10-09 07:26:59 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.03, mamba usage: 0.01, #running-req: 0, #queue-req: 2, #pending-token: 146637, cuda graph: False, input throughput (token/s): 1584.54, est. prefill TFLOPS/s (per GPU): 176.52
+[2026-10-09 07:27:01] INFO:     192.0.2.1:52996 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:27:01] INFO:     192.0.2.1:53008 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:27:02 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.04, mamba usage: 0.01, #running-req: 0, #queue-req: 2, #pending-token: 142541, cuda graph: False, input throughput (token/s): 1524.62, est. prefill TFLOPS/s (per GPU): 174.76
+[2026-10-09 07:27:04 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.04, mamba usage: 0.01, #running-req: 0, #queue-req: 2, #pending-token: 138445, cuda graph: False, input throughput (token/s): 1501.98, est. prefill TFLOPS/s (per GPU): 177.00
+[2026-10-09 07:27:06] INFO:     192.0.2.1:53016 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:27:06] INFO:     192.0.2.1:53020 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:27:07 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.04, mamba usage: 0.01, #running-req: 0, #queue-req: 2, #pending-token: 134349, cuda graph: False, input throughput (token/s): 1463.52, est. prefill TFLOPS/s (per GPU): 177.18
+[2026-10-09 07:27:10 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.04, mamba usage: 0.01, #running-req: 0, #queue-req: 2, #pending-token: 130253, cuda graph: False, input throughput (token/s): 1420.33, est. prefill TFLOPS/s (per GPU): 176.53
+[2026-10-09 07:27:12] INFO:     192.0.2.1:60634 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:27:12] INFO:     192.0.2.1:60650 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:27:13 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.04, mamba usage: 0.01, #running-req: 0, #queue-req: 2, #pending-token: 126157, cuda graph: False, input throughput (token/s): 1384.66, est. prefill TFLOPS/s (per GPU): 176.55
+[2026-10-09 07:27:16 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.04, mamba usage: 0.02, #running-req: 0, #queue-req: 1, #pending-token: 122061, cuda graph: False, input throughput (token/s): 1358.92, est. prefill TFLOPS/s (per GPU): 177.65
+[2026-10-09 07:27:17 TP0] Prefill batch, #new-seq: 2, #new-token: 4096, #cached-token: 0, full token usage: 0.04, mamba usage: 0.03, #running-req: 0, #queue-req: 1, #pending-token: 117965, cuda graph: False, input throughput (token/s): 3772.09, est. prefill TFLOPS/s (per GPU): 482.71
+[2026-10-09 07:27:17] INFO:     192.0.2.1:60656 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:27:17] INFO:     192.0.2.1:60664 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:27:17] INFO:     192.0.2.1:60672 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:27:18 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.05, mamba usage: 0.03, #running-req: 1, #queue-req: 1, #pending-token: 113869, cuda graph: False, input throughput (token/s): 3607.58, est. prefill TFLOPS/s (per GPU): 146.95
+[2026-10-09 07:27:19 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.05, mamba usage: 0.03, #running-req: 1, #queue-req: 1, #pending-token: 109773, cuda graph: False, input throughput (token/s): 3427.44, est. prefill TFLOPS/s (per GPU): 150.65
+[2026-10-09 07:27:21 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.05, mamba usage: 0.03, #running-req: 1, #queue-req: 1, #pending-token: 105677, cuda graph: False, input throughput (token/s): 3256.54, est. prefill TFLOPS/s (per GPU): 153.63
+[2026-10-09 07:27:22 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.05, mamba usage: 0.03, #running-req: 1, #queue-req: 1, #pending-token: 101581, cuda graph: False, input throughput (token/s): 3105.96, est. prefill TFLOPS/s (per GPU): 156.53
+[2026-10-09 07:27:23] INFO:     192.0.2.1:57610 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:27:23] INFO:     192.0.2.1:57616 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:27:24 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.05, mamba usage: 0.03, #running-req: 1, #queue-req: 1, #pending-token: 97485, cuda graph: False, input throughput (token/s): 2344.04, est. prefill TFLOPS/s (per GPU): 125.68
+[2026-10-09 07:27:25 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.05, mamba usage: 0.03, #running-req: 1, #queue-req: 1, #pending-token: 93389, cuda graph: False, input throughput (token/s): 2830.66, est. prefill TFLOPS/s (per GPU): 160.90
+[2026-10-09 07:27:27 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.05, mamba usage: 0.03, #running-req: 1, #queue-req: 1, #pending-token: 89293, cuda graph: False, input throughput (token/s): 2698.65, est. prefill TFLOPS/s (per GPU): 162.08
+[2026-10-09 07:27:28 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.06, mamba usage: 0.03, #running-req: 1, #queue-req: 1, #pending-token: 85197, cuda graph: False, input throughput (token/s): 2568.76, est. prefill TFLOPS/s (per GPU): 162.56
+[2026-10-09 07:27:29] INFO:     192.0.2.1:57642 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:27:29] INFO:     192.0.2.1:57648 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:27:30 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.06, mamba usage: 0.03, #running-req: 1, #queue-req: 1, #pending-token: 81101, cuda graph: False, input throughput (token/s): 2464.14, est. prefill TFLOPS/s (per GPU): 163.87
+[2026-10-09 07:27:32 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.06, mamba usage: 0.03, #running-req: 1, #queue-req: 1, #pending-token: 77005, cuda graph: False, input throughput (token/s): 2352.88, est. prefill TFLOPS/s (per GPU): 164.05
+[2026-10-09 07:27:34 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.06, mamba usage: 0.03, #running-req: 1, #queue-req: 1, #pending-token: 72909, cuda graph: False, input throughput (token/s): 2267.87, est. prefill TFLOPS/s (per GPU): 165.43
+[2026-10-09 07:27:34] INFO:     192.0.2.1:54824 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:27:34] INFO:     192.0.2.1:54832 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:27:35 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.06, mamba usage: 0.03, #running-req: 1, #queue-req: 1, #pending-token: 68813, cuda graph: False, input throughput (token/s): 2172.10, est. prefill TFLOPS/s (per GPU): 165.44
+[2026-10-09 07:27:37 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.06, mamba usage: 0.03, #running-req: 1, #queue-req: 1, #pending-token: 64717, cuda graph: False, input throughput (token/s): 2118.76, est. prefill TFLOPS/s (per GPU): 168.21
+[2026-10-09 07:27:39 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.06, mamba usage: 0.03, #running-req: 1, #queue-req: 1, #pending-token: 60621, cuda graph: False, input throughput (token/s): 2039.86, est. prefill TFLOPS/s (per GPU): 168.51
+[2026-10-09 07:27:40] INFO:     192.0.2.1:52700 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:27:40] INFO:     192.0.2.1:52710 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:27:41 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.07, mamba usage: 0.03, #running-req: 1, #queue-req: 1, #pending-token: 56525, cuda graph: False, input throughput (token/s): 1950.87, est. prefill TFLOPS/s (per GPU): 167.45
+[2026-10-09 07:27:44 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.07, mamba usage: 0.03, #running-req: 1, #queue-req: 1, #pending-token: 52429, cuda graph: False, input throughput (token/s): 1887.15, est. prefill TFLOPS/s (per GPU): 168.06
+[2026-10-09 07:27:46 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.07, mamba usage: 0.03, #running-req: 1, #queue-req: 1, #pending-token: 48333, cuda graph: False, input throughput (token/s): 1841.78, est. prefill TFLOPS/s (per GPU): 169.95
+[2026-10-09 07:27:46] INFO:     192.0.2.1:52726 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:27:46] INFO:     192.0.2.1:52740 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:27:48 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.07, mamba usage: 0.03, #running-req: 1, #queue-req: 1, #pending-token: 44237, cuda graph: False, input throughput (token/s): 1798.72, est. prefill TFLOPS/s (per GPU): 171.77
+[2026-10-09 07:27:50 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.07, mamba usage: 0.03, #running-req: 1, #queue-req: 1, #pending-token: 40141, cuda graph: False, input throughput (token/s): 1741.52, est. prefill TFLOPS/s (per GPU): 171.92
+[2026-10-09 07:27:52] INFO:     192.0.2.1:33996 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:27:52] INFO:     192.0.2.1:34008 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:27:53 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.07, mamba usage: 0.03, #running-req: 1, #queue-req: 0, #pending-token: 36045, cuda graph: False, input throughput (token/s): 1937.96, est. prefill TFLOPS/s (per GPU): 197.55
+[2026-10-09 07:27:54 TP0] Prefill batch, #new-seq: 2, #new-token: 4096, #cached-token: 0, full token usage: 0.07, mamba usage: 0.04, #running-req: 1, #queue-req: 0, #pending-token: 31949, cuda graph: False, input throughput (token/s): 3733.45, est. prefill TFLOPS/s (per GPU): 317.38
+[2026-10-09 07:27:55 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.07, mamba usage: 0.04, #running-req: 2, #queue-req: 0, #pending-token: 27853, cuda graph: False, input throughput (token/s): 3599.65, est. prefill TFLOPS/s (per GPU): 149.40
+[2026-10-09 07:27:56 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.08, mamba usage: 0.04, #running-req: 2, #queue-req: 0, #pending-token: 23757, cuda graph: False, input throughput (token/s): 2858.49, est. prefill TFLOPS/s (per GPU): 127.85
+[2026-10-09 07:27:58 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.08, mamba usage: 0.04, #running-req: 2, #queue-req: 0, #pending-token: 19661, cuda graph: False, input throughput (token/s): 3227.75, est. prefill TFLOPS/s (per GPU): 154.76
+[2026-10-09 07:27:58] INFO:     192.0.2.1:34032 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:27:58] INFO:     192.0.2.1:34044 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:27:59 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.08, mamba usage: 0.04, #running-req: 2, #queue-req: 0, #pending-token: 15565, cuda graph: False, input throughput (token/s): 3057.20, est. prefill TFLOPS/s (per GPU): 156.43
+[2026-10-09 07:28:00 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.08, mamba usage: 0.04, #running-req: 2, #queue-req: 0, #pending-token: 11469, cuda graph: False, input throughput (token/s): 2900.58, est. prefill TFLOPS/s (per GPU): 157.76
+[2026-10-09 07:28:02 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.08, mamba usage: 0.04, #running-req: 2, #queue-req: 0, #pending-token: 7373, cuda graph: False, input throughput (token/s): 2817.74, est. prefill TFLOPS/s (per GPU): 162.33
+[2026-10-09 07:28:03 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.08, mamba usage: 0.04, #running-req: 2, #queue-req: 0, #pending-token: 3277, cuda graph: False, input throughput (token/s): 3338.54, est. prefill TFLOPS/s (per GPU): 203.09
+[2026-10-09 07:28:03 TP0] Prefill batch, #new-seq: 1, #new-token: 3277, #cached-token: 0, full token usage: 0.08, mamba usage: 0.04, #running-req: 2, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 26743.58, est. prefill TFLOPS/s (per GPU): 1704.40
+[2026-10-09 07:28:03] INFO:     192.0.2.1:37688 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:28:03] INFO:     192.0.2.1:37692 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:28:05 TP0] Decode batch, #running-req: 3, #full token: 239598, full token usage: 0.08, mamba num: 12, mamba usage: 0.04, accept len: 2.20, accept rate: 0.40, cuda graph: True, gen throughput (token/s): 0.94, #queue-req: 0, est. decode TFLOPS/s (per GPU): 0.06, est. read BW (GB/s per GPU): 40.30, est. write BW (GB/s per GPU): 0.01
+[2026-10-09 07:28:09] INFO:     192.0.2.1:37704 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:28:09] INFO:     192.0.2.1:37708 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:28:09] INFO:     192.0.2.1:37712 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:28:09 TP0] Decode batch, #running-req: 3, #full token: 239925, full token usage: 0.08, mamba num: 12, mamba usage: 0.04, accept len: 2.73, accept rate: 0.58, cuda graph: True, gen throughput (token/s): 90.40, #queue-req: 0, est. decode TFLOPS/s (per GPU): 5.61, est. read BW (GB/s per GPU): 3867.57, est. write BW (GB/s per GPU): 0.82
+[2026-10-09 07:28:12 TP0] Decode batch, #running-req: 3, #full token: 240270, full token usage: 0.08, mamba num: 12, mamba usage: 0.04, accept len: 2.88, accept rate: 0.63, cuda graph: True, gen throughput (token/s): 95.35, #queue-req: 0, est. decode TFLOPS/s (per GPU): 5.81, est. read BW (GB/s per GPU): 4060.58, est. write BW (GB/s per GPU): 0.86
+[2026-10-09 07:28:14] INFO:     192.0.2.1:46740 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:28:14] INFO:     192.0.2.1:46752 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:28:14] INFO:     192.0.2.1:46756 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:28:16] Anthropic thinking.display='updates' is accepted for SDK compatibility but reasoning text will still be emitted to the client
+[2026-10-09 07:28:16 TP0] Decode batch, #running-req: 2, #full token: 156450, full token usage: 0.05, mamba num: 8, mamba usage: 0.03, accept len: 2.56, accept rate: 0.52, cuda graph: True, gen throughput (token/s): 83.05, #queue-req: 0, est. decode TFLOPS/s (per GPU): 5.28, est. read BW (GB/s per GPU): 3574.51, est. write BW (GB/s per GPU): 0.75
+[2026-10-09 07:28:16] INFO:     192.0.2.1:46772 - "POST /v1/messages?beta=true HTTP/1.1" 200 OK
+[2026-10-09 07:28:17 TP0] Prefill batch, #new-seq: 1, #new-token: 573, #cached-token: 84990, full token usage: 0.08, mamba usage: 0.04, #running-req: 2, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 41.67, est. prefill TFLOPS/s (per GPU): 4.42
+[2026-10-09 07:28:19] INFO:     192.0.2.1:46778 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:28:19] INFO:     192.0.2.1:46780 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:28:19] INFO:     192.0.2.1:46794 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:28:20 TP0] Decode batch, #running-req: 3, #full token: 240993, full token usage: 0.08, mamba num: 12, mamba usage: 0.04, accept len: 2.83, accept rate: 0.61, cuda graph: True, gen throughput (token/s): 79.62, #queue-req: 0, est. decode TFLOPS/s (per GPU): 4.88, est. read BW (GB/s per GPU): 3396.49, est. write BW (GB/s per GPU): 0.72
+[2026-10-09 07:28:22] Anthropic thinking.display='updates' is accepted for SDK compatibility but reasoning text will still be emitted to the client
+[2026-10-09 07:28:23] INFO:     192.0.2.1:53186 - "POST /v1/messages?beta=true HTTP/1.1" 200 OK
+[2026-10-09 07:28:23 TP0] Prefill batch, #new-seq: 1, #new-token: 336, #cached-token: 85502, full token usage: 0.08, mamba usage: 0.04, #running-req: 2, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 52.40, est. prefill TFLOPS/s (per GPU): 5.57
+[2026-10-09 07:28:24 TP0] Decode batch, #running-req: 3, #full token: 241380, full token usage: 0.08, mamba num: 12, mamba usage: 0.04, accept len: 2.57, accept rate: 0.52, cuda graph: True, gen throughput (token/s): 62.15, #queue-req: 0, est. decode TFLOPS/s (per GPU): 3.92, est. read BW (GB/s per GPU): 2669.52, est. write BW (GB/s per GPU): 0.56
+[2026-10-09 07:28:24] INFO:     192.0.2.1:53198 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:28:24] INFO:     192.0.2.1:53214 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:28:24] INFO:     192.0.2.1:53228 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:28:27 TP0] Decode batch, #running-req: 3, #full token: 241688, full token usage: 0.08, mamba num: 12, mamba usage: 0.04, accept len: 2.54, accept rate: 0.51, cuda graph: True, gen throughput (token/s): 83.62, #queue-req: 0, est. decode TFLOPS/s (per GPU): 5.35, est. read BW (GB/s per GPU): 3604.37, est. write BW (GB/s per GPU): 0.76
+[2026-10-09 07:28:30] INFO:     192.0.2.1:53242 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:28:30] INFO:     192.0.2.1:53254 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:28:30] INFO:     192.0.2.1:53256 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:28:31 TP0] Decode batch, #running-req: 3, #full token: 242017, full token usage: 0.08, mamba num: 12, mamba usage: 0.04, accept len: 2.74, accept rate: 0.58, cuda graph: True, gen throughput (token/s): 87.03, #queue-req: 0, est. decode TFLOPS/s (per GPU): 5.41, est. read BW (GB/s per GPU): 3725.13, est. write BW (GB/s per GPU): 0.79
+[2026-10-09 07:28:32] Anthropic thinking.display='updates' is accepted for SDK compatibility but reasoning text will still be emitted to the client
+[2026-10-09 07:28:32] INFO:     192.0.2.1:59700 - "POST /v1/messages?beta=true HTTP/1.1" 200 OK
+[2026-10-09 07:28:33 TP0] Prefill batch, #new-seq: 1, #new-token: 452, #cached-token: 85822, full token usage: 0.08, mamba usage: 0.04, #running-req: 2, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 45.89, est. prefill TFLOPS/s (per GPU): 4.89
+[2026-10-09 07:28:35 TP0] Decode batch, #running-req: 3, #full token: 242461, full token usage: 0.08, mamba num: 12, mamba usage: 0.04, accept len: 2.65, accept rate: 0.55, cuda graph: True, gen throughput (token/s): 76.34, #queue-req: 0, est. decode TFLOPS/s (per GPU): 4.80, est. read BW (GB/s per GPU): 3276.55, est. write BW (GB/s per GPU): 0.69
+[2026-10-09 07:28:35] INFO:     192.0.2.1:59714 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:28:35] INFO:     192.0.2.1:59722 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:28:35] INFO:     192.0.2.1:59730 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:28:36] Anthropic thinking.display='updates' is accepted for SDK compatibility but reasoning text will still be emitted to the client
+[2026-10-09 07:28:36] INFO:     192.0.2.1:59738 - "POST /v1/messages?beta=true HTTP/1.1" 200 OK
+[2026-10-09 07:28:37 TP0] Prefill batch, #new-seq: 1, #new-token: 260, #cached-token: 86270, full token usage: 0.08, mamba usage: 0.04, #running-req: 2, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 69.74, est. prefill TFLOPS/s (per GPU): 7.45
+[2026-10-09 07:28:39 TP0] Decode batch, #running-req: 3, #full token: 242930, full token usage: 0.08, mamba num: 12, mamba usage: 0.04, accept len: 2.88, accept rate: 0.63, cuda graph: True, gen throughput (token/s): 83.51, #queue-req: 0, est. decode TFLOPS/s (per GPU): 5.10, est. read BW (GB/s per GPU): 3559.14, est. write BW (GB/s per GPU): 0.76
+[2026-10-09 07:28:40] INFO:     192.0.2.1:59746 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:28:40] INFO:     192.0.2.1:48702 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:28:40] INFO:     192.0.2.1:48718 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:28:40] Anthropic thinking.display='updates' is accepted for SDK compatibility but reasoning text will still be emitted to the client
+[2026-10-09 07:28:41] INFO:     192.0.2.1:48734 - "POST /v1/messages?beta=true HTTP/1.1" 200 OK
+[2026-10-09 07:28:41 TP0] Prefill batch, #new-seq: 1, #new-token: 161, #cached-token: 86526, full token usage: 0.08, mamba usage: 0.04, #running-req: 2, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 35.56, est. prefill TFLOPS/s (per GPU): 3.81
+[2026-10-09 07:28:43 TP0] Decode batch, #running-req: 3, #full token: 243253, full token usage: 0.08, mamba num: 12, mamba usage: 0.04, accept len: 2.71, accept rate: 0.57, cuda graph: True, gen throughput (token/s): 79.71, #queue-req: 0, est. decode TFLOPS/s (per GPU): 4.98, est. read BW (GB/s per GPU): 3415.02, est. write BW (GB/s per GPU): 0.72
+[2026-10-09 07:28:46] INFO:     192.0.2.1:48750 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:28:46] INFO:     192.0.2.1:48764 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:28:46] INFO:     192.0.2.1:48778 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:28:46 TP0] Decode batch, #running-req: 2, #full token: 158099, full token usage: 0.05, mamba num: 8, mamba usage: 0.03, accept len: 2.89, accept rate: 0.63, cuda graph: True, gen throughput (token/s): 87.39, #queue-req: 0, est. decode TFLOPS/s (per GPU): 5.33, est. read BW (GB/s per GPU): 3722.56, est. write BW (GB/s per GPU): 0.79
+[2026-10-09 07:28:46] Anthropic thinking.display='updates' is accepted for SDK compatibility but reasoning text will still be emitted to the client
+[2026-10-09 07:28:47] INFO:     192.0.2.1:48788 - "POST /v1/messages?beta=true HTTP/1.1" 200 OK
+[2026-10-09 07:28:50 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 21714, full token usage: 0.05, mamba usage: 0.03, #running-req: 1, #queue-req: 0, #pending-token: 12629, cuda graph: False, input throughput (token/s): 501.69, est. prefill TFLOPS/s (per GPU): 28.90
+[2026-10-09 07:28:50] Anthropic thinking.display='updates' is accepted for SDK compatibility but reasoning text will still be emitted to the client
+[2026-10-09 07:28:50] INFO:     192.0.2.1:48798 - "POST /v1/messages?beta=true HTTP/1.1" 200 OK
+[2026-10-09 07:28:51 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.05, mamba usage: 0.03, #running-req: 1, #queue-req: 0, #pending-token: 8533, cuda graph: False, input throughput (token/s): 2672.80, est. prefill TFLOPS/s (per GPU): 162.59
+[2026-10-09 07:28:52] INFO:     192.0.2.1:48050 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:28:52] INFO:     192.0.2.1:48060 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:28:53 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.06, mamba usage: 0.03, #running-req: 1, #queue-req: 1, #pending-token: 4437, cuda graph: False, input throughput (token/s): 2537.37, est. prefill TFLOPS/s (per GPU): 162.53
+[2026-10-09 07:28:53 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.09, mamba usage: 0.04, #running-req: 1, #queue-req: 0, #pending-token: 87166, cuda graph: False, input throughput (token/s): 10998.47, est. prefill TFLOPS/s (per GPU): 739.92
+[2026-10-09 07:28:53 TP0] Prefill batch, #new-seq: 2, #new-token: 512, #cached-token: 86654, full token usage: 0.09, mamba usage: 0.04, #running-req: 1, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 51483.13, est. prefill TFLOPS/s (per GPU): 4208.76
+[2026-10-09 07:28:56 TP0] Decode batch, #running-req: 3, #full token: 247935, full token usage: 0.09, mamba num: 12, mamba usage: 0.04, accept len: 2.80, accept rate: 0.60, cuda graph: True, gen throughput (token/s): 30.36, #queue-req: 0, est. decode TFLOPS/s (per GPU): 1.90, est. read BW (GB/s per GPU): 1302.20, est. write BW (GB/s per GPU): 0.27
+[2026-10-09 07:28:56] Anthropic thinking.display='updates' is accepted for SDK compatibility but reasoning text will still be emitted to the client
+[2026-10-09 07:28:57] INFO:     192.0.2.1:48088 - "POST /v1/messages?beta=true HTTP/1.1" 200 OK
+[2026-10-09 07:28:57] Anthropic thinking.display='updates' is accepted for SDK compatibility but reasoning text will still be emitted to the client
+[2026-10-09 07:28:57] INFO:     192.0.2.1:48096 - "POST /v1/messages?beta=true HTTP/1.1" 200 OK
+[2026-10-09 07:28:57] INFO:     192.0.2.1:48076 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:28:57] INFO:     192.0.2.1:48104 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:28:57] INFO:     192.0.2.1:48112 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:29:00 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 21714, full token usage: 0.05, mamba usage: 0.03, #running-req: 1, #queue-req: 1, #pending-token: 13576, cuda graph: False, input throughput (token/s): 621.81, est. prefill TFLOPS/s (per GPU): 35.82
+[2026-10-09 07:29:01 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.05, mamba usage: 0.03, #running-req: 1, #queue-req: 1, #pending-token: 96609, cuda graph: False, input throughput (token/s): 2578.51, est. prefill TFLOPS/s (per GPU): 156.86
+[2026-10-09 07:29:03] INFO:     192.0.2.1:59994 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:29:03] INFO:     192.0.2.1:59996 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:29:03 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.06, mamba usage: 0.03, #running-req: 1, #queue-req: 1, #pending-token: 92513, cuda graph: False, input throughput (token/s): 2177.25, est. prefill TFLOPS/s (per GPU): 139.46
+[2026-10-09 07:29:04 TP0] Prefill batch, #new-seq: 1, #new-token: 4096, #cached-token: 0, full token usage: 0.09, mamba usage: 0.04, #running-req: 1, #queue-req: 0, #pending-token: 88417, cuda graph: False, input throughput (token/s): 5184.79, est. prefill TFLOPS/s (per GPU): 348.80
+[2026-10-09 07:29:04 TP0] Prefill batch, #new-seq: 2, #new-token: 1635, #cached-token: 86782, full token usage: 0.09, mamba usage: 0.04, #running-req: 1, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 108174.90, est. prefill TFLOPS/s (per GPU): 8376.92
+[2026-10-09 07:29:07 TP0] Decode batch, #running-req: 3, #full token: 249280, full token usage: 0.09, mamba num: 12, mamba usage: 0.04, accept len: 2.99, accept rate: 0.66, cuda graph: True, gen throughput (token/s): 31.92, #queue-req: 0, est. decode TFLOPS/s (per GPU): 1.96, est. read BW (GB/s per GPU): 1361.21, est. write BW (GB/s per GPU): 0.29
+[2026-10-09 07:29:08] INFO:     192.0.2.1:59998 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:29:08] INFO:     192.0.2.1:60002 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:29:08] INFO:     192.0.2.1:60014 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:29:10 TP0] Decode batch, #running-req: 3, #full token: 126895, full token usage: 0.04, mamba num: 8, mamba usage: 0.03, accept len: 3.22, accept rate: 0.74, cuda graph: True, gen throughput (token/s): 104.99, #queue-req: 0, est. decode TFLOPS/s (per GPU): 6.23, est. read BW (GB/s per GPU): 4444.39, est. write BW (GB/s per GPU): 0.95
+[2026-10-09 07:29:11] Anthropic thinking.display='updates' is accepted for SDK compatibility but reasoning text will still be emitted to the client
+[2026-10-09 07:29:11] INFO:     192.0.2.1:46676 - "POST /v1/messages?beta=true HTTP/1.1" 200 OK
+[2026-10-09 07:29:13 TP0] Prefill batch, #new-seq: 1, #new-token: 2192, #cached-token: 122624, full token usage: 0.06, mamba usage: 0.03, #running-req: 2, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 231.47, est. prefill TFLOPS/s (per GPU): 31.53
+[2026-10-09 07:29:13] Anthropic thinking.display='updates' is accepted for SDK compatibility but reasoning text will still be emitted to the client
+[2026-10-09 07:29:14] INFO:     192.0.2.1:46694 - "POST /v1/messages?beta=true HTTP/1.1" 200 OK
+[2026-10-09 07:29:14] INFO:     192.0.2.1:46692 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:29:14] INFO:     192.0.2.1:46698 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:29:14] INFO:     192.0.2.1:46700 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:29:14 TP0] Prefill batch, #new-seq: 1, #new-token: 380, #cached-token: 87102, full token usage: 0.09, mamba usage: 0.04, #running-req: 2, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 380.63, est. prefill TFLOPS/s (per GPU): 40.95
+[2026-10-09 07:29:16 TP0] Decode batch, #running-req: 3, #full token: 250686, full token usage: 0.09, mamba num: 12, mamba usage: 0.04, accept len: 3.02, accept rate: 0.67, cuda graph: True, gen throughput (token/s): 54.13, #queue-req: 0, est. decode TFLOPS/s (per GPU): 3.20, est. read BW (GB/s per GPU): 2288.65, est. write BW (GB/s per GPU): 0.49
+[2026-10-09 07:29:17] Anthropic thinking.display='updates' is accepted for SDK compatibility but reasoning text will still be emitted to the client
+[2026-10-09 07:29:18] INFO:     192.0.2.1:46716 - "POST /v1/messages?beta=true HTTP/1.1" 200 OK
+[2026-10-09 07:29:18 TP0] Prefill batch, #new-seq: 1, #new-token: 334, #cached-token: 87422, full token usage: 0.09, mamba usage: 0.04, #running-req: 2, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 88.78, est. prefill TFLOPS/s (per GPU): 9.57
+[2026-10-09 07:29:19] INFO:     192.0.2.1:46728 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:29:19] INFO:     192.0.2.1:46738 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:29:19] INFO:     192.0.2.1:46748 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:29:20 TP0] Decode batch, #running-req: 3, #full token: 251185, full token usage: 0.09, mamba num: 12, mamba usage: 0.04, accept len: 2.96, accept rate: 0.65, cuda graph: True, gen throughput (token/s): 85.17, #queue-req: 0, est. decode TFLOPS/s (per GPU): 5.22, est. read BW (GB/s per GPU): 3632.09, est. write BW (GB/s per GPU): 0.77
+[2026-10-09 07:29:21] Anthropic thinking.display='updates' is accepted for SDK compatibility but reasoning text will still be emitted to the client
+[2026-10-09 07:29:21] INFO:     192.0.2.1:39142 - "POST /v1/messages?beta=true HTTP/1.1" 200 OK
+[2026-10-09 07:29:22 TP0] Prefill batch, #new-seq: 1, #new-token: 279, #cached-token: 87742, full token usage: 0.09, mamba usage: 0.04, #running-req: 2, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 80.33, est. prefill TFLOPS/s (per GPU): 8.68
+[2026-10-09 07:29:24 TP0] Decode batch, #running-req: 3, #full token: 251677, full token usage: 0.09, mamba num: 12, mamba usage: 0.04, accept len: 2.90, accept rate: 0.63, cuda graph: True, gen throughput (token/s): 83.88, #queue-req: 0, est. decode TFLOPS/s (per GPU): 5.18, est. read BW (GB/s per GPU): 3583.55, est. write BW (GB/s per GPU): 0.76
+[2026-10-09 07:29:24] INFO:     192.0.2.1:39146 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:29:24] INFO:     192.0.2.1:39158 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:29:24] INFO:     192.0.2.1:39162 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:29:25] Anthropic thinking.display='updates' is accepted for SDK compatibility but reasoning text will still be emitted to the client
+[2026-10-09 07:29:25] INFO:     192.0.2.1:39166 - "POST /v1/messages?beta=true HTTP/1.1" 200 OK
+[2026-10-09 07:29:26 TP0] Prefill batch, #new-seq: 1, #new-token: 217, #cached-token: 87998, full token usage: 0.09, mamba usage: 0.04, #running-req: 2, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 49.51, est. prefill TFLOPS/s (per GPU): 5.36
+[2026-10-09 07:29:28 TP0] Decode batch, #running-req: 3, #full token: 252060, full token usage: 0.09, mamba num: 12, mamba usage: 0.04, accept len: 2.89, accept rate: 0.63, cuda graph: True, gen throughput (token/s): 85.91, #queue-req: 0, est. decode TFLOPS/s (per GPU): 5.31, est. read BW (GB/s per GPU): 3671.91, est. write BW (GB/s per GPU): 0.78
+[2026-10-09 07:29:30] Anthropic thinking.display='updates' is accepted for SDK compatibility but reasoning text will still be emitted to the client
+[2026-10-09 07:29:30] INFO:     192.0.2.1:39196 - "POST /v1/messages?beta=true HTTP/1.1" 200 OK
+[2026-10-09 07:29:30] INFO:     192.0.2.1:39182 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:29:30] INFO:     192.0.2.1:39200 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:29:30] INFO:     192.0.2.1:39204 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:29:30 TP0] Prefill batch, #new-seq: 1, #new-token: 184, #cached-token: 88190, full token usage: 0.09, mamba usage: 0.04, #running-req: 2, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 42.61, est. prefill TFLOPS/s (per GPU): 4.62
+[2026-10-09 07:29:31 TP0] Decode batch, #running-req: 3, #full token: 252404, full token usage: 0.09, mamba num: 12, mamba usage: 0.04, accept len: 2.87, accept rate: 0.62, cuda graph: True, gen throughput (token/s): 84.69, #queue-req: 0, est. decode TFLOPS/s (per GPU): 5.25, est. read BW (GB/s per GPU): 3622.87, est. write BW (GB/s per GPU): 0.77
+[2026-10-09 07:29:35 TP0] Decode batch, #running-req: 2, #full token: 165557, full token usage: 0.06, mamba num: 8, mamba usage: 0.03, accept len: 2.77, accept rate: 0.59, cuda graph: True, gen throughput (token/s): 76.23, #queue-req: 0, est. decode TFLOPS/s (per GPU): 4.78, est. read BW (GB/s per GPU): 3269.00, est. write BW (GB/s per GPU): 0.69
+[2026-10-09 07:29:35] INFO:     192.0.2.1:49636 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:29:35] INFO:     192.0.2.1:49652 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:29:35] INFO:     192.0.2.1:49656 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:29:36] Anthropic thinking.display='updates' is accepted for SDK compatibility but reasoning text will still be emitted to the client
+[2026-10-09 07:29:36] INFO:     192.0.2.1:49670 - "POST /v1/messages?beta=true HTTP/1.1" 200 OK
+[2026-10-09 07:29:37 TP0] Prefill batch, #new-seq: 1, #new-token: 168, #cached-token: 88318, full token usage: 0.09, mamba usage: 0.04, #running-req: 2, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 25.65, est. prefill TFLOPS/s (per GPU): 2.78
+[2026-10-09 07:29:39 TP0] Decode batch, #running-req: 3, #full token: 252992, full token usage: 0.09, mamba num: 12, mamba usage: 0.04, accept len: 2.96, accept rate: 0.65, cuda graph: True, gen throughput (token/s): 80.20, #queue-req: 0, est. decode TFLOPS/s (per GPU): 4.91, est. read BW (GB/s per GPU): 3420.17, est. write BW (GB/s per GPU): 0.73
+[2026-10-09 07:29:41] INFO:     192.0.2.1:49676 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:29:41] INFO:     192.0.2.1:45086 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:29:41] INFO:     192.0.2.1:45090 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:29:42 TP0] Decode batch, #running-req: 3, #full token: 253328, full token usage: 0.09, mamba num: 12, mamba usage: 0.04, accept len: 2.79, accept rate: 0.60, cuda graph: True, gen throughput (token/s): 90.42, #queue-req: 0, est. decode TFLOPS/s (per GPU): 5.68, est. read BW (GB/s per GPU): 3880.07, est. write BW (GB/s per GPU): 0.82
+[2026-10-09 07:29:43] Anthropic thinking.display='updates' is accepted for SDK compatibility but reasoning text will still be emitted to the client
+[2026-10-09 07:29:44] INFO:     192.0.2.1:45106 - "POST /v1/messages?beta=true HTTP/1.1" 200 OK
+[2026-10-09 07:29:44 TP0] Prefill batch, #new-seq: 1, #new-token: 314, #cached-token: 88446, full token usage: 0.09, mamba usage: 0.04, #running-req: 2, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 41.61, est. prefill TFLOPS/s (per GPU): 4.52
+[2026-10-09 07:29:46] INFO:     192.0.2.1:45122 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:29:46] INFO:     192.0.2.1:45136 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:29:46] INFO:     192.0.2.1:45152 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:29:46 TP0] Decode batch, #running-req: 2, #full token: 166196, full token usage: 0.06, mamba num: 8, mamba usage: 0.03, accept len: 2.84, accept rate: 0.61, cuda graph: True, gen throughput (token/s): 79.39, #queue-req: 0, est. decode TFLOPS/s (per GPU): 4.95, est. read BW (GB/s per GPU): 3399.65, est. write BW (GB/s per GPU): 0.72
+[2026-10-09 07:29:49] Anthropic thinking.display='updates' is accepted for SDK compatibility but reasoning text will still be emitted to the client
+[2026-10-09 07:29:49] INFO:     192.0.2.1:45154 - "POST /v1/messages?beta=true HTTP/1.1" 200 OK
+[2026-10-09 07:29:50 TP0] Decode batch, #running-req: 2, #full token: 253880, full token usage: 0.09, mamba num: 12, mamba usage: 0.04, accept len: 2.48, accept rate: 0.49, cuda graph: True, gen throughput (token/s): 58.06, #queue-req: 0, est. decode TFLOPS/s (per GPU): 3.79, est. read BW (GB/s per GPU): 2515.77, est. write BW (GB/s per GPU): 0.53
+[2026-10-09 07:29:50 TP0] Prefill batch, #new-seq: 1, #new-token: 138, #cached-token: 88702, full token usage: 0.09, mamba usage: 0.04, #running-req: 2, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 26.43, est. prefill TFLOPS/s (per GPU): 2.87
+[2026-10-09 07:29:51] INFO:     192.0.2.1:45168 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:29:51] INFO:     192.0.2.1:47486 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:29:51] INFO:     192.0.2.1:47496 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:29:53] Anthropic thinking.display='updates' is accepted for SDK compatibility but reasoning text will still be emitted to the client
+[2026-10-09 07:29:53 TP0] Decode batch, #running-req: 2, #full token: 166590, full token usage: 0.06, mamba num: 8, mamba usage: 0.03, accept len: 2.79, accept rate: 0.60, cuda graph: True, gen throughput (token/s): 89.99, #queue-req: 0, est. decode TFLOPS/s (per GPU): 5.66, est. read BW (GB/s per GPU): 3862.88, est. write BW (GB/s per GPU): 0.81
+[2026-10-09 07:29:53] INFO:     192.0.2.1:47504 - "POST /v1/messages?beta=true HTTP/1.1" 200 OK
+[2026-10-09 07:29:54 TP0] Prefill batch, #new-seq: 1, #new-token: 345, #cached-token: 88830, full token usage: 0.09, mamba usage: 0.04, #running-req: 2, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 76.85, est. prefill TFLOPS/s (per GPU): 8.37
+[2026-10-09 07:29:56] INFO:     192.0.2.1:47516 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:29:56] INFO:     192.0.2.1:47522 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:29:56] INFO:     192.0.2.1:47534 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:29:57 TP0] Decode batch, #running-req: 3, #full token: 254731, full token usage: 0.09, mamba num: 12, mamba usage: 0.04, accept len: 2.70, accept rate: 0.57, cuda graph: True, gen throughput (token/s): 77.85, #queue-req: 0, est. decode TFLOPS/s (per GPU): 4.96, est. read BW (GB/s per GPU): 3352.02, est. write BW (GB/s per GPU): 0.70
+[2026-10-09 07:30:01 TP0] Decode batch, #running-req: 3, #full token: 255063, full token usage: 0.09, mamba num: 12, mamba usage: 0.04, accept len: 2.76, accept rate: 0.59, cuda graph: True, gen throughput (token/s): 89.18, #queue-req: 0, est. decode TFLOPS/s (per GPU): 5.64, est. read BW (GB/s per GPU): 3833.37, est. write BW (GB/s per GPU): 0.81
+[2026-10-09 07:30:02] INFO:     192.0.2.1:34992 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:30:02] INFO:     192.0.2.1:34996 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:30:02] INFO:     192.0.2.1:35010 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:30:04 TP0] Decode batch, #running-req: 2, #full token: 167208, full token usage: 0.06, mamba num: 8, mamba usage: 0.03, accept len: 2.54, accept rate: 0.51, cuda graph: True, gen throughput (token/s): 67.16, #queue-req: 0, est. decode TFLOPS/s (per GPU): 4.36, est. read BW (GB/s per GPU): 2905.48, est. write BW (GB/s per GPU): 0.61
+[2026-10-09 07:30:07] INFO:     192.0.2.1:35024 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:30:07] INFO:     192.0.2.1:35028 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:30:07] INFO:     192.0.2.1:35036 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:30:08 TP0] Decode batch, #running-req: 2, #full token: 167386, full token usage: 0.06, mamba num: 8, mamba usage: 0.03, accept len: 2.24, accept rate: 0.41, cuda graph: True, gen throughput (token/s): 53.88, #queue-req: 0, est. decode TFLOPS/s (per GPU): 3.68, est. read BW (GB/s per GPU): 2361.29, est. write BW (GB/s per GPU): 0.49
+[2026-10-09 07:30:11 TP0] Decode batch, #running-req: 2, #full token: 167604, full token usage: 0.06, mamba num: 8, mamba usage: 0.03, accept len: 2.69, accept rate: 0.56, cuda graph: True, gen throughput (token/s): 66.99, #queue-req: 0, est. decode TFLOPS/s (per GPU): 4.25, est. read BW (GB/s per GPU): 2881.40, est. write BW (GB/s per GPU): 0.61
+[2026-10-09 07:30:12] Anthropic thinking.display='updates' is accepted for SDK compatibility but reasoning text will still be emitted to the client
+[2026-10-09 07:30:12] INFO:     192.0.2.1:37028 - "POST /v1/messages?beta=true HTTP/1.1" 200 OK
+[2026-10-09 07:30:13] INFO:     192.0.2.1:37018 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:30:13] INFO:     192.0.2.1:37040 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:30:13] INFO:     192.0.2.1:37044 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:30:13 TP0] Prefill batch, #new-seq: 1, #new-token: 539, #cached-token: 89150, full token usage: 0.09, mamba usage: 0.04, #running-req: 2, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 29.12, est. prefill TFLOPS/s (per GPU): 3.18
+[2026-10-09 07:30:15 TP0] Decode batch, #running-req: 3, #full token: 256229, full token usage: 0.09, mamba num: 12, mamba usage: 0.04, accept len: 2.72, accept rate: 0.57, cuda graph: True, gen throughput (token/s): 70.70, #queue-req: 0, est. decode TFLOPS/s (per GPU): 4.49, est. read BW (GB/s per GPU): 3042.36, est. write BW (GB/s per GPU): 0.64
+[2026-10-09 07:30:18] INFO:     192.0.2.1:37046 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:30:18] INFO:     192.0.2.1:37056 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:30:18] INFO:     192.0.2.1:37072 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:30:18 TP0] Decode batch, #running-req: 3, #full token: 256535, full token usage: 0.09, mamba num: 12, mamba usage: 0.04, accept len: 2.58, accept rate: 0.53, cuda graph: True, gen throughput (token/s): 83.51, #queue-req: 0, est. decode TFLOPS/s (per GPU): 5.44, est. read BW (GB/s per GPU): 3616.15, est. write BW (GB/s per GPU): 0.76
+[2026-10-09 07:30:22 TP0] Decode batch, #running-req: 3, #full token: 168234, full token usage: 0.06, mamba num: 8, mamba usage: 0.03, accept len: 2.85, accept rate: 0.62, cuda graph: True, gen throughput (token/s): 92.01, #queue-req: 0, est. decode TFLOPS/s (per GPU): 5.77, est. read BW (GB/s per GPU): 3945.60, est. write BW (GB/s per GPU): 0.83
+[2026-10-09 07:30:22] Anthropic thinking.display='updates' is accepted for SDK compatibility but reasoning text will still be emitted to the client
+[2026-10-09 07:30:23] INFO:     192.0.2.1:48574 - "POST /v1/messages?beta=true HTTP/1.1" 200 OK
+[2026-10-09 07:30:23] INFO:     192.0.2.1:48566 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:30:23] INFO:     192.0.2.1:48584 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:30:23] INFO:     192.0.2.1:48594 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:30:23 TP0] Prefill batch, #new-seq: 1, #new-token: 390, #cached-token: 89662, full token usage: 0.09, mamba usage: 0.04, #running-req: 2, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 36.69, est. prefill TFLOPS/s (per GPU): 4.02
+[2026-10-09 07:30:26 TP0] Decode batch, #running-req: 3, #full token: 257230, full token usage: 0.09, mamba num: 12, mamba usage: 0.04, accept len: 2.56, accept rate: 0.52, cuda graph: True, gen throughput (token/s): 72.65, #queue-req: 0, est. decode TFLOPS/s (per GPU): 4.74, est. read BW (GB/s per GPU): 3147.28, est. write BW (GB/s per GPU): 0.66
+[2026-10-09 07:30:28] INFO:     192.0.2.1:48602 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:30:28] INFO:     192.0.2.1:48614 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:30:28] INFO:     192.0.2.1:48624 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:30:30 TP0] Decode batch, #running-req: 3, #full token: 257565, full token usage: 0.09, mamba num: 12, mamba usage: 0.04, accept len: 2.79, accept rate: 0.60, cuda graph: True, gen throughput (token/s): 90.21, #queue-req: 0, est. decode TFLOPS/s (per GPU): 5.70, est. read BW (GB/s per GPU): 3877.08, est. write BW (GB/s per GPU): 0.82
+[2026-10-09 07:30:31] Anthropic thinking.display='updates' is accepted for SDK compatibility but reasoning text will still be emitted to the client
+[2026-10-09 07:30:31] INFO:     192.0.2.1:55408 - "POST /v1/messages?beta=true HTTP/1.1" 200 OK
+[2026-10-09 07:30:32 TP0] Prefill batch, #new-seq: 1, #new-token: 296, #cached-token: 90046, full token usage: 0.09, mamba usage: 0.04, #running-req: 2, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 34.84, est. prefill TFLOPS/s (per GPU): 3.83
+[2026-10-09 07:30:34] INFO:     192.0.2.1:55420 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:30:34] INFO:     192.0.2.1:55430 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:30:34] INFO:     192.0.2.1:55434 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:30:34 TP0] Decode batch, #running-req: 3, #full token: 257882, full token usage: 0.09, mamba num: 12, mamba usage: 0.04, accept len: 2.65, accept rate: 0.55, cuda graph: True, gen throughput (token/s): 75.86, #queue-req: 0, est. decode TFLOPS/s (per GPU): 4.89, est. read BW (GB/s per GPU): 3275.42, est. write BW (GB/s per GPU): 0.69
+[2026-10-09 07:30:35] Anthropic thinking.display='updates' is accepted for SDK compatibility but reasoning text will still be emitted to the client
+[2026-10-09 07:30:36] INFO:     192.0.2.1:55444 - "POST /v1/messages?beta=true HTTP/1.1" 200 OK
+[2026-10-09 07:30:36 TP0] Prefill batch, #new-seq: 1, #new-token: 327, #cached-token: 90302, full token usage: 0.09, mamba usage: 0.04, #running-req: 2, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 70.84, est. prefill TFLOPS/s (per GPU): 7.80
+[2026-10-09 07:30:38 TP0] Decode batch, #running-req: 3, #full token: 258354, full token usage: 0.09, mamba num: 12, mamba usage: 0.04, accept len: 2.69, accept rate: 0.56, cuda graph: True, gen throughput (token/s): 76.60, #queue-req: 0, est. decode TFLOPS/s (per GPU): 4.91, est. read BW (GB/s per GPU): 3303.66, est. write BW (GB/s per GPU): 0.69
+[2026-10-09 07:30:39] INFO:     192.0.2.1:55448 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:30:39] INFO:     192.0.2.1:55460 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:30:39] INFO:     192.0.2.1:55474 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:30:41] Anthropic thinking.display='updates' is accepted for SDK compatibility but reasoning text will still be emitted to the client
+[2026-10-09 07:30:41] INFO:     192.0.2.1:34238 - "POST /v1/messages?beta=true HTTP/1.1" 200 OK
+[2026-10-09 07:30:42 TP0] Decode batch, #running-req: 2, #full token: 169241, full token usage: 0.06, mamba num: 8, mamba usage: 0.03, accept len: 2.91, accept rate: 0.64, cuda graph: True, gen throughput (token/s): 88.63, #queue-req: 0, est. decode TFLOPS/s (per GPU): 5.52, est. read BW (GB/s per GPU): 3794.67, est. write BW (GB/s per GPU): 0.80
+[2026-10-09 07:30:42 TP0] Prefill batch, #new-seq: 1, #new-token: 291, #cached-token: 90622, full token usage: 0.09, mamba usage: 0.04, #running-req: 2, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 50.24, est. prefill TFLOPS/s (per GPU): 5.54
+[2026-10-09 07:30:44] INFO:     192.0.2.1:34240 - "GET /health HTTP/1.1" 200 OK
+[2026-10-09 07:30:44] INFO:     192.0.2.1:34256 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-10-09 07:30:44] INFO:     192.0.2.1:34272 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-09 07:30:46 TP0] Decode batch, #running-req: 3, #full token: 259142, full token usage: 0.09, mamba num: 12, mamba usage: 0.04, accept len: 2.84, accept rate: 0.61, cuda graph: True, gen throughput (token/s): 82.44, #queue-req: 0, est. decode TFLOPS/s (per GPU): 5.19, est. read BW (GB/s per GPU): 3539.31, est. write BW (GB/s per GPU): 0.75
+[2026-10-09 07:30:47] Anthropic thinking.display='updates' is accepted for SDK compatibility but reasoning text will still be emitted to the client
+[2026-10-09 07:30:47] INFO:     192.0.2.1:34280 - "POST /v1/messages?beta=true HTTP/1.1" 200 OK
+[2026-10-09 07:30:48 TP0] Prefill batch, #new-seq: 1, #new-token: 220, #cached-token: 90878, full token usage: 0.09, mamba usage: 0.04, #running-req: 2, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 41.12, est. prefill TFLOPS/s (per GPU): 4.54
+[2026-10-09 07:30:49] Anthropic thinking.display='updates' is accepted for SDK compatibility but reasoning text will still be emitted to the client
+[2026-10-09 07:30:49] INFO:     192.0.2.1:34292 - "POST /v1/messages?beta=true HTTP/1.1" 200 OK
+[2026-10-09 07:30:50 TP0] Decode batch, #running-req: 3, #full token: 259487, full token usage: 0.09, mamba num: 12, mamba usage: 0.04, accept len: 2.91, accept rate: 0.64, cuda graph: True, gen throughput (token/s): 83.63, #queue-req: 0, est. decode TFLOPS/s (per GPU): 5.21, est. read BW (GB/s per GPU): 3581.72, est. write BW (GB/s per GPU): 0.76
+[2026-10-09 07:30:53 TP0] Decode batch, #running-req: 2, #full token: 169888, full token usage: 0.06, mamba num: 8, mamba usage: 0.03, accept len: 2.90, accept rate: 0.63, cuda graph: True, gen throughput (token/s): 67.62, #queue-req: 0, est. decode TFLOPS/s (per GPU): 4.20, est. read BW (GB/s per GPU): 2893.46, est. write BW (GB/s per GPU): 0.61
+[2026-10-09 07:30:57 TP0] Decode batch, #running-req: 2, #full token: 170095, full token usage: 0.06, mamba num: 8, mamba usage: 0.03, accept len: 2.55, accept rate: 0.52, cuda graph: True, gen throughput (token/s): 56.75, #queue-req: 0, est. decode TFLOPS/s (per GPU): 3.70, est. read BW (GB/s per GPU): 2456.90, est. write BW (GB/s per GPU): 0.51
+[2026-10-09 07:31:00 TP0] Decode batch, #running-req: 2, #full token: 170366, full token usage: 0.06, mamba num: 8, mamba usage: 0.03, accept len: 3.39, accept rate: 0.80, cuda graph: True, gen throughput (token/s): 81.95, #queue-req: 0, est. decode TFLOPS/s (per GPU): 4.81, est. read BW (GB/s per GPU): 3460.08, est. write BW (GB/s per GPU): 0.74

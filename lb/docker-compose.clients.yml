@@ -1,0 +1,23 @@
+# vllm-lb ON ONE MORE NETWORK, for client containers of another compose project on this host (e.g. a browser
+# MCP that asks the gui server where to click). The LB publishes on 127.0.0.1 only, which a container cannot
+# dial; this network lets a client reach http://vllm-lb:8010 without widening that bind. Only the LB joins it
+# here; each client project joins it from its own compose file.
+#
+# Select it AFTER an override that names the LB's networks — a service that names networks loses compose's
+# implicit default, so alone this file would take the LB off the network its searxng sidecar is on:
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.broker.yml:docker-compose.clients.yml
+#   LB_CLIENT_NETWORK=<the network's name>
+#
+# EXTERNAL: two compose projects share it, so neither owns it — create it once:
+#   docker network create --subnet <a free private /28> <LB_CLIENT_NETWORK>
+# A running LB joins without a restart: docker network connect <LB_CLIENT_NETWORK> vllm-lb
+# Such a client sends `Host: vllm-lb:8010`: list it in LB_ALLOWED_HOSTS (lb/.env), or the LB answers it 421.
+services:
+  vllm-lb:
+    networks:
+      - clients
+
+networks:
+  clients:
+    external: true
+    name: "${LB_CLIENT_NETWORK:?set in lb/.env when docker-compose.clients.yml is in COMPOSE_FILE}"

@@ -1,0 +1,170 @@
+{
+  "captured_at": "2026-09-15T21:23:23+00:00",
+  "via": "http://127.0.0.1:8010",
+  "request": {
+    "method": "POST",
+    "path": "/v1/chat/completions",
+    "headers": {
+      "Content-Type": "application/json",
+      "anthropic-version": "2023-06-01"
+    },
+    "body": {
+      "model": "qwen3.8:latest",
+      "max_tokens": 48,
+      "stream": true,
+      "stream_options": {
+        "include_usage": true
+      },
+      "messages": [
+        {
+          "role": "user",
+          "content": "Count from 1 to 20, separated by single spaces. Reply with the numbers only."
+        }
+      ]
+    }
+  },
+  "status": 200,
+  "reason": "OK",
+  "headers": [
+    [
+      "Server",
+      "vllm-lb/1.0 Python/3.12.14"
+    ],
+    [
+      "Date",
+      "Tue, 15 Sep 2026 21:23:21 GMT"
+    ],
+    [
+      "Content-Type",
+      "text/event-stream"
+    ],
+    [
+      "Date",
+      "Tue, 15 Sep 2026 21:23:21 GMT"
+    ],
+    [
+      "Connection",
+      "close"
+    ],
+    [
+      "X-LB-Backend",
+      "http://host.docker.internal:11434"
+    ],
+    [
+      "X-LB-Kind",
+      "ollama"
+    ],
+    [
+      "X-LB-Box",
+      "box-c"
+    ]
+  ],
+  "served_by": {
+    "X-LB-Backend": "http://host.docker.internal:11434",
+    "X-LB-Kind": "ollama",
+    "X-LB-Box": "box-c"
+  },
+  "head_s": 0.310601,
+  "reads": [
+    [
+      0.310612,
+      246
+    ],
+    [
+      0.524137,
+      913
+    ],
+    [
+      0.524446,
+      230
+    ],
+    [
+      0.750443,
+      682
+    ],
+    [
+      0.95867,
+      676
+    ],
+    [
+      0.958728,
+      461
+    ],
+    [
+      1.17251,
+      687
+    ],
+    [
+      1.172568,
+      228
+    ],
+    [
+      1.384024,
+      230
+    ],
+    [
+      1.384148,
+      229
+    ],
+    [
+      1.384432,
+      229
+    ],
+    [
+      1.384676,
+      228
+    ],
+    [
+      1.384938,
+      232
+    ],
+    [
+      1.604822,
+      225
+    ],
+    [
+      1.832598,
+      232
+    ],
+    [
+      2.056367,
+      467
+    ],
+    [
+      2.056432,
+      225
+    ],
+    [
+      2.284061,
+      226
+    ],
+    [
+      2.284111,
+      226
+    ],
+    [
+      2.503787,
+      226
+    ],
+    [
+      2.503847,
+      452
+    ],
+    [
+      2.722483,
+      452
+    ],
+    [
+      2.869184,
+      226
+    ],
+    [
+      2.869228,
+      439
+    ]
+  ],
+  "bytes": 8667,
+  "abandoned": false,
+  "refused_before": [],
+  "posts_so_far": 3
+}

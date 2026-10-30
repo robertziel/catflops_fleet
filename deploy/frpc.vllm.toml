@@ -1,0 +1,33 @@
+# vllm.example.com — the vLLM Gateway dashboard, over the shared frps.
+#
+# NOT APPLIED. This is a prepared artefact: adding it registers a new PUBLIC hostname on
+# infrastructure other services depend on, which is the operator's call, not the agent's.
+#
+# Modelled on the frpc clients of the sibling projects on this box, each registering only its own subdomains
+# "so it cannot disturb any existing tunnel". Same rule here: this client owns `vllm` alone.
+#
+# The token must come from the environment (frp's Go-template env support), never this file:
+#   auth.token = "{{ .Envs.FRP_TOKEN }}"
+#
+# HOW TO APPLY (operator):
+#   1. append the [[proxies]] block below to the frpc config that should own it, or run this
+#      file as its own client;
+#   2. restart that client;
+#   3. install your edge vhost for the hostname (deploy/nginx-edge-power.example.conf is the shape) and reload nginx.
+# Do 3 BEFORE 2 if you want the hostname to be password-protected from its first second.
+
+serverAddr = "{{ .Envs.FRP_SERVER }}"
+serverPort = 7000
+auth.token = "{{ .Envs.FRP_TOKEN }}"
+loginFailExit = false
+
+# The dashboard binds 127.0.0.1:3000 on box-c (loopback on purpose — see its compose file),
+# so this client needs network_mode: host, exactly as the others do.
+# The Host passes through unchanged (no hostHeaderRewrite): the service behind it answers only to the names its
+# allowlist states (LB_ALLOWED_HOSTS / POWER_ALLOWED_HOSTS) — list the public name there.
+[[proxies]]
+name = "vllm-gateway"
+type = "http"
+localIP = "127.0.0.1"
+localPort = 3000
+subdomain = "vllm"

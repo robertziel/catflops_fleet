@@ -1,0 +1,54 @@
+{
+  "captured_at": "2026-09-15T21:40:30+00:00",
+  "url": "http://192.0.2.2:8100/metrics",
+  "samples": [
+    {
+      "file": "vllm-v0.29.0-cluster-head-1.metrics",
+      "status": 200,
+      "headers": [
+        [
+          "date",
+          "Tue, 15 Sep 2026 21:40:19 GMT"
+        ],
+        [
+          "server",
+          "uvicorn"
+        ],
+        [
+          "content-length",
+          "65123"
+        ],
+        [
+          "content-type",
+          "text/plain; version=1.0.0; charset=utf-8"
+        ]
+      ],
+      "read_at_s": 0.008211,
+      "bytes": 65123
+    },
+    {
+      "file": "vllm-v0.29.0-cluster-head-2.metrics",
+      "status": 200,
+      "headers": [
+        [
+          "date",
+          "Tue, 15 Sep 2026 21:40:30 GMT"
+        ],
+        [
+          "server",
+          "uvicorn"
+        ],
+        [
+          "content-length",
+          "65127"
+        ],
+        [
+          "content-type",
+          "text/plain; version=1.0.0; charset=utf-8"
+        ]
+      ],
+      "read_at_s": 10.009056,
+      "bytes": 65127
+    }
+  ]
+}

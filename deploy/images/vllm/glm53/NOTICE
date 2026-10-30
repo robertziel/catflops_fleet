@@ -1,0 +1,15 @@
+Third-party file
+
+sparse_attn_indexer_kpool_sm121.py
+  Origin: vLLM (Apache-2.0, "Copyright contributors to the vLLM project"), file
+  vllm/model_executor/layers/sparse_attn_indexer_kpool.py of the vllm/vllm-openai:glm53-flash-arm64-cu130 per-model
+  image, modified by tonyd2wild (https://github.com/tonyd2wild/GLM-5.3-Flash-NVFP4-DFlash2-2x-DGX-Spark,
+  docker/sparse_attn_indexer_kpool_sm121.py), redistributed unmodified by
+  https://github.com/himorishige/glm53-flash-2x-dgx-spark-recipe @9993555ced71c0342416e75093bc90607cd2ff42
+  (patches/sparse_attn_indexer_kpool_sm121.py), from which this copy is taken byte for byte
+  (sha256 8a3ecfb0bab2441dd7417ed00a10d142191496149f88e5fe79fcfaea4b160980).
+  The two changes versus the stock file: `pool_topk` is initialised to -1 instead of torch.empty, and the
+  persistent_topk kernel is skipped on GPUs with fewer than 78 SMs. Licensed under the Apache License 2.0; the SPDX
+  header in the file is authoritative.
+
+Base image: ghcr.io/tonyd2wild/vllm-glm53-flash (built on vllm/vllm-openai, Apache-2.0).

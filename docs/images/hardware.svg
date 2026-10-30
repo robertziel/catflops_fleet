@@ -1,0 +1,200 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1100" viewBox="0 0 1600 1100" role="img" aria-label="catflops_fleet hardware abstraction">
+  <!-- The hardware abstraction, read from lb/vllm_lb/hardware (profiles.py, memory.py, accelerator.py, types/*.yml, accelerators/*.yml) and its readers
+       (hw.py, saturation.py, memory_estimate.py, fleet.py). Palette as docs/images/architecture.svg. -->
+  <defs>
+    <style>
+      .cap { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; letter-spacing: 1.6px; fill: #8b949e; }
+      .card { fill: #161b22; stroke: #30363d; stroke-width: 1.5; }
+      .group { fill: none; stroke: #4d5866; stroke-width: 1.5; stroke-dasharray: 6 5; }
+      .ctitle { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 18px; fill: #e6edf3; }
+      .etitle { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 22px; font-weight: 600; fill: #e6edf3; }
+      .sub { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 15px; fill: #8b949e; }
+      .note { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; fill: #8b949e; }
+      .key { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; letter-spacing: 1.2px; fill: #6e7781; }
+      .val { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13.5px; fill: #B1B8C0; }
+      .route { fill: #1b2129; }
+      .chip { fill: #1b2129; stroke: #30363d; stroke-width: 1; }
+      .uni { fill: #12302c; stroke: #64EBDB; stroke-width: 1; }
+      .dis { fill: #15301f; stroke: #7BEE98; stroke-width: 1; }
+      .edge { fill: none; stroke: #5a6572; stroke-width: 1.6; }
+      .hot { fill: none; stroke: #64EBDB; stroke-width: 2; }
+      .grn { fill: none; stroke: #7BEE98; stroke-width: 2; }
+      .elabel { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; fill: #8b949e; }
+    </style>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#5a6572"/></marker>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#64EBDB"/></marker>
+    <marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#7BEE98"/></marker>
+  </defs>
+
+  <rect width="1600" height="1100" rx="16" fill="#0d1117"/>
+  <text x="40" y="50" class="cap">HARDWARE</text>
+  <text x="150" y="50" class="sub">a card is NAMED by its type · the type names its ACCELERATOR (what kernels target) · its family decides how memory is read</text>
+
+  <!-- DEPLOYMENT -->
+  <rect x="40" y="80" width="370" height="200" rx="6" class="card"/>
+  <text x="58" y="110" class="ctitle">Your fleet file</text>
+  <text x="190" y="110" class="note">lb/fleet.yml · gitignored</text>
+  <rect x="58" y="126" width="334" height="26" rx="4" class="route"/>
+  <text x="68" y="144" class="val">boxes.&lt;name&gt;.cards[]</text>
+  <rect x="58" y="158" width="334" height="26" rx="4" class="route"/>
+  <text x="68" y="176" class="val">  type: <tspan style="fill:#64EBDB">&lt;key&gt;</tspan> · serves: true</text>
+  <rect x="58" y="190" width="334" height="26" rx="4" class="route"/>
+  <text x="68" y="208" class="val">clusters.&lt;name&gt;.control</text>
+  <text x="58" y="240" class="note">never inferred from what a box reports:</text>
+  <text x="58" y="260" class="note">a GB10's 0/0 and a dead GPU CLI look alike</text>
+
+  <path d="M410 180H438" class="hot" marker-end="url(#ah)"/>
+
+  <!-- TYPE LIBRARY -->
+  <rect x="440" y="70" width="1120" height="310" rx="10" class="group"/>
+  <text x="460" y="98" class="cap">TYPE LIBRARY</text>
+  <text x="592" y="98" class="note">lb/vllm_lb/hardware/types/&lt;key&gt;.yml · one PRODUCT · every figure {value, source} · names its accelerator</text>
+
+  <rect x="460" y="114" width="255" height="250" rx="6" class="card"/>
+  <text x="476" y="142" class="etitle">gb10</text>
+  <rect x="637" y="126" width="64" height="20" rx="4" class="uni"/><text x="645" y="141" class="note" style="fill:#64EBDB">unified</text>
+  <text x="476" y="164" class="note">NVIDIA GB10 (DGX Spark)</text>
+  <text x="476" y="190" class="key">MEMORY</text><text x="476" y="207" class="val">128 GB LPDDR5x</text>
+  <text x="476" y="230" class="key">PEAK BANDWIDTH</text><text x="476" y="247" class="val">273 GB/s nameplate</text>
+  <text x="476" y="270" class="key">ACCELERATOR</text><text x="476" y="287" class="val" style="fill:#64EBDB">nvidia-sm121</text>
+  <text x="476" y="310" class="key">CONTROLS</text><text x="476" y="327" class="val">ssh · local</text>
+  <text x="476" y="350" class="note">nvfp4 323.2 TFLOPS measured</text>
+
+  <rect x="735" y="114" width="255" height="250" rx="6" class="card"/>
+  <text x="751" y="142" class="etitle">radeon8060s</text>
+  <rect x="912" y="126" width="64" height="20" rx="4" class="uni"/><text x="920" y="141" class="note" style="fill:#64EBDB">unified</text>
+  <text x="751" y="164" class="note">AMD Radeon 8060S (APU)</text>
+  <text x="751" y="190" class="key">MEMORY</text><text x="751" y="207" class="val">the box's RAM</text>
+  <text x="751" y="230" class="key">PEAK BANDWIDTH</text><text x="751" y="247" class="val">not established</text>
+  <text x="751" y="270" class="key">ACCELERATOR</text><text x="751" y="287" class="val" style="fill:#64EBDB">amd-gfx1151</text>
+  <text x="751" y="310" class="key">CONTROLS</text><text x="751" y="327" class="val">local</text>
+  <text x="751" y="350" class="note">124.0 GiB visible, measured</text>
+
+  <rect x="1010" y="114" width="255" height="250" rx="6" class="card"/>
+  <text x="1026" y="142" class="etitle">rtx5090</text>
+  <rect x="1179" y="126" width="72" height="20" rx="4" class="dis"/><text x="1187" y="141" class="note" style="fill:#7BEE98">discrete</text>
+  <text x="1026" y="164" class="note">NVIDIA GeForce RTX 5090</text>
+  <text x="1026" y="190" class="key">MEMORY</text><text x="1026" y="207" class="val">32 GB GDDR7</text>
+  <text x="1026" y="230" class="key">PEAK BANDWIDTH</text><text x="1026" y="247" class="val">1792 GB/s</text>
+  <text x="1026" y="270" class="key">ACCELERATOR</text><text x="1026" y="287" class="val" style="fill:#64EBDB">nvidia-sm120</text>
+  <text x="1026" y="310" class="key">CONTROLS</text><text x="1026" y="327" class="val">local</text>
+  <text x="1026" y="350" class="note">31.36 GiB visible, measured</text>
+
+  <rect x="1285" y="114" width="255" height="250" rx="6" class="card"/>
+  <text x="1301" y="142" class="etitle">rtx3090</text>
+  <rect x="1454" y="126" width="72" height="20" rx="4" class="dis"/><text x="1462" y="141" class="note" style="fill:#7BEE98">discrete</text>
+  <text x="1301" y="164" class="note">NVIDIA GeForce RTX 3090</text>
+  <text x="1301" y="190" class="key">MEMORY</text><text x="1301" y="207" class="val">24 GB GDDR6X</text>
+  <text x="1301" y="230" class="key">PEAK BANDWIDTH</text><text x="1301" y="247" class="val">936 GB/s</text>
+  <text x="1301" y="270" class="key">ACCELERATOR</text><text x="1301" y="287" class="val" style="fill:#64EBDB">nvidia-sm86</text>
+  <text x="1301" y="310" class="key">CONTROLS</text><text x="1301" y="327" class="val">—</text>
+  <text x="1301" y="350" class="note">no launch measured yet</text>
+
+  <!-- ACCELERATOR LIBRARY -->
+  <path d="M1000 380V404" class="edge" marker-end="url(#a)"/>
+  <rect x="440" y="406" width="1120" height="140" rx="10" class="group"/>
+  <text x="460" y="432" class="cap">ACCELERATOR LIBRARY</text>
+  <text x="660" y="432" class="note">hardware/accelerators/&lt;key&gt;.yml · what kernels target · images and measurements are keyed by it</text>
+  <rect x="460" y="446" width="255" height="88" rx="6" class="card"/>
+  <text x="476" y="470" class="ctitle" style="fill:#64EBDB">nvidia-sm121</text>
+  <text x="476" y="492" class="val">sm_121 · nvidia · arm64</text>
+  <text x="476" y="512" class="note">bf16 fp16 fp8 nvfp4</text>
+  <text x="476" y="528" class="note">← gb10</text>
+  <rect x="735" y="446" width="255" height="88" rx="6" class="card"/>
+  <text x="751" y="470" class="ctitle" style="fill:#64EBDB">nvidia-sm120</text>
+  <text x="751" y="492" class="val">sm_120 · nvidia · amd64</text>
+  <text x="751" y="512" class="note">bf16 fp16 fp8 nvfp4</text>
+  <text x="751" y="528" class="note">← rtx5090</text>
+  <rect x="1010" y="446" width="255" height="88" rx="6" class="card"/>
+  <text x="1026" y="470" class="ctitle" style="fill:#64EBDB">nvidia-sm86</text>
+  <text x="1026" y="492" class="val">sm_86 · nvidia · amd64</text>
+  <text x="1026" y="512" class="note">bf16 fp16</text>
+  <text x="1026" y="528" class="note">← rtx3090</text>
+  <rect x="1285" y="446" width="255" height="88" rx="6" class="card"/>
+  <text x="1301" y="470" class="ctitle" style="fill:#64EBDB">amd-gfx1151</text>
+  <text x="1301" y="492" class="val">gfx1151 · rocm · amd64</text>
+  <text x="1301" y="512" class="note">bf16 fp16</text>
+  <text x="1301" y="528" class="note">← radeon8060s</text>
+
+  <!-- LOADER -->
+  <path d="M1000 546V568" class="edge" marker-end="url(#a)"/>
+  <rect x="460" y="570" width="1080" height="44" rx="6" class="card"/>
+  <text x="478" y="598" class="val">hardware/profiles.py <tspan style="fill:#e6edf3">load_types</tspan> → HardwareProfile · a missing or unknown key fails at boot · <tspan style="fill:#64EBDB">memory:</tspan> picks the class</text>
+
+  <!-- FAMILIES -->
+  <path d="M725 614V656" class="hot" marker-end="url(#ah)"/>
+  <text x="737" y="642" class="elabel">memory: unified</text>
+  <path d="M1275 614V656" class="grn" marker-end="url(#ag)"/>
+  <text x="1287" y="642" class="elabel">memory: discrete</text>
+
+  <rect x="460" y="658" width="530" height="200" rx="6" class="card" style="stroke:#64EBDB"/>
+  <text x="478" y="688" class="ctitle">UnifiedProfile</text>
+  <text x="608" y="688" class="note">→ UnifiedMemory</text>
+  <text x="478" y="716" class="val">the GPU's memory IS the box's RAM</text>
+  <text x="478" y="740" class="val">reads the box's ram_used / ram_total</text>
+  <text x="478" y="764" class="val">draws ONE GPU row per box</text>
+  <text x="478" y="788" class="val">a cluster is gated on MemAvailable</text>
+  <rect x="478" y="808" width="56" height="26" rx="4" class="chip"/><text x="488" y="826" class="note" style="fill:#64EBDB">gb10</text>
+  <rect x="542" y="808" width="112" height="26" rx="4" class="chip"/><text x="552" y="826" class="note" style="fill:#64EBDB">radeon8060s</text>
+
+  <rect x="1010" y="658" width="530" height="200" rx="6" class="card" style="stroke:#7BEE98"/>
+  <text x="1028" y="688" class="ctitle">DiscreteProfile</text>
+  <text x="1164" y="688" class="note">→ DiscreteMemory</text>
+  <text x="1028" y="716" class="val">VRAM of its own, beside the host's RAM</text>
+  <text x="1028" y="740" class="val">reads each card's VRAM</text>
+  <text x="1028" y="764" class="val">box figure = the cards' VRAM summed</text>
+  <text x="1028" y="788" class="val">draws one GPU row per card</text>
+  <rect x="1028" y="808" width="80" height="26" rx="4" class="chip"/><text x="1038" y="826" class="note" style="fill:#7BEE98">rtx5090</text>
+  <rect x="1116" y="808" width="80" height="26" rx="4" class="chip"/><text x="1126" y="826" class="note" style="fill:#7BEE98">rtx3090</text>
+
+  <!-- THE RULE -->
+  <rect x="40" y="320" width="370" height="538" rx="6" class="card"/>
+  <text x="58" y="350" class="cap">THE RULE</text>
+  <text x="58" y="382" class="val">code outside hardware/ never</text>
+  <text x="58" y="404" class="val">names a type or asks "if unified"</text>
+  <text x="58" y="428" class="note">lb/tests/test_hardware_guard.py</text>
+  <text x="58" y="470" class="key">A NEW CARD</text>
+  <text x="58" y="490" class="val">one YAML file + a test</text>
+  <text x="58" y="512" class="val">pinning its sources</text>
+  <text x="58" y="554" class="key">A NEW KIND OF MEMORY</text>
+  <text x="58" y="574" class="val">one Profile + one MemoryModel</text>
+  <text x="58" y="596" class="val">subclass, with its own tests</text>
+  <text x="58" y="638" class="key">A NEW GPU RUNTIME</text>
+  <text x="58" y="658" class="val">node-gpu.&lt;runtime&gt;.yml</text>
+  <text x="58" y="680" class="note">deploy/standalone · nvidia, rocm today</text>
+  <text x="58" y="722" class="key">A NEW ARCHITECTURE</text>
+  <text x="58" y="742" class="val">one accelerator YAML</text>
+  <text x="58" y="764" class="val">+ an image build + measurements</text>
+  <text x="58" y="786" class="note">docs/guides/bring-your-own-hardware.md</text>
+  <text x="58" y="822" class="note">until measured there, a Start is refused —</text>
+  <text x="58" y="842" class="note">or started explicitly "estimated"</text>
+
+  <!-- READERS -->
+  <path d="M725 858V898" class="edge" marker-end="url(#a)"/>
+  <path d="M1275 858V898" class="edge" marker-end="url(#a)"/>
+  <rect x="40" y="900" width="1520" height="150" rx="10" class="group"/>
+  <text x="60" y="928" class="cap">READERS</text>
+  <text x="160" y="928" class="note">each asks the profile or its memory model — never which type it is</text>
+
+  <rect x="60" y="944" width="355" height="90" rx="6" class="card"/>
+  <text x="76" y="970" class="ctitle">hw.py</text><text x="140" y="970" class="note">machine tiles</text>
+  <text x="76" y="996" class="val">MemoryModel.read · rows</text>
+  <text x="76" y="1018" class="note">MEM and the GPU rows per box</text>
+
+  <rect x="430" y="944" width="355" height="90" rx="6" class="card"/>
+  <text x="446" y="970" class="ctitle">saturation.py</text><text x="566" y="970" class="note">COMPUTE · BANDWIDTH</text>
+  <text x="446" y="996" class="val">peak_tflops · peak_gbps</text>
+  <text x="446" y="1018" class="note">a share of the type's own peak</text>
+
+  <rect x="800" y="944" width="355" height="90" rx="6" class="card"/>
+  <text x="816" y="970" class="ctitle">memory_estimate.py</text><text x="1000" y="970" class="note">cluster fit</text>
+  <text x="816" y="996" class="val">per-box cost before a start</text>
+  <text x="816" y="1018" class="note">refused when a box cannot hold it</text>
+
+  <rect x="1170" y="944" width="370" height="90" rx="6" class="card"/>
+  <text x="1186" y="970" class="ctitle">fleet.py</text><text x="1262" y="970" class="note">node fit · node compose</text>
+  <text x="1186" y="996" class="val">visible_gib · free_at_start_gib</text>
+  <text x="1186" y="1018" class="note">accelerator · host_platform · controls</text>
+
+  <text x="40" y="1082" class="note"><tspan style="fill:#64EBDB">■</tspan> unified memory   <tspan style="fill:#7BEE98">■</tspan> discrete memory   ┄ dashed: grouping   the types shown are the shipped library; yours is any YAML you add</text>
+</svg>

@@ -1,0 +1,52 @@
+# vllm-power — the fleet power buttons on the vLLM Gateway page (README.md).
+#   docker compose up -d --build                       # DRY RUN (the default)
+#   POWER_DRY_RUN=0 docker compose up -d power         # live: real poweroff key, real WoL
+name: vllm-power
+services:
+  power:
+    build: .
+    image: vllm-power:latest
+    container_name: vllm-power
+    restart: unless-stopped
+    # Host network: ssh over the direct cables to the boxes (their addresses are in POWER_BOXES), sshd on
+    # 127.0.0.1 for the host itself, and the WoL broadcast on the cables. It binds 127.0.0.1 only.
+    network_mode: host
+    user: "1000:1000"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs: [/tmp]
+    environment:
+      POWER_BIND: 127.0.0.1:8016
+      # The public origin of the page (CSRF check). Empty = every request is refused.
+      POWER_ORIGINS: "${POWER_ORIGINS:-}"
+      # The names this panel answers to beyond its loopback names (host_guard.py, the DNS-rebinding guard): the Host
+      # the edge's nginx presents through the tunnel. No default: `loopback` states "nothing else" (power/.env.example).
+      POWER_ALLOWED_HOSTS: "${POWER_ALLOWED_HOSTS:?set POWER_ALLOWED_HOSTS in power/.env — the names the panel answers to, or loopback}"
+      # The machines this service may act on: a JSON array, one object per box (power/.env.example).
+      # Empty = none, so every box is refused. Operator hardware: it lives in power/.env, never here.
+      POWER_BOXES: "${POWER_BOXES:-}"
+      POWER_DRY_RUN: "${POWER_DRY_RUN:-1}"
+      POWER_LB_STATUS: http://127.0.0.1:8010/lb/status     # read-only GET: the cluster state
+    volumes:
+      - ${HOME}/.config/fleet-power/keys:/keys:ro                  # 700 dir, 600 keys, not in git
+      - ${HOME}/.config/fleet-power/gate_secret:/run/secrets/gate:ro
+      - ${HOME}/.config/fleet-power/audit:/audit                   # audit.jsonl
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+
+  frpc:
+    image: snowdreamtech/frpc:0.65.0
+    container_name: vllm-power-frpc
+    restart: unless-stopped
+    network_mode: host
+    env_file:                    # FRP_TOKEN and FRP_SERVER, the repo-root .env; optional, so a missing
+      - path: ../.env            # file does not fail the whole project (frpc then cannot reach frps)
+        required: false
+    volumes:
+      - ./frpc.toml:/etc/frp/frpc.toml:ro
+    depends_on: [power]
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}

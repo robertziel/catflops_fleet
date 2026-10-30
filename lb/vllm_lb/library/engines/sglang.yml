@@ -1,0 +1,8 @@
+# SGLang — an ENGINE's capabilities (vllm_lb/engine_library.py): what checkpoints it serves, as data. Its BEHAVIOUR is
+# code: catalog.py ENGINE_REFUSES[sglang], fleet.py SglangEngine, engine_metrics.py SGLANG_FAMILIES, tp-rank
+# `sglang_cmd`. Its KV dtypes are its images' (kv_cache_dtypes.json). Every figure {value, source}.
+name: SGLang
+facts:
+  formats: {value: [hf], source: "SGLang loads a Hugging Face checkpoint by its config.json `architectures` (srt/models/registry.py)"}
+  architectures: {value: [Qwen4ExpForConditionalGeneration, Qwen3_5ForConditionalGeneration], source: "each served by myllmbox/sglang-27b-tp2 (SGLang 708f51e + this repo's patches, deploy/images/sglang) on this project's pair: Qwen4ExpForConditionalGeneration (Qwen3.8 Flash-Next, generation 188, tests/fixtures/sglang-gen188-2026-10-10-flash-next-rank0.log), Qwen3_5ForConditionalGeneration (Qwen3.8-27B NVFP4 + DFlash2)"}
+  quant_formats: {value: [modelopt_mixed], source: "the format SGLang has served on this fleet: ModelOpt MIXED_PRECISION NVFP4 (Qwen3.8 Flash-Next hibrid48 and 27B NVFP4, the catalog's SGLang rows); other formats are not established on it here"}

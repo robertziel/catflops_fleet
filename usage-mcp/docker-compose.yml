@@ -1,0 +1,40 @@
+# vllm-usage-mcp — the fleet's usage data as read-only MCP tools (README.md).
+#
+#   docker compose build                      # build the image; starts nothing
+#   docker compose run --rm -T usage-mcp      # a one-shot stdio session (an MCP host does this)
+#
+# The service sits behind a profile ON PURPOSE: this is a stdio server, not a daemon, so a bare
+# `docker compose up` must not start it. NOT REGISTERED anywhere — see README.md for the one
+# `claude mcp add` line, which is the operator's to run.
+name: vllm-usage-mcp
+services:
+  usage-mcp:
+    profiles: ["manual"]
+    build: .
+    image: vllm-usage-mcp:latest
+    # stdio transport: the host owns stdin/stdout. No restart policy, no ports, no healthcheck.
+    stdin_open: true
+    tty: false
+    # Host network for one reason only: the LB answers on 127.0.0.1:8010 and nothing else is
+    # dialled. The reachable surface is pinned by readonly.LB_PATHS (three GETs) — there is no
+    # code path to the GB10 boxes' own engines, to POST /lb/cluster, or to any other host.
+    network_mode: host
+    user: "1000:1000"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs: [/tmp]
+    environment:
+      USAGE_MCP_LB_URL: http://127.0.0.1:8010
+      USAGE_MCP_STATE_DIR: /data
+      USAGE_MCP_LIBRARY: /library
+      USAGE_MCP_TIMEOUT_S: "8"
+    volumes:
+      # READ-ONLY, both of them. The LB's state volume is the same directory the LB writes; this
+      # server must never be able to append a window, remove a boot log or drop a benchmark.
+      - ../lb/state:/data:ro
+      - ../lb/vllm_lb/library:/library:ro
+      # The LB names its perf day-files and its session labels in the HOST's local time. Day
+      # bucketing does not depend on this (it follows the file name), but the timestamps a tool
+      # prints read better in the fleet's own zone than in UTC.
+      - /etc/localtime:/etc/localtime:ro

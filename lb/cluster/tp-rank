@@ -1,0 +1,2535 @@
+#!/usr/bin/env bash
+# tp-rank — start, stop and observe THIS GB10 box's rank of the two-box TP=2 vLLM cluster.
+#
+# vllm-lb decides WHEN a rank runs (lb/vllm_lb/cluster.py); this script is HOW. Nothing is installed
+# on a GB10 box: the script ships in the LB image, and vllm_lb.cluster_exec.SshExecutor sends its bytes
+# to the box on every call —
+#
+#   ssh … user@192.0.2.2 'env CLUSTER_HOST_IP=192.0.2.201 CLUSTER_IFACE=bond0 … bash -s -- up 0 7 16 262144' < tp-rank
+#
+# — so the copy that runs is always the one the LB was built with, and nothing on a box can drift.
+# What the script keeps to:
+#
+# * Eight verbs, from argv only:
+#     status | availability | shape <model> | up <rank> <gen> <max_num_seqs> <max_model_len> [<model_choice>]
+#     | halt | down | logs [n] | heal
+#   `shape` derives a checkpoint's compute shape, memory and capabilities from its safetensors HEADERS
+#   and config.json (read-only: nothing is started, nothing written) — see cmd_shape.
+#   `halt` stops a rank and KEEPS it (its exit code and its log are the post-mortem of a failed start);
+#   `down` removes it. `heal` brings back this box's broker worker — the lane that claims our
+#   reservation — when a boot left it missing (see cmd_heal).
+#   Every argument must be [A-Za-z0-9_.-] and every number is range-checked. Nothing is eval'd, and
+#   docker gets its arguments as one array, an element each, so no value is ever re-parsed.
+# * Nothing runs until the LAST line. The script arrives on stdin over a network, and a connection
+#   that drops mid-transfer hands bash a prefix of it. Everything above `main "$@"` only defines
+#   things, so a prefix does nothing — and by the time main runs, bash has read all of stdin, so no
+#   child can swallow part of the script.
+# * No state of its own. The container and its labels ARE the state: `lb.cluster.gen` names the
+#   generation a rank belongs to, `lb.cluster.model_choice` the model it was launched for, and together
+#   they make `up` idempotent and a stale rank recognisable. What `up` leaves on disk decides nothing and
+#   may be deleted whenever no rank runs: vLLM's caches, one dir per profile key, and the drafter view
+#   beside the checkpoint. The next start rebuilds either.
+# * "Absent" is only what docker calls absent ("no such object"). Every other docker failure is a
+#   failure: a dead daemon read as an empty box would let the planner unpark a GB10 box whose rank it
+#   simply cannot see.
+#
+# Output: status, up, down and every refusal print ONE JSON line; logs prints the log.
+# Exit:   0 done · 1 could not be done here (docker, or missing config) · 2 refused (bad request).
+#
+# Configuration is the environment, over the defaults below. CLUSTER_HOST_IP — this box's own
+# interconnect address, which SshExecutor passes per box — has no default: it is the one value that
+# differs between the GB10 boxes, and a guessed one would put NCCL on the wrong box. TP_RANK_MEMINFO
+# exists for the tests.
+set -euo pipefail
+
+# ssh carries the caller's LANG/LC_* along (SendEnv/AcceptEnv), and the locale decides both what
+# [A-Za-z] matches and whether awk prints 111.6 or 111,6. Neither is the caller's to choose.
+export LC_ALL=C
+IFS=$' \t\n'
+
+readonly NAME=qwen38-cluster-vllm      # the one name both GB10 boxes' GPU-container guard allows
+readonly BROKER_VLLM=vllm              # broker_parrot's classic vLLM: observed here, never touched
+readonly RANK_FORMAT='{{.State.Running}}|{{.State.ExitCode}}|{{.State.StartedAt}}|{{index .Config.Labels "lb.cluster.gen"}}|{{index .Config.Labels "lb.cluster.model_choice"}}'
+readonly USAGE='status | availability | shape <model> | up <rank> <gen> <max_num_seqs> <max_model_len> [<model_choice>] | halt | down | logs [n] | heal'
+# THE TOPOLOGY IS FACTS THE LB SENDS, never this script's assumptions (docs/design/engines.md, phase 5): until 2026-10-30
+# tp-rank was written for ONE shape — two DGX Sparks, one GB10 each, joined by RoCE, unified memory, arm64 — and said
+# so in constants. Each is now a fact of the fleet file, derived by vllm_lb/executors.py (`Topology.facts`) and sent
+# on every call (cluster_run.tp_rank_env). NO DEFAULTS: `up` and `shape` refuse naming the one that is missing
+# (`need_topology`). The GB10 pair's facts — 2, 2, all, roce, unified, linux/arm64 — launch it byte for byte as the
+# constants did (lb/tests/test_pair_launch_golden.py).
+#   CLUSTER_TP_SIZE   the GPUs one engine spans (vLLM --tensor-parallel-size, SGLang/TensorFold --tp)
+#   CLUSTER_NNODES    the hosts it spans, one rank on each (--nnodes); a rank is 0..NNODES-1
+#   CLUSTER_GPUS      docker's --gpus for this host's rank: `all`, or `device=<i>,<j>` (the fleet's serving cards)
+#   CLUSTER_LINK      how the GPUs talk: `roce` (NCCL over RDMA: /dev/infiniband, IPC_LOCK, unlimited memlock,
+#                     NCCL_IB_DISABLE=0), `ethernet` (NCCL sockets across hosts), `pcie` / `nvlink` (within one host) —
+#                     the last three open no RDMA device and set NCCL_IB_DISABLE=1
+#   CLUSTER_MEMORY    the cards' memory family: `unified` (the GPU's memory IS this box's RAM — the RAM guard below
+#                     watches the GPU pool) or `discrete` (VRAM of its own: the RAM guard is not the GPU's, and is off)
+#   CLUSTER_PLATFORM  the CPU platform the fleet says this box is (linux/arm64 | linux/amd64): checked against the
+#                     box's own `uname -m`, so an image built for the other is never started here
+: "${CLUSTER_TP_SIZE:=}"
+: "${CLUSTER_NNODES:=}"
+: "${CLUSTER_GPUS:=}"
+: "${CLUSTER_LINK:=}"
+: "${CLUSTER_MEMORY:=}"
+: "${CLUSTER_PLATFORM:=}"
+TP_SIZE=$CLUSTER_TP_SIZE
+# FlashInfer's AUTOTUNE results, on a tmpfs of the container's own — the one cache that must NEVER outlive
+# the start that made it. vLLM 0.29.0 lets only rank 0 save them and FlashInfer keys each entry by tp_rank,
+# so on the next start rank 0 hits every entry and skips profiling while rank 1 hits none and profiles
+# alone, all-reducing each timing with a peer that never joins: 30 minutes of gloo timeout, an hour to
+# fail, three starts in a row on 2026-09-18. Empty on both ranks at every start is the contract FlashInfer
+# itself states; a fresh tune costs 35 s.
+readonly AUTOTUNE_DIR=/flashinfer-autotune
+readonly AUTOTUNE_TMPFS=$AUTOTUNE_DIR:rw,nosuid,nodev,noexec,size=16m
+readonly HALT_GRACE_S=10               # SIGTERM, then SIGKILL: a rank hung in a collective ignores the first
+# The drafter a model's LaunchProfile brings when it has one — today's: MTP, proposing four tokens a
+# step. `up` adds the view built for it, and passes no flag at all when the setting is empty.
+readonly MTP_DRAFTER='{"method":"mtp","num_speculative_tokens":4}'
+
+: "${CLUSTER_IMAGE:=myllmbox/qwen38-flash-next-cluster-vllm:v5}"
+# Where the TP=2 checkpoint may be, best first; `up` mounts the first dir holding
+# <CLUSTER_MODEL_NAME>/config.json. A copy lands as <name>.partial and is renamed only once whole, so
+# the final name means a whole checkpoint. The LB sends it — the catalog's model folder under each of the
+# deployment's MODELS_SEARCH_DIRS (lb/.env), e.g. the box's NVMe copy, the same copy over NFS, then an HDD.
+# NO DEFAULT: a deployment's folders are its own, and a guessed one is how a start loads a stale copy from
+# the wrong disk — `up` and `shape` fail naming the variable instead.
+: "${CLUSTER_MODELS_DIRS:=}"
+# The checkpoint under one of those dirs: its dir name, or a plain path to it (a model catalog's path).
+: "${CLUSTER_MODEL_NAME:=Qwen3.8-Flash-Next-hibrid48}"
+: "${CLUSTER_SERVED_MODEL_NAME:=Qwen/Qwen3.8-Flash-Next}"
+: "${CLUSTER_PORT:=8100}"
+# The head's address, where both ranks meet (the fleet file's head interconnect), and the NIC NCCL and Gloo bind on
+# (the fleet file's `iface`). Both are the deployment's — the LB sends them; neither is guessed here.
+: "${CLUSTER_MASTER_ADDR:=}"
+: "${CLUSTER_MASTER_PORT:=25000}"
+: "${CLUSTER_IFACE:=}"
+: "${CLUSTER_GPU_MEMORY_UTILIZATION:=0.70}"
+: "${CLUSTER_KV_CACHE_MEMORY:=28000000000}"
+# A model's own parsers and drafter, out of the LaunchProfile the LB sends (vllm_lb/catalog.py). EMPTY is
+# how a profile says the model has none of it, and then `up` passes no flag at all — so `=`, not `:=`.
+: "${CLUSTER_TOOL_CALL_PARSER=qwen3_xml}"
+: "${CLUSTER_REASONING_PARSER=qwen3}"
+: "${CLUSTER_SPECULATIVE_CONFIG=$MTP_DRAFTER}"
+# The PLE table. 1: the whole table on each rank, as today. 0: its rows split between the two ranks —
+# 13.4 GiB less on each box, for one exchange per decode step; adopted only on a measured A/B.
+: "${CLUSTER_PLE_REPLICATE:=1}"
+# vLLM's MFU model sizes a component from _QUANT_WEIGHT_BYTE_SIZE[quant_method] and DROPS the
+# component when the method is absent (v1/metrics/perf.py, FfnQuantizationConfigParser raises
+# InvalidComponent). This checkpoint reports 'modelopt_mixed', which upstream has no entry for, so
+# its 512-expert MoE FFN — 67.9 GB of 105 GB, and the dominant decode term — was excluded from the
+# FLOP/s and GB/s counters: 96 % SM fill was reported beside ~1 % of peak bandwidth. 1: inject the
+# missing entry. 0: leave vLLM untouched and accept that the two rates are floors.
+: "${CLUSTER_MFU_QUANT_FIX:=1}"
+# KV OFFLOAD TO DISK. Empty or 0: off, and this launch is byte for byte the one sent before the knob
+# existed — no directory, no config file, no flag. A number is the GB of NVMe LMCache may hold, and the
+# LB sends the config document with it (CLUSTER_KV_OFFLOAD_YAML); `local_cpu: false` in that document is
+# load-bearing on a GB10, where host RAM and GPU RAM are ONE pool and a CPU tier would eat the KV pool it
+# is meant to relieve. NOT PROVEN ON THIS FLEET: the config parses and the disk is writable, the engine
+# has never started with it. Off by default for exactly that reason.
+: "${CLUSTER_KV_OFFLOAD_GIB:=}"
+: "${CLUSTER_KV_OFFLOAD_YAML:=}"
+# Prompt tokens the engine may process per iteration (vLLM --max-num-batched-tokens), shared with
+# decode: at 24 seqs x (1 + 4 drafts) = 120 decode tokens per step, the rest goes to one prefill
+# chunk. Every chunk re-reads the MoE weights it touches, so a bigger chunk shares each 2.76 MB expert
+# read among more tokens: 8192 is ~48 % of the compute ridge by the roofline, 16384 ~96 %. A
+# scheduling budget, not a model setting: the KV a prompt leaves behind is the same whatever the
+# chunking. The FLEET's setting (lb/fleet.yml clusters.<name>.max_num_batched_tokens, sent by the LB on every call:
+# cluster_run.tp_rank_env), so both ranks launch alike — and NO default here: an `up` without it is refused by name.
+# The most prompt tokens ONE request may take in one step (vLLM --long-prefill-token-threshold): below the
+# prefill budget it spreads a long prompt's prefill over more, smaller steps, and the budget still bounds the
+# step. 0 is vLLM's own default, OFF, and then `up` passes no flag at all — the launch from before the knob.
+# vLLM refuses one past max_model_len, and so does `up`. The LB sends it per launch, and only when it is on.
+: "${CLUSTER_LONG_PREFILL_TOKEN_THRESHOLD:=0}"
+# A vLLM profile's own engine flags (lb/vllm_lb/catalog.py VLLM_FLAGS), one setting each. EMPTY passes no flag, so a
+# profile that names none launches byte for byte as before; a bool is 1 (the bare flag) or 0 (none).
+VLLM_NAME_FLAGS=(CLUSTER_KV_CACHE_DTYPE CLUSTER_MOE_BACKEND CLUSTER_TOKENIZER_MODE CLUSTER_LOAD_FORMAT
+  CLUSTER_LINEAR_BACKEND CLUSTER_ATTENTION_BACKEND)
+VLLM_INT_FLAGS=(CLUSTER_BLOCK_SIZE CLUSTER_MAX_CUDAGRAPH_CAPTURE_SIZE)
+# One flat JSON object each, passed as ONE argv element.
+VLLM_JSON_FLAGS=(CLUSTER_COMPILATION_CONFIG CLUSTER_REASONING_CONFIG CLUSTER_DEFAULT_CHAT_TEMPLATE_KWARGS)
+VLLM_VALUE_FLAGS=("${VLLM_NAME_FLAGS[@]}" "${VLLM_INT_FLAGS[@]}" CLUSTER_LIMIT_MM_PER_PROMPT "${VLLM_JSON_FLAGS[@]}")
+VLLM_BOOL_FLAGS=(CLUSTER_ENFORCE_EAGER CLUSTER_LANGUAGE_MODEL_ONLY CLUSTER_SKIP_MM_PROFILING CLUSTER_TRUST_REMOTE_CODE)
+for _flag in "${VLLM_VALUE_FLAGS[@]}" "${VLLM_BOOL_FLAGS[@]}"; do printf -v "$_flag" '%s' "${!_flag-}"; done
+unset _flag
+# vLLM's caches, kept between starts — compile/AOT, Triton, FlashInfer's JIT, model-info — in one
+# dir per launch profile under this root (never FlashInfer's autotune results: AUTOTUNE_DIR). It must be THIS box's own disk: $HOME is local on both
+# GB10 boxes, and the models search path is not (on box-b it is box-a's home, over NFS). Empty: no cache,
+# so every start compiles and tunes from nothing, as before. `=`, not `:=`, so that empty stays empty.
+: "${CLUSTER_CACHE_DIR=${HOME:+$HOME/.cache/vllm-cluster}}"
+# The prefix of the MTP drafter's own tensors in the checkpoint's index, from which `up` builds the
+# drafter view. Empty: no view, so the drafter walks the whole checkpoint, as before.
+: "${CLUSTER_MTP_PREFIX=mtp.}"
+# WHICH SERVER this profile runs on the pair: `vllm` (every launch before 2026-10-03) or `sglang`. The pair
+# holds ONE engine at a time and the head always serves CLUSTER_PORT, so :8010 stays the one client address
+# whichever engine answers behind it — the operator's rule, kept by construction rather than by a guard.
+# An engine's own settings with no vLLM equivalent arrive as CLUSTER_ENGINE_ARGS, a flat JSON object.
+: "${CLUSTER_ENGINE:=vllm}"
+: "${CLUSTER_ENGINE_ARGS:=}"
+# THE PAIR'S RoCE PORTS, for an engine that opens them itself (TensorFold's one-shot all-gather, `tensorfold_cmd`):
+# NCCL_IB_HCA's device list and the GID index their RoCE v2 IPv4 GID sits at, a deployment's own (lb/.env, sent to every
+# rank by the LB). NO DEFAULT: nothing on a bonded link can find them, and a guess would put the gather on another port.
+: "${CLUSTER_IB_HCA:=}"
+: "${CLUSTER_IB_GID_INDEX:=}"
+# A drafter that is its OWN checkpoint, not tensors inside the target's (DFlash2): its path under the same
+# models root, as a sibling of the checkpoint, so the one `-v "$MODELS_DIR:/models:ro"` already reaches it.
+# `up` splices it into the speculative config as the drafter's "model" and asks for vLLM's V2 model runner,
+# where the candidate selector lives — on V1 the same checkpoint drafts WITHOUT it and degrades silently.
+# Empty: no separate drafter. Exclusive with CLUSTER_MTP_PREFIX: exactly one of them names the drafter.
+: "${CLUSTER_DRAFT_NAME=}"
+# What `availability` is asked, and the only settings it reads: one model per line as
+# `<name><TAB><dir>:<dir>`, best dir first, and the images to look for, space separated. A folder that
+# does not answer within TP_RANK_PROBE_TIMEOUT_S seconds, one on an fstab NFS share that is not mounted,
+# or one that cannot be read is reported unknown, never missing — a hung or absent NFS mount is not an
+# answer (`look_in`).
+: "${CLUSTER_AVAILABILITY_MODELS=}"
+: "${CLUSTER_AVAILABILITY_IMAGES=}"
+: "${TP_RANK_PROBE_TIMEOUT_S:=5}"
+# Where `status` reads this box's boot time (`btime`), beside TP_RANK_MEMINFO for its memory: both exist for
+# the tests, and a box that cannot read it reports null.
+: "${TP_RANK_PROC_STAT:=/proc/stat}"
+# THE MEMORY GUARD (arm_mem_guard). A load that drives the box out of memory kills itself rather than
+# taking sshd with it. 1 = armed. Its floor is the FLEET's: MemTotal x (1 - CLUSTER_RAM_USABLE_FRACTION), the
+# fleet file's `ram_usable_fraction` the LB sends (no default: an armed `up` without it is refused, exit 2). The
+# swap allowance is in GiB, and the floor is only ever applied BEFORE the head serves.
+# CLUSTER_GUARD_STRIKES consecutive polls (2 s apart) are needed, so a dip while 98 GiB streams is not a kill.
+: "${CLUSTER_GUARD:=1}"
+: "${CLUSTER_RAM_USABLE_FRACTION=}"
+: "${CLUSTER_GUARD_SWAP_GIB:=2}"   # only counted when MemAvailable is under twice the floor
+: "${CLUSTER_GUARD_STRIKES:=3}"
+# How long `shape` may spend reading a checkpoint's safetensors headers and config.json (the 21 shards
+# of a 105 GB checkpoint hold ~40 MB of headers; over NFS that is seconds, not minutes).
+: "${TP_RANK_SHAPE_TIMEOUT_S:=120}"
+# What `heal` brings back: the broker worker's boot backstop, a systemd USER unit that waits for every
+# NFS bind source to be a real mount and then runs the worker's idempotent `compose up -d`, and the
+# fstab whose NFS mounts it remounts, each `mount` given at most CLUSTER_HEAL_MOUNT_TIMEOUT_S seconds.
+# The unit's name is the deployment's (lb/.env CLUSTER_WORKER_UNIT, forwarded by the LB): no default —
+# empty means this box has no worker backstop to restart, and `heal` says so instead of restarting one.
+# TP_RANK_FSTAB exists for the tests.
+: "${CLUSTER_WORKER_UNIT=}"
+: "${CLUSTER_HEAL_MOUNT_TIMEOUT_S:=20}"
+: "${TP_RANK_FSTAB:=/etc/fstab}"
+# THIS BOX'S OWN ollama, asked on every `status` so the LB can say WHY a box is not free — "ollama holds
+# qwen3.8:latest, 17.6 GiB" — instead of only "77 GiB free, need 100" (worklog/vllm-cluster-hold-
+# robustness.md §6). GET /api/ps is READ-ONLY: it loads nothing, unloads nothing and starts nothing.
+# Empty turns it off, and a box that cannot be asked reports null — never "nothing is resident".
+: "${CLUSTER_OLLAMA_URL:=http://127.0.0.1:11434}"
+: "${CLUSTER_OLLAMA_TIMEOUT_S:=2}"
+# THIS BOX'S GPU, asked on every `status` so the gateway can say whether the pair still has headroom.
+# Read-only and cheap: one `nvidia-smi dmon -c 1` plus one `--query-gpu=clocks.max.sm`, measured at
+# 0.07-0.11 s together on both GB10 boxes. 0 turns it off; a box with no nvidia-smi reports null.
+# TP_RANK_GPU_TIMEOUT_S bounds a wedged driver, so a hung nvidia-smi can never cost the rank and memory
+# observations in the same reply.
+: "${CLUSTER_GPU_TELEMETRY:=1}"
+: "${TP_RANK_GPU_TIMEOUT_S:=3}"
+
+# What the drafter's view is built from: the checkpoint's index, which names each tensor's shard...
+readonly INDEX=model.safetensors.index.json
+readonly VIEW_SUFFIX=-mtp
+# The SGLang quant view's suffix, beside the checkpoint like the drafter's (see `quant_view`): the same
+# weights, plus the one file SGLang insists on reading a mixed-precision scheme out of.
+readonly QUANT_VIEW_SUFFIX=-hfquant
+# The memory guard's log: what it waits for when armed, when it disarmed, and why it killed a load. `logs`
+# prints it after the container's own output, so a start the box could not hold reads as that and not as a
+# bare exit 137; `status` takes its KILLED line as the reason. On the box's own disk, never under a models
+# dir. TP_RANK_GUARD_FILE exists for the tests.
+readonly GUARD_FILE=${TP_RANK_GUARD_FILE:-/var/tmp/tp-rank-memguard.log}
+# The file SGLang globs a model folder for before it will configure a ModelOpt scheme
+# (srt/model_loader/weight_utils.py `get_quant_config`, and ModelOptMixedPrecisionConfig's own
+# `get_config_filenames`). Its absence is the whole reason `quant_view` exists.
+readonly HF_QUANT_CONFIG=hf_quant_config.json
+# The n-gram table, converted once into the shard layout SGLang's own loader reads.
+# A sibling of the checkpoint, like the views themselves.
+readonly PLE_FP8_SUFFIX=-ple-fp8
+# ...and, beside its own tensors, the target's the drafter reads (research §4 B): the embedding and
+# lm_head it loads, then swaps for the target's. A Python regex, searched in each tensor name.
+readonly SHARED_TENSORS='(^|\.)embed_tokens\.|^lm_head\.'
+
+# How dmon`s one sample is read (observe_gpu). Its OWN header names the columns, so a driver that adds
+# one cannot silently relabel every number; `-` (a column this card has no value for) becomes null,
+# never 0; and the BUSIEST card is the one reported, as the gateway`s hardware tiles do.
+readonly GPU_AWK='
+  function num(v)   { return (v ~ /^-?[0-9]+(\.[0-9]+)?$/) ? v : "null" }
+  function of(name) { return (name in col) ? num($col[name]) : "null" }
+  BEGIN { best = -1; count = 0 }
+  /^#/ {
+    if (!have && $2 == "gpu") { for (i = 2; i <= NF; i++) col[$i] = i - 1; have = 1 }
+    next
+  }
+  NF == 0 { next }
+  {
+    count++
+    if (of("sm") + 0 > best) { best = of("sm") + 0; for (k in col) v[k] = of(k) }
+  }
+  END {
+    if (count == 0) { exit 1 }
+    # --query-gpu prints one line per GPU; the first numeric one is this card class`s ceiling.
+    n = split(ENVIRON["MAXCLK"], lines, "\n"); mx = "null"
+    for (i = 1; i <= n; i++) {
+      gsub(/[ \t\r]/, "", lines[i])
+      if (lines[i] ~ /^[0-9]+$/) { mx = lines[i]; break }
+    }
+    printf "{\"count\": %d, \"sm_pct\": %s, \"mem_duty_pct\": %s, \"pwr_w\": %s, \"gtemp_c\": %s, \"pclk_mhz\": %s, \"pclk_max_mhz\": %s}\n", \
+      count, v["sm"], v["mem"], v["pwr"], v["gtemp"], v["pclk"], mx
+  }
+'
+
+# One name in a path: never "." or "..", never hidden, never a slash, at most NAME_MAX bytes...
+readonly NAME_PART='[A-Za-z0-9][A-Za-z0-9_.-]{0,254}'
+readonly COMPONENT="^$NAME_PART\$"
+# ...and a plain relative path: such names, joined by single slashes.
+readonly MODEL_PATH="^$NAME_PART(/$NAME_PART)*\$"
+readonly IMAGE_REF='^[A-Za-z0-9][A-Za-z0-9._/:@-]{0,254}$'
+# An image as a catalog PINS it: with a tag or a digest. `availability` takes its images as one
+# space-separated setting, where a bare name would silently mean :latest — or be two names, i.e. a typo.
+readonly IMAGE_PINNED='^[A-Za-z0-9][A-Za-z0-9._/-]*(:[A-Za-z0-9][A-Za-z0-9._-]*|@sha256:[a-f0-9]{64})$'
+readonly ABS_PATH='^(/[A-Za-z0-9_.-]+)+$'
+readonly DOT_PART='(^|/)\.\.?(/|$)'
+# A ModelChoice, spelled as the catalog spells its ids (vllm_lb/catalog.py) — and a value docker takes
+# as a label.
+readonly CHOICE_ID='^[a-z0-9][a-z0-9._-]{0,63}$'
+# A vLLM parser name, and a FLAT JSON object: `up` splices the drafter view into the speculative config,
+# and only a flat object survives that.
+readonly PARSER_NAME='^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$'
+readonly FLAT_JSON='^\{[^{}]*\}$'
+
+# ── output ────────────────────────────────────────────────────────────────────
+
+# A JSON string literal. docker's error text brings quotes, backslashes, newlines and the odd
+# terminal escape, and every byte below 0x20 is illegal raw inside a JSON string. Byte by byte,
+# with no pattern substitution, so no bash version's replacement rules can change the result.
+json_str() {
+  local s=$1 out='' c code i
+  for ((i = 0; i < ${#s}; i++)); do
+    c=${s:i:1}
+    case $c in
+      \") out+='\"' ;;
+      \\) out+='\\' ;;
+      $'\n') out+='\n' ;;
+      $'\r') out+='\r' ;;
+      $'\t') out+='\t' ;;
+      [[:cntrl:]])
+        printf -v code '\\u%04x' "'$c"
+        out+=$code
+        ;;
+      *) out+=$c ;;
+    esac
+  done
+  printf '"%s"' "$out"
+}
+
+# One JSON line saying why, then out: `fail 2` = the request was wrong, `fail 1` = it was fine but
+# could not be done here. An `up` that exits 2 is a REFUSAL of the launch plan, the same on every retry: the LB fails
+# the start with these words instead of launching again (cluster_exec.SshExecutor.up raises LaunchRefused). Long docker output keeps its tail, which is where docker puts the reason.
+fail() {
+  local msg=$2
+  if (( ${#msg} > 2000 )); then
+    msg="...${msg: -2000}"
+  fi
+  printf '{"ok": false, "error": %s}\n' "$(json_str "$msg")"
+  exit "$1"
+}
+
+# ── validation ────────────────────────────────────────────────────────────────
+
+# A canonical decimal within [min, max]. Canonical, so "07" is refused instead of being read as
+# octal or compared unequal to the label "7"; at most 7 digits BEFORE any arithmetic, because bash
+# integers are 64-bit and 2**64 + 1 would otherwise wrap around to a valid rank.
+int_in() {
+  [[ $1 =~ ^(0|[1-9][0-9]{0,6})$ ]] && (( $1 >= $2 && $1 <= $3 ))
+}
+
+# Is $1 one of the arguments after it?
+listed() {
+  local want=$1 item
+  shift
+  for item in "$@"; do
+    if [[ $item == "$want" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+# A KV cache dtype is checked against the list the IMAGE's own vLLM declares — `CacheDType` in
+# vllm/config/cache.py, the Literal its --kv-cache-dtype parser takes — never a table kept here that a new
+# image would outgrow. The file is read with ast, so nothing of vLLM (or torch) is imported: a short
+# CPU-only container, no GPU, no network, no pull. Empty passes no flag and reads nothing (the launch from
+# before the knob). A list it cannot find is a refusal naming why, never "pass the flag and see".
+# shortcut: only the list vLLM's parser accepts; whether an attention backend serves it on THIS card
+# (nvfp4: FlashInfer on compute capability 10.x only, and no MLA model) is the engine's own refusal at boot.
+readonly KV_DTYPES_PY='import ast, importlib.util, sys
+spec = importlib.util.find_spec("vllm")
+path = (spec.submodule_search_locations[0] + "/config/cache.py") if spec and spec.submodule_search_locations else None
+try:
+    tree = ast.parse(open(path).read()) if path else None
+except OSError as e:
+    sys.exit(f"cannot read {path}: {e}")
+for node in (tree.body if tree else []):
+    if (isinstance(node, ast.Assign) and [getattr(t, "id", None) for t in node.targets] == ["CacheDType"]
+            and isinstance(node.value, ast.Subscript) and getattr(node.value.value, "id", None) == "Literal"):
+        elts = node.value.slice.elts if isinstance(node.value.slice, ast.Tuple) else [node.value.slice]
+        print("KV_CACHE_DTYPES " + " ".join(e.value for e in elts))
+        sys.exit(0)
+sys.exit("no CacheDType = Literal[...] in " + (path or "an importable vllm package"))'
+check_kv_cache_dtype() {
+  [[ $CLUSTER_ENGINE == vllm && -n $CLUSTER_KV_CACHE_DTYPE ]] || return 0
+  dock run --rm --pull never --network none --entrypoint python3 "$CLUSTER_IMAGE" -I -c "$KV_DTYPES_PY"
+  local line accepted=''
+  while IFS= read -r line; do
+    [[ $line == "KV_CACHE_DTYPES "* ]] && accepted=${line#KV_CACHE_DTYPES }
+  done <<< "$DOUT"
+  if (( DRC != 0 )) || [[ -z $accepted ]]; then
+    fail 1 "cannot read the KV cache dtypes (vLLM's CacheDType) $CLUSTER_IMAGE accepts: ${DOUT:-exit $DRC}"
+  fi
+  [[ " $accepted " == *" $CLUSTER_KV_CACHE_DTYPE "* ]] \
+    || fail 1 "CLUSTER_KV_CACHE_DTYPE '$CLUSTER_KV_CACHE_DTYPE' is not one $CLUSTER_IMAGE accepts: ${accepted// /, }"
+}
+
+# Every launch setting `up` makes a path, a mount or a flag of — refused by name before docker is
+# asked anything.
+check_launch_settings() {
+  local dir name value
+  if [[ ! $CLUSTER_IMAGE =~ $IMAGE_REF ]]; then
+    fail 1 "CLUSTER_IMAGE must be an image reference of [A-Za-z0-9._/:@-], not '${CLUSTER_IMAGE:0:64}'"
+  fi
+  if [[ ! $CLUSTER_MODEL_NAME =~ $MODEL_PATH ]]; then
+    fail 1 "CLUSTER_MODEL_NAME must be a dir name, or a plain path of dir names, under a models dir: names of [A-Za-z0-9_.-] that start with a letter or digit, joined by single slashes; not '${CLUSTER_MODEL_NAME:0:64}'"
+  fi
+  [[ -n ${CLUSTER_MAX_NUM_BATCHED_TOKENS:-} ]] \
+    || fail 1 "CLUSTER_MAX_NUM_BATCHED_TOKENS must be set: the LB sends the cluster's prefill budget (the fleet file's clusters.<name>.max_num_batched_tokens, or the launch's own) — tp-rank defaults none"
+  int_in "$CLUSTER_MAX_NUM_BATCHED_TOKENS" 2048 65536 \
+    || fail 1 "CLUSTER_MAX_NUM_BATCHED_TOKENS must be 2048..65536, not '${CLUSTER_MAX_NUM_BATCHED_TOKENS:0:32}'"
+  int_in "$CLUSTER_LONG_PREFILL_TOKEN_THRESHOLD" 0 65536 \
+    || fail 1 "CLUSTER_LONG_PREFILL_TOKEN_THRESHOLD must be 0..65536 (0 is off), not '${CLUSTER_LONG_PREFILL_TOKEN_THRESHOLD:0:32}'"
+  for name in "${VLLM_NAME_FLAGS[@]}"; do
+    [[ -z ${!name} || ${!name} =~ ^[A-Za-z0-9_.-]+$ ]] \
+      || fail 1 "$name must be empty or a name of [A-Za-z0-9_.-], not '${!name:0:32}'"
+  done
+  for name in "${VLLM_INT_FLAGS[@]}"; do
+    [[ -z ${!name} || ${!name} =~ ^[1-9][0-9]{0,6}$ ]] \
+      || fail 1 "$name must be empty or a positive whole number, not '${!name:0:32}'"
+  done
+  for name in "${VLLM_JSON_FLAGS[@]}"; do
+    [[ -z ${!name} || ${!name} =~ $FLAT_JSON ]] \
+      || fail 1 "$name must be empty or ONE flat JSON object, not '${!name:0:64}'"
+  done
+  [[ -z $CLUSTER_LIMIT_MM_PER_PROMPT \
+     || $CLUSTER_LIMIT_MM_PER_PROMPT =~ ^\{\"[a-z]+\":[1-9][0-9]{0,3}(,\"[a-z]+\":[1-9][0-9]{0,3})*\}$ ]] \
+    || fail 1 "CLUSTER_LIMIT_MM_PER_PROMPT must be empty or one JSON object of {\"modality\":count}, not '${CLUSTER_LIMIT_MM_PER_PROMPT:0:64}'"
+  for name in "${VLLM_BOOL_FLAGS[@]}"; do
+    [[ ${!name} =~ ^[01]?$ ]] || fail 1 "$name must be empty, 0 or 1, not '${!name:0:32}'"
+  done
+  if [[ -n $CLUSTER_KV_OFFLOAD_GIB && ! $CLUSTER_KV_OFFLOAD_GIB =~ ^[0-9]+$ ]]; then
+    fail 1 "CLUSTER_KV_OFFLOAD_GIB must be a whole number of GB or empty, not '${CLUSTER_KV_OFFLOAD_GIB:0:64}'"
+  fi
+  if [[ -n $CLUSTER_KV_OFFLOAD_GIB && $CLUSTER_KV_OFFLOAD_GIB != 0 && -z $CLUSTER_KV_OFFLOAD_YAML ]]; then
+    fail 1 "CLUSTER_KV_OFFLOAD_GIB needs CLUSTER_KV_OFFLOAD_YAML: the config document is the LB's to write"
+  fi
+  if [[ ! $CLUSTER_PLE_REPLICATE =~ ^[01]$ ]]; then
+    fail 1 "CLUSTER_PLE_REPLICATE must be 0 or 1, not '${CLUSTER_PLE_REPLICATE:0:64}'"
+  fi
+  if [[ -n $CLUSTER_MTP_PREFIX && ! $CLUSTER_MTP_PREFIX =~ ^[A-Za-z0-9_.]{1,128}$ ]]; then
+    fail 1 "CLUSTER_MTP_PREFIX must be empty or a tensor-name prefix of [A-Za-z0-9_.], not '${CLUSTER_MTP_PREFIX:0:64}'"
+  fi
+  for name in CLUSTER_TOOL_CALL_PARSER CLUSTER_REASONING_PARSER; do
+    value=${!name}
+    if [[ -n $value && ! $value =~ $PARSER_NAME ]]; then
+      fail 1 "$name must be empty or a vLLM parser name of [A-Za-z0-9_.-], not '${value:0:64}'"
+    fi
+  done
+  if [[ -n $CLUSTER_SPECULATIVE_CONFIG ]]; then
+    if [[ ! $CLUSTER_SPECULATIVE_CONFIG =~ $FLAT_JSON ]]; then
+      fail 1 "CLUSTER_SPECULATIVE_CONFIG must be empty or ONE flat JSON object, not '${CLUSTER_SPECULATIVE_CONFIG:0:64}'"
+    fi
+    if [[ $CLUSTER_SPECULATIVE_CONFIG == *'"model"'* ]]; then
+      fail 1 "CLUSTER_SPECULATIVE_CONFIG must not name the drafter's own model: this script names it itself — the view it builds beside the checkpoint (CLUSTER_MTP_PREFIX), or CLUSTER_DRAFT_NAME"
+    fi
+  fi
+  case $CLUSTER_ENGINE in
+    vllm|sglang|tensorfold) : ;;
+    *) fail 1 "CLUSTER_ENGINE must be vllm, sglang or tensorfold, not '${CLUSTER_ENGINE:0:32}'" ;;
+  esac
+  if [[ -n $CLUSTER_ENGINE_ARGS ]]; then
+    [[ $CLUSTER_ENGINE_ARGS =~ $FLAT_JSON ]] \
+      || fail 1 "CLUSTER_ENGINE_ARGS must be empty or ONE flat JSON object, not '${CLUSTER_ENGINE_ARGS:0:64}'"
+    [[ $CLUSTER_ENGINE == vllm ]] \
+      && fail 1 "CLUSTER_ENGINE_ARGS is for a non-vLLM engine; vLLM's settings are this script's own"
+  fi
+  if [[ -n $CLUSTER_DRAFT_NAME ]]; then
+    if [[ -z $CLUSTER_SPECULATIVE_CONFIG ]]; then
+      fail 1 "CLUSTER_DRAFT_NAME names the drafter $CLUSTER_DRAFT_NAME, but CLUSTER_SPECULATIVE_CONFIG is empty: there is no drafter to point at it"
+    fi
+    if [[ -n $CLUSTER_MTP_PREFIX ]]; then
+      fail 1 "CLUSTER_DRAFT_NAME and CLUSTER_MTP_PREFIX are exclusive: a drafter is either its own checkpoint or tensors inside the target's, and exactly one of them is spliced"
+    fi
+    if [[ ! $CLUSTER_DRAFT_NAME =~ $MODEL_PATH || $CLUSTER_DRAFT_NAME =~ $DOT_PART ]]; then
+      fail 1 "CLUSTER_DRAFT_NAME must be a relative path of [A-Za-z0-9_.-] names, none of them . or .., not '${CLUSTER_DRAFT_NAME:0:64}'"
+    fi
+  fi
+  # Expanded once, here, and used by every later look: the cache must not sit under a models dir
+  # whichever way that dir was written.
+  expand_dirs "$CLUSTER_MODELS_DIRS"
+  SEARCH_DIRS=(${DIRS[@]+"${DIRS[@]}"})
+  if [[ -z $CLUSTER_CACHE_DIR ]]; then
+    return 0
+  fi
+  if [[ ! $CLUSTER_CACHE_DIR =~ $ABS_PATH || $CLUSTER_CACHE_DIR =~ $DOT_PART ]]; then
+    fail 1 "CLUSTER_CACHE_DIR must be empty or an absolute path of [A-Za-z0-9_.-] names, none of them . or .., not '${CLUSTER_CACHE_DIR:0:64}'"
+  fi
+  for dir in ${SEARCH_DIRS[@]+"${SEARCH_DIRS[@]}"}; do
+    if [[ $CLUSTER_CACHE_DIR == "$dir" || $CLUSTER_CACHE_DIR == "$dir"/* ]]; then
+      fail 1 "CLUSTER_CACHE_DIR $CLUSTER_CACHE_DIR is inside the models search path ($dir): vLLM's caches stay on this box's own disk"
+    fi
+  done
+}
+
+# The folders of a colon-separated search path, in order, with `~` meaning THIS box's home: the LB
+# cannot know a box's HOME, and a value it quotes never expands on its own. Empty entries are dropped
+# and a trailing slash is not one. Sets DIRS.
+expand_dirs() {
+  local raw=() item
+  DIRS=()
+  IFS=: read -r -a raw <<<"$1" || true
+  for item in ${raw[@]+"${raw[@]}"}; do
+    if [[ $item == '~' || $item == '~/'* ]]; then
+      [[ -n ${HOME:-} ]] \
+        || fail 1 "a folder is written '${item:0:64}', and this box has no HOME to expand it with"
+      item=${HOME%/}${item#\~}
+    fi
+    item=${item%/}
+    if [[ -n $item ]]; then
+      DIRS+=("$item")
+    fi
+  done
+}
+
+# ── the profile key ───────────────────────────────────────────────────────────
+
+# A value as ONE dir name, reversibly — `_` → `__`, `/` → `_S`, `:` → `_C`, `@` → `_A` — so no two
+# values ever get the same name: an image reference, or a model's path. Byte by byte, like json_str.
+# Sets ONE_NAME.
+one_name() {
+  local s=$1 out='' c i
+  for ((i = 0; i < ${#s}; i++)); do
+    c=${s:i:1}
+    case $c in
+      _) out+=__ ;;
+      /) out+=_S ;;
+      :) out+=_C ;;
+      @) out+=_A ;;
+      *) out+=$c ;;
+    esac
+  done
+  ONE_NAME=$out
+}
+
+# The PROFILE KEY: what vLLM's own cache key cannot see — the image (the MBX patches and kernels baked
+# into it), the checkpoint, the TP size and the PLE mode (an MBX_ variable, which vLLM's env hash skips)
+# — as the path of the ONE cache dir it owns, under CLUSTER_CACHE_DIR:
+#   <image, as one name>/<model name or path, as one name>/tp<size>-ple<mode>
+# A fixed depth of single names, so no two keys ever share a dir, or nest. It is DERIVED from the launch
+# settings a model's LaunchProfile brings (vllm_lb/catalog.py); the settings are the profile, this is its
+# identity, and each has its own name. Sets PROFILE_KEY.
+profile_key() {
+  local image model part
+  one_name "$CLUSTER_IMAGE"
+  image=$ONE_NAME
+  one_name "$CLUSTER_MODEL_NAME"
+  model=$ONE_NAME
+  # A cache built with the disk tier is not the cache for one without it, so the tier is part of the key —
+  # but an explicit 0 is OFF and must key exactly like unset, or turning it off would orphan the cache.
+  local kvoff=""
+  [[ -n $CLUSTER_KV_OFFLOAD_GIB && $CLUSTER_KV_OFFLOAD_GIB != 0 ]] && kvoff="-kvoff"
+  for part in "$image" "$model" "tp$TP_SIZE-ple$CLUSTER_PLE_REPLICATE$kvoff"; do
+    if [[ ! $part =~ $COMPONENT ]]; then
+      fail 1 "the profile key's dir name '${part:0:64}' is not one name of [A-Za-z0-9_.-]"
+    fi
+  done
+  PROFILE_KEY=$image/$model/tp$TP_SIZE-ple$CLUSTER_PLE_REPLICATE
+}
+
+# ── docker ────────────────────────────────────────────────────────────────────
+
+# Run docker with stdout and stderr folded together: the text lands in DOUT, the status in DRC,
+# and `set -e` is never tripped — each caller decides what a failure means. A successful answer is
+# the LAST line: docker prints its warnings (and any pull progress) before the answer, never after.
+dock() {
+  DRC=0
+  DOUT=$(docker "$@" 2>&1) || DRC=$?
+}
+
+# Did docker say the object does not exist? `error: no such object: X` (29.x), `Error: No such
+# object: X` (older), `No such container: X` (rm, logs).
+no_such() {
+  local said=${DOUT,,}
+  [[ $said == *"no such object"* || $said == *"no such container"* ]]
+}
+
+# Our rank as docker sees it: RANK_PRESENT and RANK_RUNNING (true|false), RANK_GEN and RANK_EXIT
+# (a JSON integer or null), RANK_STARTED (a JSON string or null), RANK_CHOICE (the ModelChoice it was
+# LAUNCHED for, as a JSON string, or null) and RANK_CHOICE_LABEL, that label exactly as it stands, which
+# is what the next `up` compares its own choice against.
+observe_rank() {
+  RANK_PRESENT=false RANK_RUNNING=false RANK_GEN=null RANK_EXIT=null RANK_STARTED=null
+  RANK_CHOICE=null RANK_CHOICE_LABEL=''
+  dock inspect -f "$RANK_FORMAT" "$NAME"
+  if (( DRC != 0 )); then
+    if no_such; then
+      return 0
+    fi
+    fail 1 "docker inspect $NAME failed (exit $DRC): $DOUT"
+  fi
+  local running code started gen choice
+  IFS='|' read -r running code started gen choice <<<"${DOUT##*$'\n'}" || true
+  RANK_PRESENT=true
+  if [[ $running == true ]]; then
+    RANK_RUNNING=true                   # a running container's exit code means nothing: null
+  elif [[ $code =~ ^(0|-?[1-9][0-9]{0,8})$ ]]; then
+    RANK_EXIT=$code
+  fi
+  if [[ $gen =~ ^[1-9][0-9]{0,5}$ ]]; then
+    RANK_GEN=$gen                       # no label, or not one of ours, is no generation at all
+  fi
+  RANK_CHOICE_LABEL=$choice
+  if [[ $choice =~ $CHOICE_ID ]]; then
+    RANK_CHOICE=$(json_str "$choice")   # likewise: not a ModelChoice of ours is no choice at all
+  fi
+  if [[ -n $started ]]; then
+    RANK_STARTED=$(json_str "$started")
+  fi
+}
+
+# Is broker_parrot's classic vLLM running on this box? BROKER_RUNNING=true|false.
+observe_broker() {
+  BROKER_RUNNING=false
+  dock inspect -f '{{.State.Running}}' "$BROKER_VLLM"
+  if (( DRC != 0 )); then
+    if no_such; then
+      return 0
+    fi
+    fail 1 "docker inspect $BROKER_VLLM failed (exit $DRC): $DOUT"
+  fi
+  if [[ ${DOUT##*$'\n'} == true ]]; then
+    BROKER_RUNNING=true
+  fi
+}
+
+# MemAvailable in GiB with one decimal (MEM_GIB). On a GB10 the GPU's memory IS this memory — it is
+# unified — which is why the planner will not start a 99 GB load without it.
+# What this box's own ollama still holds: its /api/ps body and the SERVER's own Date, verbatim, in
+# OLLAMA_JSON — or `null` when it could not be asked. The LB parses it with the SAME reader it uses for
+# its own ollama probe, so there is one reader of that route. Never invents an empty list: a box that
+# did not answer has not said "nothing is resident". python3 is already this script's one interpreter.
+observe_ollama() {
+  OLLAMA_JSON=null
+  [[ -n ${CLUSTER_OLLAMA_URL:-} ]] || return 0
+  local out
+  out=$(python3 -I - "$CLUSTER_OLLAMA_URL" "$CLUSTER_OLLAMA_TIMEOUT_S" 2>/dev/null <<'PY'
+import json, sys, urllib.request
+
+url = sys.argv[1].rstrip("/") + "/api/ps"
+with urllib.request.urlopen(url, timeout=float(sys.argv[2])) as reply:
+    body = json.loads(reply.read() or b"{}")
+    date = reply.headers.get("Date") or ""
+if not isinstance(body, dict):
+    raise SystemExit(1)
+json.dump({"date": date, "ps": body}, sys.stdout, separators=(",", ":"))
+PY
+  ) || return 0
+  [[ -n $out ]] && OLLAMA_JSON=$out
+  return 0
+}
+
+observe_memory() {
+  local meminfo=${TP_RANK_MEMINFO:-/proc/meminfo}
+  MEM_GIB=$(awk '$1 == "MemAvailable:" { printf "%.1f", $2 / 1048576; found = 1; exit }
+                 END { exit !found }' "$meminfo" 2>/dev/null) \
+    || fail 1 "cannot read MemAvailable from $meminfo"
+  # MemTotal: what the fleet's ram_usable_fraction is a fraction OF (the LB's start gate and this guard's floor).
+  MEM_TOTAL_GIB=$(awk '$1 == "MemTotal:" { printf "%.1f", $2 / 1048576; found = 1; exit }
+                       END { exit !found }' "$meminfo" 2>/dev/null) \
+    || fail 1 "cannot read MemTotal from $meminfo"
+}
+
+# What the GPU is ACTUALLY doing, in GPU_JSON — or `null` when this box has no nvidia-smi, the driver
+# did not answer in time, or CLUSTER_GPU_TELEMETRY=0. Never a zero standing in for "not measured": an
+# unobserved GPU is null, exactly as an unasked ollama is.
+#
+# `dmon -c 1` is the ONE form that answers on a GB10. `--query-gpu` returns [N/A] there for power.draw,
+# power.limit and memory.used (the memory is UNIFIED with the host's, and there is no separate power
+# rail to report), while dmon prints pwr, sm, mem, gtemp and pclk for one sample. `clocks.max.sm` has no
+# dmon column, so it comes from --query-gpu, where it does answer (3003 MHz on a GB10).
+#
+# The columns are read from dmon's OWN header, not from a remembered order: a driver that adds a column
+# would otherwise silently relabel every number. `-` is how dmon says a column has no value on this
+# card (mtemp, mclk on a GB10) and becomes null, never 0.
+#
+# `mem` is the driver's memory DUTY-CYCLE — the share of time some global memory access was in flight —
+# and it is NOT bandwidth utilisation. On a GB10 it reads 0 even at sm 96%, so it is passed through
+# under its own name and nothing here calls it bandwidth. The honest bandwidth figure comes from the
+# engine's own counters (vllm_lb/throughput.py), not from here.
+observe_gpu() {
+  GPU_JSON=null
+  [[ ${CLUSTER_GPU_TELEMETRY:-1} == 1 ]] || return 0
+  int_in "$TP_RANK_GPU_TIMEOUT_S" 1 60 || return 0
+  command -v nvidia-smi >/dev/null 2>&1 || return 0
+  local bound=() dmon max out
+  if command -v timeout >/dev/null 2>&1; then
+    bound=(timeout "$TP_RANK_GPU_TIMEOUT_S")
+  fi
+  dmon=$("${bound[@]}" nvidia-smi dmon -c 1 2>/dev/null) || return 0
+  max=$("${bound[@]}" nvidia-smi --query-gpu=clocks.max.sm --format=csv,noheader,nounits 2>/dev/null) \
+    || max=''
+  out=$(MAXCLK=$max awk "$GPU_AWK" <<<"$dmon") || return 0
+  [[ -n $out ]] && GPU_JSON=$out
+  return 0
+}
+
+# The TP link, in NET_JSON — or `null` when this box has no RDMA device. NCCL moves the all-reduces over
+# RDMA, which bypasses the kernel (/proc/net/dev reads ~0 for bond0 under load), and it spreads them over
+# EVERY RDMA device it finds: on a GB10 box the ConnectX-7's two ports appear as four functions on two PCIe
+# links, and all four carry an equal share (measured 2026-10-02). So the bytes are summed over all of
+# /sys/class/infiniband, never just the bond's slaves.
+#
+# The ceiling is the PCIe, not the ports: each function's link is Gen5 x4 (15.75 GB/s a direction) and the
+# two functions of one device share it. `pcie_gbps` sums the DISTINCT devices' links (function stripped),
+# 128b/130b encoding applied — 31.5 GB/s on a GB10 box, under the ports' 2 × 200 Gb = 50 GB/s nameplate.
+# Monotonic byte counters and this box's clock, never a rate: the LB makes GB/s from two readings.
+observe_net() {
+  NET_JSON=null
+  local d v tx=0 rx=0 n=0 pci gts width pcie=0 seen=" "
+  for d in /sys/class/infiniband/*; do
+    [[ -r $d/ports/1/counters/port_xmit_data && -r $d/ports/1/counters/port_rcv_data ]] || continue
+    tx=$(( tx + $(<"$d/ports/1/counters/port_xmit_data") * 4 ))
+    rx=$(( rx + $(<"$d/ports/1/counters/port_rcv_data") * 4 ))
+    n=$(( n + 1 ))
+    pci=$(readlink -f "$d/device" 2>/dev/null) || continue
+    [[ $seen == *" ${pci%.*} "* ]] && continue        # one PCIe link per device, not per function
+    seen+="${pci%.*} "
+    gts=0; [[ -r $pci/current_link_speed ]] && gts=$(<"$pci/current_link_speed"); gts=${gts%% *}; gts=${gts%.*}
+    width=0; [[ -r $pci/current_link_width ]] && width=$(<"$pci/current_link_width")
+    [[ $gts =~ ^[0-9]+$ && $width =~ ^[0-9]+$ ]] || continue
+    pcie=$(( pcie + gts * width ))                     # GT/s·lanes; the LB applies 128/130 and /8
+  done
+  (( n > 0 )) || return 0
+  NET_JSON=$(printf '{"tx_bytes": %d, "rx_bytes": %d, "devices": %d, "pcie_gt_lanes": %d, "t": %s}' \
+    "$tx" "$rx" "$n" "$pcie" "$(date +%s.%N)")
+  return 0
+}
+
+# The first dir on CLUSTER_MODELS_DIRS holding a whole checkpoint, in MODELS_DIR — or a failure that
+# names every dir tried. Only `up` looks: a hung NFS mount can stall a launch (the executor's action
+# timeout bounds that), never a status poll.
+find_checkpoint() {
+  local dir tried=() list
+  for dir in ${SEARCH_DIRS[@]+"${SEARCH_DIRS[@]}"}; do
+    if [[ -f $dir/$CLUSTER_MODEL_NAME/config.json ]]; then
+      MODELS_DIR=$dir
+      return 0
+    fi
+    tried+=("$dir")
+  done
+  (( ${#tried[@]} > 0 )) || fail 1 "CLUSTER_MODELS_DIRS names no directory — the LB builds it from MODELS_SEARCH_DIRS (lb/.env)"
+  printf -v list '%s, ' "${tried[@]}"
+  fail 1 "no $CLUSTER_MODEL_NAME/config.json in any of: ${list%, }"
+}
+
+# ── the drafter view ──────────────────────────────────────────────────────────
+
+# The shards of the index $1 that hold the drafter's tensors — every tensor under CLUSTER_MTP_PREFIX
+# and, when there is one, the target's SHARED_TENSORS — one per line, sorted; nothing when the index
+# names no drafter tensor. When the index cannot be read: the reason on one line, and exit 1.
+index_drafter_shards() {
+  python3 -I - "$1" "$CLUSTER_MTP_PREFIX" "$SHARED_TENSORS" <<'PY'
+import json
+import re
+import sys
+
+index, prefix, shared = sys.argv[1], sys.argv[2], re.compile(sys.argv[3])
+try:
+    with open(index, encoding="utf-8") as f:
+        weight_map = json.load(f)["weight_map"]
+    shards = {shard for tensor, shard in weight_map.items() if tensor.startswith(prefix)}
+    if shards:
+        shards |= {shard for tensor, shard in weight_map.items() if shared.search(tensor)}
+    names = sorted(shards)
+except Exception as exc:
+    print(f"{type(exc).__name__}: {exc}")
+    sys.exit(1)
+print("\n".join(names))
+PY
+}
+
+# Point the drafter (SPEC) at a view of the checkpoint holding only what it reads, whenever the
+# checkpoint's index says what that is: <name>-mtp beside the checkpoint, built once. With no drafter at
+# all, no index, or CLUSTER_MTP_PREFIX empty, the profile's own config is what vLLM is told, and the
+# drafter walks the whole checkpoint, as before.
+#
+# What decides is shared by both ranks — the index, and the view on box-a's export — and a view that
+# cannot be had refuses the start rather than falling back, so no rank ever launches a different
+# drafter from its peer's.
+drafter_view() {
+  local checkpoint=$MODELS_DIR/$CLUSTER_MODEL_NAME view=$MODELS_DIR/$CLUSTER_MODEL_NAME$VIEW_SUFFIX
+  local out shard missing=()
+  SPEC=$CLUSTER_SPECULATIVE_CONFIG
+  SHARDS=()
+  # The view sits beside the checkpoint, so its links reach the checkpoint by the checkpoint's own
+  # dir name, whether CLUSTER_MODEL_NAME is that name or a path ending in it.
+  LINK_DIR=../${CLUSTER_MODEL_NAME##*/}
+  if [[ -z $SPEC || -z $CLUSTER_MTP_PREFIX || ! -f $checkpoint/$INDEX ]]; then
+    return 0
+  fi
+  out=$(index_drafter_shards "$checkpoint/$INDEX" 2>&1) \
+    || fail 1 "drafter view: cannot read $checkpoint/$INDEX: $out"
+  if [[ -z $out ]]; then
+    return 0                            # no tensor under the prefix: no drafter to make a view for
+  fi
+  mapfile -t SHARDS <<<"$out"
+  for shard in "${SHARDS[@]}"; do
+    if [[ ! $shard =~ $COMPONENT || $shard != *.safetensors ]]; then
+      fail 1 "drafter view: $INDEX names a shard that is not a file name: '${shard:0:64}'"
+    fi
+    if [[ ! -f $checkpoint/$shard ]]; then
+      missing+=("$shard")
+    fi
+  done
+  if (( ${#missing[@]} > 0 )); then
+    fail 1 "drafter view: $CLUSTER_MODEL_NAME lacks ${missing[*]}, which its $INDEX names for the drafter"
+  fi
+  if [[ ! -e $view && ! -L $view ]]; then
+    build_view "$view"
+  fi
+  view_is_whole "$view" \
+    || fail 1 "drafter view: $view is not a view of the shards $INDEX names for the drafter; remove it, and the next start builds it again"
+  # The profile's own drafter, with the view spliced into it — which only a flat object survives, and
+  # check_launch_settings made sure of that.
+  SPEC="${SPEC%\}},\"model\":\"/models/$CLUSTER_MODEL_NAME$VIEW_SUFFIX\"}"
+}
+
+# ── the SGLang quant view: the one file a mixed-precision checkpoint is missing ───────────────
+#
+# SGLang will not serve Flash-Next out of its own directory. It reads `quantization_config` from the
+# checkpoint's config.json, correctly decides the scheme is `modelopt_mixed` — and then looks for a
+# SEPARATE FILE to configure it from, globbing the model folder for `hf_quant_config.json`
+# (srt/model_loader/weight_utils.py `get_quant_config`; ModelOptMixedPrecisionConfig.get_config_filenames
+# is exactly ['hf_quant_config.json']). Finding none it raises, and both ranks exit 0 before a shard is
+# read:
+#
+#   ValueError: Cannot find the config file for modelopt_mixed      (generation 141, 2026-10-05)
+#
+# The dense 27B serves on SGLang because nvidia's export SHIPS that file; this checkpoint keeps the same
+# metadata inline in config.json instead. Nothing is wrong with the weights, and nothing is missing from
+# the engine: the image understands every algorithm this checkpoint names —
+# `quant_algo == "W4A16_NVFP4"` -> ModelOptNvFp4FusedMoEMethod(nvfp4a16_config) for the experts,
+# `"NVFP4"` -> ModelOptNvFp4FusedMoEMethod(nvfp4_config), and the group-size lookup accepts both
+# (modelopt_quant.py). Our 591 quantized_layers are 436 W4A16_NVFP4 + 155 NVFP4, all covered.
+#
+# So the view is a FILE, not a conversion: a sibling dir of relative symlinks to every one of the
+# checkpoint's files, plus a real `hf_quant_config.json` rewritten from the config.json that is already
+# there. It is built exactly the way `drafter_view` builds the drafter's — partial dir, one atomic
+# rename, both ranks may race and the first rename wins — and for the same reason: the view lives on
+# box-a's export, so rank 1 reads over NFS whatever rank 0 wrote.
+#
+# WHY A VIEW AND NOT A FILE IN THE CHECKPOINT: the vLLM profile serves these same weights out of the
+# untouched directory, and vLLM reads `hf_quant_config.json` too where it finds one. Writing it into the
+# checkpoint would change the launch of the profile that works, to fix the one that does not.
+#
+# Sets SGLANG_MODEL_NAME: what `--model-path` names under /models. The checkpoint itself whenever the
+# view is unnecessary, so a checkpoint that already ships the file launches byte for byte as before.
+quant_view() {
+  local checkpoint=$MODELS_DIR/$CLUSTER_MODEL_NAME view out
+  SGLANG_MODEL_NAME=$CLUSTER_MODEL_NAME
+  [[ $CLUSTER_ENGINE == sglang ]] || return 0
+  # It already ships one (the dense 27B): nothing to build, and the launch does not move.
+  [[ -f $checkpoint/$HF_QUANT_CONFIG ]] && return 0
+  # No inline scheme either: an unquantized checkpoint needs no quant config at all.
+  grep -q '"quantization_config"' -- "$checkpoint/config.json" 2>/dev/null || return 0
+  view=$MODELS_DIR/$CLUSTER_MODEL_NAME$QUANT_VIEW_SUFFIX
+  LINK_DIR=../${CLUSTER_MODEL_NAME##*/}
+  if [[ ! -e $view && ! -L $view ]]; then
+    build_quant_view "$view" || return 1
+  fi
+  quant_view_is_whole "$view" \
+    || fail 1 "quant view: $view is not a whole view of $CLUSTER_MODEL_NAME; remove it, and the next start builds it again"
+  SGLANG_MODEL_NAME=$CLUSTER_MODEL_NAME$QUANT_VIEW_SUFFIX
+}
+
+# Build it in a partial dir of this call's own and rename in ONE step, so the view's name never means a
+# half-built directory — `build_view`'s rule, for the same two ranks racing over one export.
+build_quant_view() {
+  local view=$1 partial out
+  if out=$(mktemp -d -- "$view.partial.XXXXXXXX" 2>&1); then
+    partial=$out
+    if out=$(link_quant_view "$partial" 2>&1) && out=$(mv -T -- "$partial" "$view" 2>&1); then
+      return 0
+    fi
+    rm -rf -- "$partial"
+  fi
+  # The peer's rename may have won between our test and our mktemp; that view is as good as ours.
+  if [[ ! -e $view && ! -L $view ]]; then
+    fail 1 "quant view: cannot build $view: $out"
+  fi
+}
+
+# Fill the partial dir $1: mode 755 for box-b's root-squashed NFS read, a relative link to EVERY file
+# the checkpoint has (shards and index included — this view is the whole model, not the drafter's
+# subset), then the one real file.
+link_quant_view() {
+  local partial=$1 path file
+  chmod 755 -- "$partial" || return
+  local ple_dir=$MODELS_DIR/$CLUSTER_MODEL_NAME$PLE_FP8_SUFFIX converted=0
+  [[ -d $ple_dir ]] && converted=1
+  for path in "$MODELS_DIR/$CLUSTER_MODEL_NAME"/*; do
+    file=${path##*/}
+    [[ -f $path && $file =~ $COMPONENT ]] || continue
+    # THE nvfp4 TABLE IS NOT LINKED once a converted one exists: SGLang skips those tensors by
+    # name and leaves the table at its bf16 allocation, which is the 95.37 GiB that took both
+    # boxes down twice. config.json is WRITTEN, not linked, because it must carry the dtype.
+    (( converted )) && [[ $file == ple-nvfp4-*.safetensors || $file == $INDEX ]] && continue
+    [[ $file == config.json ]] && continue
+    ln -s -- "$LINK_DIR/$file" "$partial/$file" || return
+  done
+  if (( converted )); then
+    for path in "$ple_dir"/ple-fp8-*.safetensors; do
+      file=${path##*/}
+      [[ -f $path ]] || return
+      ln -s -- "../${CLUSTER_MODEL_NAME##*/}$PLE_FP8_SUFFIX/$file" "$partial/$file" || return
+    done
+  fi
+  write_view_config "$MODELS_DIR/$CLUSTER_MODEL_NAME/config.json" "$partial/config.json" "$converted"
+  if (( converted )); then
+    rm -f -- "$partial/$INDEX"
+    write_view_index "$MODELS_DIR/$CLUSTER_MODEL_NAME/$INDEX" "$partial/$INDEX" || return
+  fi
+  write_hf_quant_config "$MODELS_DIR/$CLUSTER_MODEL_NAME/config.json" "$partial/$HF_QUANT_CONFIG"
+}
+
+# The view's own config.json: the checkpoint's, plus one key, and that key is the difference
+# between a start and a dead box. With a converted table present the storage dtype must be
+# declared UP FRONT. SGLang can auto-switch to fp8 when an fp8 shard arrives, but it does so by
+# allocating the bf16 table and then swapping, so 95.37 + 47.7 GiB are resident at once on a box
+# that has 115. qwen4_exp.py refuses that path in those words: set
+# text_config.ple_embedding_dtype="float8_e4m3fn" instead.
+# The view's own index. THE INDEX IS NOT A MANIFEST, IT IS THE READ LIST: SGLang loads the
+# files it names and nothing else, and it refuses to start when one is absent —
+# "model.safetensors.index.json references 8 shard file(s) missing" (generation 151). So the
+# seventeen nvfp4 PLE entries (8 x {packed, scales} + the global) come out, and the converted
+# shards go in, or they would sit on disk unread and the table would be empty again.
+write_view_index() {
+  python3 -I - "$1" "$2" <<'PYIDX'
+import json, os, sys
+
+src, dst = sys.argv[1], sys.argv[2]
+with open(src) as fh:
+    doc = json.load(fh)
+wm = doc.get("weight_map")
+if not isinstance(wm, dict):
+    raise SystemExit(f"{src}: no weight_map to rewrite")
+
+dropped = {k: v for k, v in wm.items() if "ple-nvfp4" in v}
+if not dropped:
+    raise SystemExit(f"{src}: no ple-nvfp4 entries — the checkpoint is not the one this view is for")
+prefixes = {k.split(".ngram_embedding.")[0] for k in dropped if ".ngram_embedding." in k}
+if len(prefixes) != 1:
+    raise SystemExit(f"{src}: expected one n-gram table, found {sorted(prefixes)}")
+prefix = f"{prefixes.pop()}.ngram_embedding"
+
+for k in dropped:
+    del wm[k]
+
+shards = sorted(f for f in os.listdir(os.path.dirname(dst)) if f.startswith("ple-fp8-"))
+if not shards:
+    raise SystemExit(f"{os.path.dirname(dst)}: no ple-fp8-* shards to name in the index")
+for i, fname in enumerate(shards):
+    wm[f"{prefix}.shard_{i}.weight"] = fname
+wm[f"{prefix}.weight_scale"] = shards[0]
+
+# total_size is advisory, but a stale one is a lie about a file nobody can check.
+meta = doc.get("metadata")
+if isinstance(meta, dict) and "total_size" in meta:
+    meta.pop("total_size")
+with open(dst, "w") as fh:
+    json.dump(doc, fh)
+PYIDX
+}
+
+write_view_config() {
+  python3 -I - "$1" "$2" "$3" <<'PYCFG'
+import json, sys
+
+src, dst, converted = sys.argv[1], sys.argv[2], sys.argv[3] == "1"
+with open(src) as fh:
+    cfg = json.load(fh)
+if converted:
+    target = cfg.get("text_config")
+    if not isinstance(target, dict):
+        target = cfg
+    target["ple_embedding_dtype"] = "float8_e4m3fn"
+with open(dst, "w") as fh:
+    json.dump(cfg, fh)
+PYCFG
+}
+
+# config.json's `quantization_config` -> the file SGLang reads, in the shape the DENSE checkpoint's own
+# hf_quant_config.json uses (a `quantization` section; ModelOptMixedPrecisionConfig.from_config reads
+# `quant_algo` from the top level or, finding none, from that section). `ignore` is the inline name for
+# what the file calls `exclude_modules` — 1,158 entries here, and dropping them would quantize layers
+# the export deliberately left alone.
+write_hf_quant_config() {
+  python3 -I - "$1" "$2" <<'PY'
+import json, sys
+
+src, dst = sys.argv[1], sys.argv[2]
+with open(src) as fh:
+    cfg = json.load(fh)
+q = cfg.get("quantization_config")
+if not isinstance(q, dict):
+    raise SystemExit(f"{src}: no quantization_config object to write a quant config from")
+algo = q.get("quant_algo")
+if not algo:
+    raise SystemExit(f"{src}: quantization_config names no quant_algo")
+layers = dict(q.get("quantized_layers") or {})
+if algo.upper() == "MIXED_PRECISION" and not layers:
+    raise SystemExit(f"{src}: MIXED_PRECISION with no quantized_layers is not a scheme")
+exclude = list(q.get("ignore", q.get("exclude_modules")) or [])
+
+# THE N-GRAM TABLE IS NVFP4 ON DISK AND THIS CONFIG SAYS TO IGNORE IT. Both are true: the checkpoint
+# states the table's own format in a TOP-LEVEL `ple_quantization` key that the vLLM image's overlay
+# reads and SGLang has never heard of, and leaves the tensor out of `quantized_layers`. SGLang honours
+# the exclusion literally — modelopt_quant.py `get_quant_method` returns None for an excluded
+# VocabParallelEmbedding, i.e. UNQUANTIZED — and so materialises 320,001,536 x 160 at bf16:
+#
+#     26.82 GiB on disk (8 ple-nvfp4-*.safetensors)  ->  95.37 GiB resident
+#
+# That 68.55 GiB is what took both GB10 boxes from 109.57 GiB free to under 600 MiB in twenty seconds on
+# generation 146, and it is why this profile is not simply the vLLM profile with another engine.
+# Promoting the tensor out of the exclusion and naming its real format gives SGLang the embedding
+# method it already has: `quant_algo == "NVFP4"` -> ModelOptNvFp4EmbeddingMethod. NVFP4 and not
+# W4A16_NVFP4 deliberately — the mixed config offers a W4A16 branch for Linear and ParallelLMHead but
+# NOT for VocabParallelEmbedding, where W4A16_NVFP4 falls through to the same unquantized None; and an
+# embedding is a gather, not a GEMM, so the A16 half of that name describes an activation path this
+# tensor does not have.
+ple = cfg.get("ple_quantization") or {}
+if str(ple.get("format", "")).lower() == "nvfp4":
+    group = ple.get("block", 16)
+    kept = [m for m in exclude if not m.endswith(".ple_embedding.ngram_embedding")]
+    for name in (m for m in exclude if m.endswith(".ple_embedding.ngram_embedding")):
+        layers[name] = {"quant_algo": "NVFP4", "group_size": group}
+    exclude = kept
+
+out = {"producer": {"name": q.get("quant_method") or "modelopt"},
+       "quantization": {"quant_algo": algo,
+                        "kv_cache_quant_algo": q.get("kv_cache_quant_algo"),
+                        "exclude_modules": exclude,
+                        "quantized_layers": layers}}
+with open(dst, "w") as fh:
+    json.dump(out, fh)
+PY
+}
+
+# Whole = a real dir carrying the generated file, and a link for every file the checkpoint has. A
+# checkpoint that gained a shard since the view was built is NOT whole, and the start says so rather
+# than serving half a model.
+quant_view_is_whole() {
+  local view=$1 path file
+  [[ -d $view && ! -L $view && -s $view/$HF_QUANT_CONFIG && ! -L $view/$HF_QUANT_CONFIG ]] || return 1
+  local ple_dir=$MODELS_DIR/$CLUSTER_MODEL_NAME$PLE_FP8_SUFFIX converted=0
+  [[ -d $ple_dir ]] && converted=1
+  (( converted )) && { [[ -s $view/config.json && ! -L $view/config.json ]] || return 1; }
+  (( converted )) && { [[ -s $view/$INDEX && ! -L $view/$INDEX ]] || return 1; }
+  for path in "$MODELS_DIR/$CLUSTER_MODEL_NAME"/*; do
+    file=${path##*/}
+    [[ -f $path && $file =~ $COMPONENT ]] || continue
+    (( converted )) && [[ $file == ple-nvfp4-*.safetensors || $file == config.json || $file == $INDEX ]] && continue
+    [[ -L $view/$file && -f $view/$file ]] || return 1
+    [[ $(readlink -- "$view/$file") == "$LINK_DIR/$file" ]] || return 1
+  done
+  if (( converted )); then
+    for path in "$ple_dir"/ple-fp8-*.safetensors; do
+      file=${path##*/}
+      [[ -L $view/$file && -f $view/$file ]] || return 1
+    done
+  fi
+}
+
+# One value out of CLUSTER_ENGINE_ARGS: `engine_arg <key> <default>`, printed. The object is flat and
+# check_launch_settings proved it so, so a line-free regex is enough — no jq, no python on the box.
+# A key that is absent, or whose value is not a bare number or a [A-Za-z0-9_.-] word, yields the default.
+engine_arg() {
+  local key=$1 default=$2 value
+  if [[ $CLUSTER_ENGINE_ARGS =~ \"$key\"[[:space:]]*:[[:space:]]*\"?([A-Za-z0-9_.-]+)\"? ]]; then
+    value=${BASH_REMATCH[1]}
+  fi
+  printf '%s' "${value:-$default}"
+}
+
+# SGLang's `launch_server`, as the measured pair runs it (deploy/sglang-27b-tp2/sglang-rank, and
+# worklog/sglang-27b-tp2-c16.md for why each value is what it is). The head serves CLUSTER_PORT, exactly
+# as vLLM's does, so nothing downstream of the engine changes: :8010 is still the one client address.
+#
+#   flashinfer          the attention backend SM121 needs; trtllm_mha is SM100-only
+#   fp8_e4m3 KV         SGLang's own default for this export, and what every measurement used
+#   mamba cache         DFlash2 holds FIVE GDN state slots a request, not the four upstream assumes:
+#                       at the wrong value the engine silently caps max_running_requests (8 became 6)
+#   mem-fraction        weights AND the KV pools, as a fraction of the box. 0.90 killed rank 1 because
+#                       DFlash2 adds a SECOND pool (61.5 GB target + 19.2 GB draft at 0.80)
+#   draft tokens        4 beat 8 at every concurrency measured here (278.69 vs 254.73 tok/s at 16 seats),
+#                       because acceptance is 0.49 of four drafted against 0.23 of eight
+#
+# TWO SPECULATIVE SHAPES, because the pair now has two SGLang models and their drafters are not the same
+# kind of thing. `engine_args.speculative_algorithm` picks:
+#
+#   DFLASH (the default, so every start before 2026-10-05 is byte for byte the one sent then)
+#                       the drafter is its OWN checkpoint and must be named: CLUSTER_DRAFT_NAME, the
+#                       dense 27B's Qwen3.8-27B-DFlash2.
+#   NEXTN               the drafter is INSIDE the target checkpoint (Flash-Next's `mtp.` tensors), and
+#                       SGLang finds it itself: srt/configs/model_config.py:848-854 rewrites the
+#                       architecture Qwen4ExpForConditionalGeneration -> Qwen4ExpForCausalLMMTP once
+#                       speculation is on, so there is NO draft path to pass and the profile sends
+#                       mtp_prefix "" (no `-mtp` view is built either — `drafter_view` returns early).
+#                       Its two extra knobs are SGLang's own: --speculative-num-steps (how many drafter
+#                       passes) and --speculative-eagle-topk (how wide each one branches). The
+#                       community 2x-box recipe for this checkpoint runs 3/1/4 and measures accept
+#                       ~2.3 (github.com/pocharlies-org/qwen38-flash-next-dgx-spark-sglang); our own
+#                       vLLM MTP-4 on the same weights measures accept_len 3.20 (perf generation 138),
+#                       so these are the values to BEAT, not to trust.
+sglang_cmd() {
+  local rank=$1 seats=$2 len=$3
+  # `quant_view` sets this — to the checkpoint itself when no view is needed. If it did not run, the
+  # path is not knowable and the start is refused: substituting the checkpoint here would serve a
+  # DIFFERENT model from the one the view was built for, silently.
+  [[ -n ${SGLANG_MODEL_NAME:-} ]] \
+    || fail 1 "sglang_cmd: SGLANG_MODEL_NAME is unset — quant_view did not run before the launch"
+  local slots mem_fraction chunked draft_tokens gdn_prefill max_total_tokens
+  local spec_algo spec_steps spec_topk ple_offload fp4_gemm page_size graph_max_bs moe_runner kv_dtype pf_attn dc_attn
+  slots=$(engine_arg mamba_slots_per_req 5)
+  gdn_prefill=$(engine_arg linear_attn_prefill_backend '')
+  mem_fraction=$(engine_arg mem_fraction_static 0.80)
+  chunked=$(engine_arg chunked_prefill_size "$CLUSTER_MAX_NUM_BATCHED_TOKENS")
+  draft_tokens=$(engine_arg draft_tokens 4)
+  spec_algo=$(engine_arg speculative_algorithm DFLASH)
+  spec_steps=$(engine_arg speculative_num_steps 3)
+  spec_topk=$(engine_arg speculative_eagle_topk 1)
+  ple_offload=$(engine_arg ple_offload_embedding 0)
+  fp4_gemm=$(engine_arg fp4_gemm_backend '')
+  moe_runner=$(engine_arg moe_runner_backend '')
+  # The RUN's KV dtype (CLUSTER_KV_CACHE_DTYPE, the LB's `kv_cache_dtype` knob) over the profile's engine_args; neither
+  # = fp8_e4m3, as every launch before the knob.
+  kv_dtype=${CLUSTER_KV_CACHE_DTYPE:-$(engine_arg kv_cache_dtype fp8_e4m3)}
+  # The prefill and decode attention backends, apart from --attention-backend flashinfer only where the LB sends
+  # them WITH the KV dtype whose pool needs them (lb/vllm_lb/kv_cache_dtypes.json): an NVFP4 pool is read by
+  # flashinfer prefill + trtllm_mha decode, an fp4_mx_block16 one by triton. Empty = the one backend, as before.
+  pf_attn=$(engine_arg prefill_attention_backend '')
+  dc_attn=$(engine_arg decode_attention_backend '')
+  # The speculative drafter's OWN KV pool dtype, sent with an FP4 target pool (lb/vllm_lb/kv_cache_dtypes.json); empty =
+  # the target's dtype, as every launch before.
+  dr_kv=$(engine_arg speculative_draft_kv_cache_dtype '')
+  page_size=$(engine_arg page_size '')
+  graph_max_bs=$(engine_arg cuda_graph_max_bs_decode '')
+  max_total_tokens=$(engine_arg max_total_tokens '')
+  int_in "$slots" 1 32 || fail 2 "engine_args mamba_slots_per_req must be 1..32, not '$slots'"
+  int_in "$chunked" 512 65536 || fail 2 "engine_args chunked_prefill_size must be 512..65536, not '$chunked'"
+  int_in "$draft_tokens" 0 64 || fail 2 "engine_args draft_tokens must be 0..64, not '$draft_tokens'"
+  int_in "$spec_steps" 1 16 || fail 2 "engine_args speculative_num_steps must be 1..16, not '$spec_steps'"
+  int_in "$spec_topk" 1 16 || fail 2 "engine_args speculative_eagle_topk must be 1..16, not '$spec_topk'"
+  [[ $mem_fraction =~ ^0\.[0-9]+$ ]] \
+    || fail 2 "engine_args mem_fraction_static must be a fraction below 1, not '$mem_fraction'"
+  [[ -z $gdn_prefill || $gdn_prefill =~ ^(triton|flashinfer|cutedsl)$ ]] \
+    || fail 2 "engine_args linear_attn_prefill_backend must be triton, flashinfer or cutedsl, not '$gdn_prefill'"
+  [[ $spec_algo =~ ^(DFLASH|NEXTN)$ ]] \
+    || fail 2 "engine_args speculative_algorithm must be DFLASH or NEXTN, not '${spec_algo:0:32}'"
+  [[ $ple_offload =~ ^[01]$ ]] \
+    || fail 2 "engine_args ple_offload_embedding must be 0 or 1, not '${ple_offload:0:32}'"
+  # The NVFP4 GEMM runner. `auto` picks flashinfer_cutedsl; the 2x-box recipe for Flash-Next pins
+  # flashinfer_cutlass, which is the backend built for sm_121a in our image.
+  [[ -z $fp4_gemm || $fp4_gemm =~ ^(auto|flashinfer_cudnn|flashinfer_cutedsl|flashinfer_cutlass|flashinfer_trtllm|marlin)$ ]] \
+    || fail 2 "engine_args fp4_gemm_backend must be one of SGLang's runners, not '${fp4_gemm:0:32}'"
+  # auto resolves to FLASHINFER_TRTLLM here, which this checkpoint's NVFP4 MoE refuses outright:
+  # "Unsupported moe_runner_backend for NVFP4 MoE ... Use --moe-runner-backend flashinfer_cutlass
+  # instead" (generation 152). The engine names the one that works, so the profile states it.
+  # fp8_e4m3 stays the default — it is what the dense profile measured its pools at. Flash-Next
+  # overrides it to bfloat16 because the SM121 QSA kernel refuses everything else: "unsupported SM121
+  # QSA call: expected BF16 D=256, 12:1 GQA, TP1 24Q/2KV or TP2 12Q/1KV, bs<=128, and selected
+  # KV<=2055" (generation 153). The geometry all matched; the dtype did not.
+  # SGLang 708f51e's own choices (srt/arg_groups/fields/model.py:196-219): no float16; FP4 as nvfp4 or
+  # fp4_mx_block16 (fp4_e2m1 is deprecated and raises).
+  [[ $kv_dtype =~ ^(auto|fp8_e4m3|fp8_e5m2|bfloat16|nvfp4|fp4_mx_block16)$ ]] \
+    || fail 2 "kv_cache_dtype must be auto, fp8_e4m3, fp8_e5m2, bfloat16, nvfp4 or fp4_mx_block16, not '${kv_dtype:0:32}'"
+  [[ -z $pf_attn || $pf_attn =~ ^(flashinfer|triton|torch_native|flex_attention|trtllm_mha)$ ]] \
+    || fail 2 "engine_args prefill_attention_backend must be flashinfer, triton, torch_native, flex_attention or trtllm_mha, not '${pf_attn:0:32}'"
+  [[ -z $dc_attn || $dc_attn =~ ^(flashinfer|triton|torch_native|flex_attention|trtllm_mha)$ ]] \
+    || fail 2 "engine_args decode_attention_backend must be flashinfer, triton, torch_native, flex_attention or trtllm_mha, not '${dc_attn:0:32}'"
+  # SGLang's choices for it (arg_groups/fields/spec.py:144-156).
+  [[ -z $dr_kv || $dr_kv =~ ^(auto|fp8_e5m2|fp8_e4m3|bf16|bfloat16)$ ]] \
+    || fail 2 "engine_args speculative_draft_kv_cache_dtype must be auto, fp8_e5m2, fp8_e4m3, bf16 or bfloat16, not '${dr_kv:0:32}'"
+  # WHICH BACKENDS READ AN FP4 POOL — SGLang's own access rules (layers/quantization/fp4_kv_cache_quant_method.py:
+  # 766-771, 840-845): refused here, before two boxes load a model only to fail at the first attention call.
+  case $kv_dtype in
+    nvfp4)
+      [[ ${pf_attn:-flashinfer} == flashinfer && ${dc_attn:-flashinfer} == trtllm_mha ]] \
+        || fail 2 "kv_cache_dtype nvfp4 is read by flashinfer prefill and trtllm_mha decode only (SGLang fp4_kv_cache_quant_method.py:840-841): prefill_attention_backend flashinfer, decode_attention_backend trtllm_mha, not ${pf_attn:-flashinfer}/${dc_attn:-flashinfer}" ;;
+    fp4_mx_block16)
+      [[ ${pf_attn:-flashinfer} =~ ^(triton|torch_native|flex_attention|trtllm_mha)$ && ${dc_attn:-flashinfer} =~ ^(triton|torch_native|flex_attention|trtllm_mha)$ ]] \
+        || fail 2 "kv_cache_dtype fp4_mx_block16 is read by triton, torch_native, flex_attention or trtllm_mha attention only (SGLang fp4_kv_cache_quant_method.py:844-845), not ${pf_attn:-flashinfer}/${dc_attn:-flashinfer}" ;;
+  esac
+  [[ -z $moe_runner || $moe_runner =~ ^(auto|deep_gemm|triton|triton_kernel|flashinfer_trtllm|flashinfer_cutlass|flashinfer_mxfp4|flashinfer_cutedsl|cutlass|marlin)$ ]] \
+    || fail 2 "engine_args moe_runner_backend must be one of SGLang's runners, not '${moe_runner:0:32}'"
+  [[ -z $page_size ]] || int_in "$page_size" 1 256 \
+    || fail 2 "engine_args page_size must be 1..256, not '$page_size'"
+  [[ -z $graph_max_bs ]] || int_in "$graph_max_bs" 1 256 \
+    || fail 2 "engine_args cuda_graph_max_bs_decode must be 1..256, not '$graph_max_bs'"
+  [[ -z $max_total_tokens ]] || int_in "$max_total_tokens" 1 50000000 \
+    || fail 2 "engine_args max_total_tokens must be 1..50000000, not '$max_total_tokens'"
+  local spec=()
+  # A drafter only when the profile brings one AND the depth is not turned off, which is how the
+  # operator's `num_speculative_tokens: 0` reaches an engine that has no such flag.
+  if [[ -n $SPEC && $draft_tokens != 0 ]]; then
+    case $spec_algo in
+      DFLASH)
+        # The one shape that needs a second checkpoint. No name, no drafter — and silently serving at a
+        # depth nobody asked for is the thing `draft_checkpoint` exists to refuse, so refuse it here too.
+        [[ -n $CLUSTER_DRAFT_NAME ]] \
+          || fail 2 "engine_args speculative_algorithm DFLASH needs CLUSTER_DRAFT_NAME: its drafter is a checkpoint of its own, and the profile named none"
+        spec=(--speculative-algorithm DFLASH
+          --speculative-draft-model-path "/models/$CLUSTER_DRAFT_NAME"
+          --speculative-num-draft-tokens "$draft_tokens") ;;
+      NEXTN)
+        [[ -z $CLUSTER_DRAFT_NAME ]] \
+          || fail 2 "engine_args speculative_algorithm NEXTN takes no drafter checkpoint, but CLUSTER_DRAFT_NAME names $CLUSTER_DRAFT_NAME: NEXTN reads the MTP tensors inside the target"
+        spec=(--speculative-algorithm NEXTN
+          --speculative-num-steps "$spec_steps"
+          --speculative-eagle-topk "$spec_topk"
+          --speculative-num-draft-tokens "$draft_tokens") ;;
+    esac
+    # FP4 KV WITH A DRAFTER IS REFUSED on this SGLang (708f51e). With the drafter on the FP4 pool it dies before it
+    # serves: flashinfer cannot decode it (generation 214), trtllm_mha cannot run the drafter's block pass (215), the
+    # DFLASH writer copies BF16 into it (217, dflash_worker_v2.py:1554). With the drafter on its own fp8 pool it STARTS
+    # and serves wrong output (219, 2026-10-22: 17x23 as "22 by 5", no tool call, a code missed at 8k) while the
+    # drafter's acceptance looks healthy — the target's verify, on the prefill backend over the NVFP4 pool, is the
+    # suspect. Without a drafter NVFP4 was correct on every check (218).
+    if [[ $kv_dtype =~ ^(nvfp4|fp4_mx_block16)$ ]]; then
+      fail 2 "kv_cache_dtype $kv_dtype with a drafter is refused: generations 214, 215 and 217 died on the drafter, and 219 (drafter on its own pool) served wrong output — set num_speculative_tokens 0 (generation 218 served correctly that way)"
+    fi
+    [[ -n $dr_kv ]] && spec+=(--speculative-draft-kv-cache-dtype "$dr_kv")
+  fi
+  SGLANG_CMD=(python3 -m sglang.launch_server
+    --model-path "/models/$SGLANG_MODEL_NAME" --served-model-name "$CLUSTER_SERVED_MODEL_NAME"
+    --host 0.0.0.0 --port "$CLUSTER_PORT" --trust-remote-code
+    --tp "$TP_SIZE" --nnodes "$CLUSTER_NNODES" --node-rank "$rank"
+    --dist-init-addr "$CLUSTER_MASTER_ADDR:$CLUSTER_MASTER_PORT"
+    --attention-backend flashinfer
+    --kv-cache-dtype "$kv_dtype" --mamba-ssm-dtype bfloat16
+    --chunked-prefill-size "$chunked" --disable-prefill-cuda-graph
+    --max-mamba-cache-size "$(( seats * slots ))"
+    --max-running-requests "$seats" --context-length "$len"
+    --mem-fraction-static "$mem_fraction"
+    ${spec[@]+"${spec[@]}"}
+    --enable-metrics --enable-cache-report
+    # THE CALLER'S PRIORITY (the LB's X-Priority, lb/vllm_lb/router.py): read only when enabled, lower values first
+    # (vLLM's direction), 0 for a request naming none — SGLang's own default would schedule it LAST.
+    --enable-priority-scheduling --schedule-low-priority-values-first --default-priority-value 0)
+  # The LB turns its byte pin into this model's token-addressable pool in `cluster_exec._sglang_kv_args`.
+  # SGLang otherwise sizes one implicitly from the fraction and can silently leave most of a requested
+  # pin unused.  Empty remains the historical engine-default path for a launch with no ModelSpec.
+  [[ -n $max_total_tokens ]] && SGLANG_CMD+=(--max-total-tokens "$max_total_tokens")
+  [[ -n $pf_attn ]] && SGLANG_CMD+=(--prefill-attention-backend "$pf_attn")
+  [[ -n $dc_attn ]] && SGLANG_CMD+=(--decode-attention-backend "$dc_attn")
+  # The GDN layers' PREFILL kernel, when the profile names one. SGLang's auto-selector only offers
+  # FlashInfer's on SM 9.x/10.x (layers/attention/linear/gdn_backend.py) and GB10 is 12.1, so without
+  # this 48 of the 64 layers prefill on Triton; the explicit flag survives resolution, and the kernel
+  # loads on box-a (worklog/prefill-audit.md §4.1). Decode and verify stay on Triton either way.
+  [[ -n $gdn_prefill ]] && SGLANG_CMD+=(--linear-attn-prefill-backend "$gdn_prefill")
+  # THE 51B N-GRAM / PLE TABLE, off the GPU and onto the host. Flash-Next carries a per-layer-embedding
+  # table its config sizes at 320,001,536 rows (26.82 GiB of the checkpoint, catalog memory.ple_gib), and
+  # it is GATHERED BY TOKEN, not streamed — so paying GPU memory for all of it buys nothing but a smaller
+  # KV pool. Upstream measured the trade on H200 TP=4: weights 83.91 -> 60.45 GiB a GPU, KV 1.84M ->
+  # 3.28M tokens (+78.5%), throughput -0.07% (lmsys.org/blog/2026-08-26-qwen-flash-next). That is the
+  # whole reason a seat count above the vLLM profile's six is reachable here. NOT the same knob as
+  # CLUSTER_PLE_REPLICATE, which is a placement patch in the vLLM image and which SGLang never reads
+  # (ENGINE_REFUSES says so to the page).
+  # ALWAYS STATED, never left to the engine's default, which is True. Offload is not a cheaper
+  # placement of this table — it is a DIFFERENT representation, and one this checkpoint cannot use:
+  # Qwen4ExpPinnedHostEmbedding refuses anything but an UnquantizedEmbeddingMethod over bf16 or fp8
+  # weights ("PLE embedding offload requires an unquantized embedding table", qwen4_exp.py), and holds
+  # it in PINNED host memory. Our table is nvfp4, so switching it on dequantises 26.82 GiB to 95.37 and
+  # pins it where the kernel can never reclaim it — 109 GiB gone in twenty seconds, twice, generations
+  # 146 and 147. On a discrete-GPU box that trade frees VRAM; GB10 has one pool, so it frees nothing
+  # and costs 68.55 GiB. Off, the table is an ordinary nvfp4 embedding at its checkpoint size.
+  if [[ $ple_offload == 1 ]]; then
+    SGLANG_CMD+=(--ple-offload-embedding)
+  else
+    SGLANG_CMD+=(--no-ple-offload-embedding)
+  fi
+  # The NVFP4 GEMM runner, the KV page size and the decode-graph ceiling, each only when the profile
+  # states one — an unstated knob leaves SGLang's own default in place, so the dense profile's command
+  # does not move.
+  [[ -n $fp4_gemm ]] && SGLANG_CMD+=(--fp4-gemm-backend "$fp4_gemm")
+  [[ -n $moe_runner ]] && SGLANG_CMD+=(--moe-runner-backend "$moe_runner")
+  [[ -n $page_size ]] && SGLANG_CMD+=(--page-size "$page_size")
+  # --cuda-graph-max-bs-decode, NOT --cuda-graph-max-bs: this image splits the knob into a decode and a
+  # prefill ceiling, so the short name is an AMBIGUOUS PREFIX and argparse refuses the start outright —
+  # "sglang serve: error: ambiguous option: --cuda-graph-max-bs could match --cuda-graph-max-bs-decode,
+  # --cuda-graph-max-bs-prefill", both ranks exit 2, generation 140 (2026-10-05). The decode ceiling is the
+  # one that matters here: it is the largest batch a captured decode graph covers.
+  [[ -n $graph_max_bs ]] && SGLANG_CMD+=(--cuda-graph-max-bs-decode "$graph_max_bs")
+  # A prefill batch stops at whichever of SGLang's two budgets runs out first — --chunked-prefill-size and
+  # --max-prefill-tokens, default 16384: srt/managers/schedule_policy.py `PrefillAdder` takes every request's
+  # tokens off both. Past 16384 the operator's budget would be cut short, so the ceiling moves with it.
+  (( chunked > 16384 )) && SGLANG_CMD+=(--max-prefill-tokens "$chunked")
+  # The per-GPU FLOP and byte estimates the COMPUTE and MEMORY BANDWIDTH tiles are drawn from. SGLang
+  # publishes the same three `estimated_*_per_gpu_total` counters vLLM does — but where vLLM registers
+  # them whatever it was started with and merely leaves them at 0, SGLang does not create the families
+  # at all unless asked, so without this the two tiles read "not exposed by this server" on every
+  # SGLang generation (which is what they did read).
+  # THE SAME SWITCH THE vLLM PATH USES (`cmd_up`'s `mfu_flags`): one CLUSTER_MFU_METRICS=0 opts BOTH
+  # engines out. A second knob meaning the same thing is a drift waiting to happen.
+  # WHAT THOSE COUNTERS ARE WORTH on this checkpoint — the FLOP side in range, the BYTE side ~40x the
+  # pair's DRAM limit because SGLang charges the weight read per GENERATED TOKEN — is written out at
+  # `SGLANG_FAMILIES` in lb/vllm_lb/probe.py. Read it before trusting the MEMORY BANDWIDTH tile.
+  [[ ${CLUSTER_MFU_METRICS:-1} == 1 ]] && SGLANG_CMD+=(--enable-mfu-metrics)
+  [[ -n $CLUSTER_REASONING_PARSER ]] && SGLANG_CMD+=(--reasoning-parser "$CLUSTER_REASONING_PARSER")
+  [[ -n $CLUSTER_TOOL_CALL_PARSER ]] && SGLANG_CMD+=(--tool-call-parser "$CLUSTER_TOOL_CALL_PARSER")
+  return 0
+}
+
+# One 0/1 switch out of CLUSTER_ENGINE_ARGS, REQUIRED: `tf_flag <key>` sets TF_FLAG, or the launch is refused naming it
+# — a TensorFold profile states every switch it runs with (lb/vllm_lb/catalog.py `_tensorfold_profile`). Never called in
+# a $(…): `fail` there would end only the subshell.
+tf_flag() {
+  TF_FLAG=$(engine_arg "$1" '')
+  [[ $TF_FLAG =~ ^[01]$ ]] || fail 2 "tensorfold_cmd: engine_args.$1 must be 0 or 1, not '${TF_FLAG:0:16}'"
+}
+
+# TENSORFOLD's `serve`, as the 2026-10-29 spike ran it on this pair (worklog/tensorfold-spike.md): the native Zig engine
+# from the mia-ai recipe (`tensorfold-native`, its scripts/start.sh `rank_argv`) or upstream's Python 0.6.6 engine
+# (`tensorfold`, worklog/bench/tensorfold/tf066_pair.sh). Both take the same CLI contract for two ranks: the SAME command
+# on each box with `--rank r`, rank 0 serving HTTP at CLUSTER_PORT and rank 1 joining it at --master:--master-port (its
+# TCP control link and NCCL's id). Nothing else of the run array changes, so :8010 answers whichever engine is behind it.
+#
+#   seats / context     --parallel (1..16 in both engines) / --context — the LB's own two knobs
+#   kv dtype            the LB's name (CLUSTER_KV_CACHE_DTYPE, else engine_args.kv_cache_dtype) in TensorFold's word:
+#                       bfloat16 -> bf16, fp8_e4m3 -> fp8 (the native engine only); any other is refused
+#   drafts / thinking   engine_args: the checkpoint's own MTP head (0: --no-drafts); the template's thinking default
+#   vision              the native engine's image and video helper on rank 0 (--vision)
+#   memory reserve      TENSORFOLD_MEMORY_RESERVE_GIB: what the engine keeps free when it budgets its sequence memory
+#   roce / l2pf / yarn  the native engine's TF_FLASHNEXT_* switches (scripts/config.sh): the one-shot RoCE all-gather on
+#                       the ports NCCL_IB_HCA names at NCCL_IB_GID_INDEX, the L2 prefetch, no YaRN (the LB's windows are
+#                       all within the native 262,144)
+#
+# NO KV POOL, NO PREFILL BUDGET, NO DRAFTER DEPTH: TensorFold sizes all three itself, and the LB refuses each before a
+# launch is built (catalog.ENGINE_REFUSES). Sets TF_CMD and TF_ENV.
+tensorfold_cmd() {
+  local rank=$1 seats=$2 len=$3
+  local cli kv word max_tokens reserve roce l2pf yarn channels
+  cli=$(engine_arg cli '')
+  case $cli in
+    tensorfold-native|tensorfold) : ;;
+    *) fail 2 "tensorfold_cmd: engine_args.cli must be tensorfold-native or tensorfold, not '${cli:0:32}'" ;;
+  esac
+  (( seats <= 16 )) || fail 2 "TensorFold serves 1..16 streams at once (--parallel), not $seats"
+  kv=${CLUSTER_KV_CACHE_DTYPE:-$(engine_arg kv_cache_dtype '')}
+  case $kv in
+    bfloat16) word=bf16 ;;
+    fp8_e4m3) word=fp8 ;;
+    *) fail 2 "kv_cache_dtype '${kv:0:32}' has no TensorFold --kv-dtype word: it takes bfloat16 (bf16) or fp8_e4m3 (fp8, the native engine only)" ;;
+  esac
+  if [[ $cli == tensorfold && $word != bf16 ]]; then
+    fail 2 "kv_cache_dtype $kv on TensorFold 0.6.6: its --kv-dtype is bf16, int8 or int4 (cli_args.py:138) — no fp8"
+  fi
+  max_tokens=$(engine_arg max_tokens '')
+  [[ $max_tokens =~ ^[1-9][0-9]{0,6}$ ]] \
+    || fail 2 "tensorfold_cmd: engine_args.max_tokens must be the reply budget of a request naming none, not '${max_tokens:0:16}'"
+  reserve=$(engine_arg memory_reserve_gib '')
+  [[ $reserve =~ ^[0-9]{1,3}$ ]] \
+    || fail 2 "tensorfold_cmd: engine_args.memory_reserve_gib must be whole GiB, not '${reserve:0:16}'"
+  TF_CMD=("$cli" serve "/models/$CLUSTER_MODEL_NAME" --name "$CLUSTER_SERVED_MODEL_NAME"
+    --host 0.0.0.0 --port "$CLUSTER_PORT"
+    --context "$len" --parallel "$seats" --max-tokens "$max_tokens" --kv-dtype "$word"
+    --tp "$TP_SIZE" --rank "$rank" --master "$CLUSTER_MASTER_ADDR" --master-port "$CLUSTER_MASTER_PORT"
+    --no-update-check)
+  tf_flag thinking
+  if [[ $TF_FLAG == 1 ]]; then TF_CMD+=(--thinking); else TF_CMD+=(--no-thinking); fi
+  tf_flag drafts
+  [[ $TF_FLAG == 1 ]] || TF_CMD+=(--no-drafts)
+  [[ $(engine_arg vision 0) == 1 ]] && TF_CMD+=(--vision)
+  TF_ENV=(-e "TENSORFOLD_MEMORY_RESERVE_GIB=$reserve" -e TENSORFOLD_NO_UPDATE_CHECK=1)
+  # The fabric, where the box names it (lb/.env CLUSTER_IB_HCA / CLUSTER_IB_GID_INDEX, sent to every rank): the RoCE
+  # ports and the GID index their RoCE v2 IPv4 GID sits at. The spike's bond has no /sys/class/net/<bond>/device, so
+  # nothing can find them by itself — and both engines' NCCL ran on exactly these.
+  if [[ -n $CLUSTER_IB_HCA ]]; then
+    [[ $CLUSTER_IB_HCA =~ ^=?[A-Za-z0-9_]+(:1)?(,[A-Za-z0-9_]+(:1)?){0,3}$ ]] \
+      || fail 1 "CLUSTER_IB_HCA must be NCCL_IB_HCA's device list (names of [A-Za-z0-9_], comma-separated), not '${CLUSTER_IB_HCA:0:64}'"
+    [[ $CLUSTER_IB_GID_INDEX =~ ^[0-9]{1,3}$ ]] \
+      || fail 1 "CLUSTER_IB_GID_INDEX must be the RoCE v2 GID index of CLUSTER_IB_HCA's ports, not '${CLUSTER_IB_GID_INDEX:0:16}'"
+    TF_ENV+=(-e "NCCL_IB_HCA=$CLUSTER_IB_HCA" -e "NCCL_IB_GID_INDEX=$CLUSTER_IB_GID_INDEX")
+  fi
+  channels=$(engine_arg nccl_channels '')
+  if [[ -n $channels ]]; then
+    [[ $channels =~ ^[1-9][0-9]?$ ]] || fail 2 "tensorfold_cmd: engine_args.nccl_channels must be 1..99, not '${channels:0:16}'"
+    TF_ENV+=(-e "NCCL_MIN_NCHANNELS=$channels" -e "NCCL_MAX_NCHANNELS=$channels")
+  fi
+  roce=$(engine_arg roce 0)
+  if [[ $cli == tensorfold ]]; then
+    [[ $roce == 0 ]] || fail 2 "engine_args.roce: the one-shot RoCE all-gather is the native engine's (tensorfold-native); 0.6.6's ranks talk over NCCL"
+    return 0
+  fi
+  # THE RoCE GATHER NEVER DEGRADES IN SILENCE. A rank that cannot open it (no NCCL_IB_HCA, no RDMA device) leaves BOTH
+  # ranks on NCCL and serves on (the patch's comm.zig: "a rank that cannot open it ... leaves both on NCCL") — the
+  # engine's own fallback. So a launch that asks for it and has no ports to give is refused here, naming the setting.
+  if [[ $roce == 1 && -z $CLUSTER_IB_HCA ]]; then
+    fail 1 "engine_args.roce 1 needs the RoCE ports: set CLUSTER_IB_HCA and CLUSTER_IB_GID_INDEX in lb/.env (NCCL_IB_HCA's device list and their RoCE v2 GID index) — without them TensorFold falls back to NCCL for every gather without saying so"
+  fi
+  [[ $roce =~ ^[01]$ ]] || fail 2 "tensorfold_cmd: engine_args.roce must be 0 or 1, not '${roce:0:16}'"
+  tf_flag l2pf
+  l2pf=$TF_FLAG
+  yarn=$(engine_arg yarn '')
+  [[ $yarn == 0 ]] || fail 2 "tensorfold_cmd: engine_args.yarn must be 0 — every window the LB launches is within the checkpoint's native 262,144 — not '${yarn:0:16}'"
+  TF_ENV+=(-e "TF_FLASHNEXT_ROCE=$roce" -e "TF_FLASHNEXT_L2PF=$l2pf" -e "TF_FLASHNEXT_YARN=$yarn")
+  return 0
+}
+
+# The drafter that is its own checkpoint: name it to vLLM, once it is proven to be there. A missing one
+# refuses the start — a drafter the LB promised and the box does not have is not something to launch
+# without, since the pair would then serve at a depth nobody asked for.
+draft_checkpoint() {
+  if [[ -z $CLUSTER_DRAFT_NAME || -z $SPEC ]]; then
+    return 0
+  fi
+  [[ -f $MODELS_DIR/$CLUSTER_DRAFT_NAME/config.json ]] \
+    || fail 1 "the drafter $CLUSTER_DRAFT_NAME has no config.json under $MODELS_DIR: stage it beside the checkpoint"
+  SPEC="${SPEC%\}},\"model\":\"/models/$CLUSTER_DRAFT_NAME\"}"
+}
+
+# Is $1 a whole drafter view? A real dir holding config.json, a link LINK_DIR/<shard> that resolves
+# for every shard in SHARDS, and no other shard.
+view_is_whole() {
+  local view=$1 shard path
+  [[ -d $view && ! -L $view && -f $view/config.json ]] || return 1
+  for shard in "${SHARDS[@]}"; do
+    [[ -L $view/$shard && -f $view/$shard ]] || return 1
+    [[ $(readlink -- "$view/$shard") == "$LINK_DIR/$shard" ]] || return 1
+  done
+  for path in "$view"/*.safetensors; do
+    if [[ -e $path || -L $path ]] && ! listed "${path##*/}" "${SHARDS[@]}"; then
+      return 1
+    fi
+  done
+}
+
+# Build the view where there is none: in a partial dir of this call's own, renamed onto the view's
+# name in ONE step once filled — so that name only ever means a whole view. Both ranks may build at
+# once over box-a's export: the first rename wins, and the other removes its own partial and takes
+# the winner's view, which the caller checks like any other.
+build_view() {
+  local view=$1 partial out
+  if out=$(mktemp -d -- "$view.partial.XXXXXXXX" 2>&1); then
+    partial=$out
+    if out=$(link_view "$partial" 2>&1) && out=$(mv -T -- "$partial" "$view" 2>&1); then
+      return 0
+    fi
+    rm -rf -- "$partial"
+  fi
+  if [[ ! -e $view && ! -L $view ]]; then
+    fail 1 "drafter view: cannot build $view: $out"
+  fi
+}
+
+# Fill the partial dir $1. Mode 755 (mktemp makes it 700): box-b's container reads it as root over
+# NFS, and under root_squash, NFS's default, that root is nobody. Then a RELATIVE link
+# LINK_DIR/<file> — the same on box-a, over pair-link and under /models — for each of the checkpoint's
+# own files that is neither a shard nor an index (its config, tokenizer, processor and template,
+# whatever this model names them), and for each shard in SHARDS.
+link_view() {
+  local partial=$1 path file
+  chmod 755 -- "$partial" || return
+  for path in "$MODELS_DIR/$CLUSTER_MODEL_NAME"/*; do
+    file=${path##*/}
+    if [[ -f $path && $file =~ $COMPONENT && $file != *.safetensors && $file != *.index.json ]]; then
+      ln -s -- "$LINK_DIR/$file" "$partial/$file" || return
+    fi
+  done
+  for file in "${SHARDS[@]}"; do
+    ln -s -- "$LINK_DIR/$file" "$partial/$file" || return
+  done
+}
+
+# ── verbs ─────────────────────────────────────────────────────────────────────
+
+cmd_status() {
+  int_in "$CLUSTER_PORT" 1 65535 || fail 1 "CLUSTER_PORT is not a port number: $CLUSTER_PORT"
+  observe_rank
+  observe_broker
+  observe_memory
+  observe_boot
+  observe_ollama
+  observe_gpu
+  observe_net
+  observe_exit_reason
+  printf '{"rank": {"present": %s, "running": %s, "gen": %s, "exit_code": %s, "started_at": %s, "model_choice": %s, "exit_reason": %s}, ' \
+    "$RANK_PRESENT" "$RANK_RUNNING" "$RANK_GEN" "$RANK_EXIT" "$RANK_STARTED" "$RANK_CHOICE" "$RANK_REASON"
+  printf '"broker_vllm_running": %s, "mem_available_gib": %s, "mem_total_gib": %s, "port": %s, "ollama": %s, "gpu": %s, "net": %s, "boot_at": %s}\n' \
+    "$BROKER_RUNNING" "$MEM_GIB" "$MEM_TOTAL_GIB" "$CLUSTER_PORT" "$OLLAMA_JSON" "$GPU_JSON" "$NET_JSON" "$BOOT_AT"
+}
+
+# When THIS boot of the box began, in BOOT_AT: /proc/stat's `btime` (UTC epoch seconds, the box's own clock —
+# the same clock docker's StartedAt is on), or `null` when it cannot be read. A rank container that started
+# BEFORE this time and is not running did not exit: the box rebooted under it (a power cut, 2026-09-19; the
+# operator's reboot, 2026-10-10), and docker's 255 is the daemon's word for a container it found dead at its
+# own start. The LB tells the two apart with this, and relaunches instead of keeping a post-mortem of nothing.
+observe_boot() {
+  BOOT_AT=null
+  local t
+  t=$(awk '$1 == "btime" { print $2; found = 1; exit } END { exit !found }' "$TP_RANK_PROC_STAT" 2>/dev/null) \
+    || return 0
+  if [[ $t =~ ^[1-9][0-9]{0,11}$ ]]; then
+    BOOT_AT=$t
+  fi
+  return 0
+}
+
+# WHY A RANK IS NOT RUNNING, in one line, for a rank that is present and stopped. An exit code is not
+# a reason: on 2026-10-05 five different faults all reached the page as "rank on box-a exited (code 0);
+# Stop, then Start again" — an ambiguous CLI flag, a quant config SGLang could not find, an unsupported
+# MoE runner, a missing shard file and the memory guard. The operator saw FAILED and nothing to act on.
+#
+# The guard's verdict first, because it is the one failure the engine cannot log itself (it is SIGKILLed
+# and its own log ends mid-sentence). Otherwise the last line of the container's log that looks like a
+# fault. Bounded: one `docker logs --tail`, the newest match, truncated, and JSON-escaped by `json_str`
+# like every other value this script prints. Empty when the rank is running or was never there — the
+# planner then says exactly what it says today.
+observe_exit_reason() {
+  RANK_REASON='""'
+  [[ $RANK_PRESENT == true && $RANK_RUNNING != true ]] || return 0
+  # NOTHING HERE MAY FAIL THE SCRIPT. grep exits 1 when it matches nothing and the shell runs under
+  # pipefail, so an unguarded pipeline turns "no fault line" into no status reply at all.
+  # The guard's log also says when it armed and disarmed; only its KILLED line is a verdict.
+  local line=''
+  line=$(grep -a -- ' memory guard KILLED ' "$GUARD_FILE" 2>/dev/null | tail -1 || true)
+  if [[ -z $line ]]; then
+    line=$( { timeout "$TP_RANK_PROBE_TIMEOUT_S" docker logs --tail 400 "$NAME" 2>&1 || true; } \
+      | grep -aE '^[A-Za-z_.]*(Error|Exception)|^[A-Za-z]*Error:|NotImplementedError|RuntimeError|ValueError|AssertionError|KeyError|OutOfMemory|CUDA error' \
+      | tail -1 || true)
+  fi
+  [[ -n $line ]] || return 0
+  RANK_REASON=$(json_str "${line:0:300}")
+}
+
+# Whether `$1/$2/config.json` is here, in LOOK: `found`; `absent` — the folder was READ and lacks it, or is
+# simply not a folder of this box's; or, in words, why this box cannot look there right now. ONLY A FOLDER THAT
+# CAN BE READ MAY SAY "ABSENT". On 2026-10-10 20:15:22Z box-b, two minutes after a reboot, was asked about
+# /mnt/box-a-home/models/… before that share (an fstab NFS automount of box-a's home) was mounted: `stat`
+# got ENOENT off the empty mount point and this script said "not here" about a checkpoint that was exactly
+# where it always is — and the LB told the operator to choose another model. So: a folder on an fstab NFS
+# share that is not a mountpoint yet is "not mounted" (the heal remounts it, and the LB waits); a stat that
+# times out is "did not answer" (a hung hard mount); any error but ENOENT (a stale handle, I/O) is "cannot
+# read". ENOENT on a folder that is no share of this box's — or on a share that IS mounted — is the one
+# honest "absent": the box looked where the folder would be, and there is nothing there. LC_ALL=C, so the
+# one string this reads off stat is stat's and not a locale's.
+look_in() {
+  local dir=$1 name=$2 err rc=0
+  LOOK=''
+  err=$(LC_ALL=C timeout "$TP_RANK_PROBE_TIMEOUT_S" stat -- "$dir" 2>&1 >/dev/null) || rc=$?
+  if (( rc == 124 )); then
+    LOOK="$dir did not answer within $TP_RANK_PROBE_TIMEOUT_S s"
+    return 0
+  fi
+  if (( rc != 0 )); then
+    nfs_mount_over "$dir"
+    if [[ -n $NFS_MP ]] && ! mounted "$NFS_MP"; then
+      LOOK="$dir is not mounted: NFS $NFS_MP ($NFS_DEV) is not up on this box yet"
+    elif [[ $err == *"No such file or directory"* ]]; then
+      LOOK=absent
+    else
+      LOOK="cannot read $dir: ${err#stat: }"
+    fi
+    return 0
+  fi
+  rc=0
+  err=$(LC_ALL=C timeout "$TP_RANK_PROBE_TIMEOUT_S" stat -- "$dir/$name/config.json" 2>&1 >/dev/null) || rc=$?
+  if (( rc == 0 )); then
+    LOOK=found
+  elif (( rc == 124 )); then
+    LOOK="$dir did not answer within $TP_RANK_PROBE_TIMEOUT_S s"
+  elif [[ $err == *"No such file or directory"* ]]; then
+    LOOK=absent
+  else
+    LOOK="cannot read $dir/$name/config.json: ${err#stat: }"
+  fi
+  return 0
+}
+
+# Why the container could NOT read the checkpoint `$1/$2` that `look_in` found, in UNUSABLE ("" when it can): `up`
+# mounts `$1` as /models, so every link inside `$1/$2` must resolve INSIDE `$1`, by a relative path. A link out of it (a
+# Hugging Face cache snapshot's `../../blobs/<sha>`, generation 279), one that dangles, or an absolute one (the host's
+# path, which the container does not have) is named with where it points. Never dereferenced here: the operator
+# stages the files. A walk that does not finish within TP_RANK_PROBE_TIMEOUT_S says so — unusable until it can.
+links_escaping() {
+  local dir=$1 name=$2 root link target rc=0 bad=() listing
+  UNUSABLE=''
+  root=$(realpath -e -- "$dir") || { UNUSABLE="cannot resolve $dir"; return 0; }
+  listing=$(LC_ALL=C timeout "$TP_RANK_PROBE_TIMEOUT_S" find "$dir/$name" -type l -print 2>&1) || rc=$?
+  if (( rc != 0 )); then
+    UNUSABLE="could not list the links in $dir/$name within $TP_RANK_PROBE_TIMEOUT_S s (rc $rc)"
+    return 0
+  fi
+  [[ -L $dir/$name ]] && listing="$dir/$name"$'\n'"$listing"
+  while IFS= read -r link; do
+    [[ -n $link ]] || continue
+    if [[ $(readlink -- "$link") == /* ]]; then
+      bad+=("${link#"$dir"/} -> $(readlink -- "$link") (absolute: the host's path)")
+    elif ! target=$(realpath -e -- "$link" 2>/dev/null); then
+      bad+=("${link#"$dir"/} -> $(readlink -- "$link") (dangling)")
+    elif [[ $target != "$root"/* ]]; then
+      bad+=("${link#"$dir"/} -> $target (outside $dir)")
+    fi
+  done <<<"$listing"
+  (( ${#bad[@]} == 0 )) && return 0
+  local IFS=';'
+  UNUSABLE="${bad[*]:0:5}"
+  (( ${#bad[@]} > 5 )) && UNUSABLE+="; and $(( ${#bad[@]} - 5 )) more"
+  UNUSABLE=${UNUSABLE//;/; }
+  return 0
+}
+
+# What this box HAS, for every model the LB asks about at once: the first folder holding each one, every
+# folder looked in, and whether each image is here. Read-only — it starts nothing, removes nothing and
+# leaves nothing behind — so the planner may ask before it reserves anything. A folder the box could not
+# look in (`look_in`) is reported as an error against that model, never as "the files are gone".
+cmd_availability() {
+  int_in "$TP_RANK_PROBE_TIMEOUT_S" 1 60 \
+    || fail 1 "TP_RANK_PROBE_TIMEOUT_S must be 1..60 seconds, not '${TP_RANK_PROBE_TIMEOUT_S:0:64}'"
+  local names=() paths=() images=() name dirs image
+  while IFS=$'\t' read -r name dirs; do
+    if [[ -z $name && -z $dirs ]]; then
+      continue
+    fi
+    [[ $name =~ $MODEL_PATH ]] \
+      || fail 1 "CLUSTER_AVAILABILITY_MODELS names '${name:0:64}', which is not a checkpoint's dir name, or a plain path of dir names"
+    [[ -n $dirs ]] \
+      || fail 1 "CLUSTER_AVAILABILITY_MODELS gives $name no folder to look in"
+    names+=("$name")
+    paths+=("$dirs")
+  done <<<"$CLUSTER_AVAILABILITY_MODELS"
+  (( ${#names[@]} > 0 )) \
+    || fail 1 "CLUSTER_AVAILABILITY_MODELS must name at least one model, one per line, as '<name><TAB><dir>:<dir>'"
+  read -r -a images <<<"$CLUSTER_AVAILABILITY_IMAGES" || true
+  for image in ${images[@]+"${images[@]}"}; do
+    [[ $image =~ $IMAGE_PINNED ]] \
+      || fail 1 "CLUSTER_AVAILABILITY_IMAGES must be space-separated image references, each with a tag or a digest, not '${image:0:64}'"
+  done
+
+  local i dir rc found searched errors entry models=''
+  for ((i = 0; i < ${#names[@]}; i++)); do
+    name=${names[i]}
+    expand_dirs "${paths[i]}"
+    found='' searched='' errors=''
+    for dir in ${DIRS[@]+"${DIRS[@]}"}; do
+      searched+="${searched:+, }$(json_str "$dir")"
+      look_in "$dir" "$name"
+      if [[ $LOOK == found ]]; then
+        found=$dir
+        break
+      fi
+      if [[ $LOOK != absent ]]; then    # it could not look: no answer about this folder, and why
+        errors+="${errors:+; }$LOOK"
+      fi
+    done
+    UNUSABLE=''
+    if [[ -n $found ]]; then
+      entry=$(json_str "$found")
+      links_escaping "$found" "$name"
+    else
+      entry=null
+    fi
+    models+="${models:+, }{\"name\": $(json_str "$name"), \"dir\": $entry, \"searched\": [$searched], \"error\": $(json_str "$errors"), \"unusable\": $(json_str "$UNUSABLE")}"
+  done
+
+  local seen=() present imgs=''
+  for image in ${images[@]+"${images[@]}"}; do
+    if listed "$image" ${seen[@]+"${seen[@]}"}; then
+      continue
+    fi
+    seen+=("$image")
+    dock image inspect -f '{{.Id}}' "$image"
+    if (( DRC == 0 )); then
+      present=true
+    elif [[ ${DOUT,,} == *"no such image"* ]]; then
+      present=false
+    else
+      present=null                      # docker could not say: unknown, never "not here"
+    fi
+    imgs+="${imgs:+, }$(json_str "$image"): $present"
+  done
+  printf '{"models": [%s], "images": {%s}}\n' "$models" "$imgs"
+}
+
+
+# ── shape: what a checkpoint IS, from its headers ─────────────────────────────
+#
+# The ONE hardware fact about a GB10 box's GPU is its 6,144 cores; everything else the gateway's CUDA CORES
+# tile, memory estimate and model card need is a property of the CHECKPOINT: how many weights a token
+# passes through, how many bytes a decode step must stream, what the drafter costs, the PLE table's size,
+# whether it can see, which reasoning efforts its template takes. All of it is in the safetensors HEADERS
+# (name, dtype, shape, byte span of every tensor — the first 8 + N bytes of each shard, never the data)
+# and config.json, so a third model in the catalog gets its figures derived, not typed in. The rules:
+#
+#   weights of a matrix   its shape's product; an NVFP4-packed U8 tensor holds two weights a byte
+#   bytes of a matrix     its span plus its `.weight_scale` sibling's
+#   body / experts / mtp / lm_head   by name: `model.language_model.layers.N.mlp.experts.N.` is an expert,
+#                         `mtp.` the drafter, `lm_head.` the head; norms, convs and injectors (not 2-D, or
+#                         a side under 32) are left out; `.ple.ple_embedding.` is the PLE table and
+#                         `model.visual.` the vision tower, counted only as memory
+#   per GPU (TP)          every byte and FLOP figure is one rank's: a matrix is sharded, so / tp
+#   flops_per_token       2 x (body weights + top_k x per-expert weights x layers) / tp — plus, where the
+#                         config has an indexer, sparse attention's QK/AV over `indexer_budget` keys
+#   attn_flops_per_ctx_token   full attention over the WHOLE context: 4 x heads/tp x head_dim per full-
+#                         attention layer; with an indexer only its scan over the context, compressed
+#   kv                    K and V per token per full-attention layer per rank (bf16), and the linear
+#                         layers' per-sequence state — the ARCHITECTURE's figures; what the engine pads
+#                         them to is measured, not derived (the catalog's kv_bytes_per_token, kv_blocks)
+#   memory                the PLE table's bytes, the drafter's / tp, and (size − ple − mtp + visual) / tp
+#                         for the weights: a rule within ~5 % of what vLLM reports loading (10.24 vs
+#                         10.28 GiB on the 27B, 35.3 vs 36.9 on Flash-Next, whose embedding is not
+#                         sharded); the catalog's CALIBRATED figures stay the ones the start gate uses
+#   capabilities.vision   a vision tower in the checkpoint, and config.json not `language_model_only`
+#   efforts               the chat template's `reasoning_effort|default('x')` and its accepted set
+#   fingerprint           sha256 over config.json and every shard's name and size: the LB asks once per
+#                         model and fingerprint, and again at each Start
+#
+# Read-only: nothing is started, written or removed. Bounded: TP_RANK_SHAPE_TIMEOUT_S around the read.
+cmd_shape() {
+  local name=$1 dir found='' tried=() list
+  [[ $name =~ $MODEL_PATH ]] \
+    || fail 2 "shape takes a checkpoint's dir name, or a plain path of dir names, not '${name:0:64}'"
+  int_in "$TP_RANK_SHAPE_TIMEOUT_S" 1 3600 \
+    || fail 1 "TP_RANK_SHAPE_TIMEOUT_S must be 1..3600 seconds, not '${TP_RANK_SHAPE_TIMEOUT_S:0:64}'"
+  int_in "$TP_RANK_PROBE_TIMEOUT_S" 1 60 \
+    || fail 1 "TP_RANK_PROBE_TIMEOUT_S must be 1..60 seconds, not '${TP_RANK_PROBE_TIMEOUT_S:0:64}'"
+  need_topology
+  expand_dirs "$CLUSTER_MODELS_DIRS"
+  for dir in ${DIRS[@]+"${DIRS[@]}"}; do
+    if timeout "$TP_RANK_PROBE_TIMEOUT_S" stat -- "$dir/$name/config.json" >/dev/null 2>&1; then
+      found=$dir
+      break
+    fi
+    tried+=("$dir")
+  done
+  if [[ -z $found ]]; then
+    (( ${#tried[@]} > 0 )) || fail 1 "CLUSTER_MODELS_DIRS names no directory — the LB builds it from MODELS_SEARCH_DIRS (lb/.env)"
+    printf -v list '%s, ' "${tried[@]}"
+    fail 1 "no $name/config.json in any of: ${list%, }"
+  fi
+  local out rc=0
+  out=$(timeout "$TP_RANK_SHAPE_TIMEOUT_S" python3 -I - "$found/$name" "$TP_SIZE" "$name" 2>&1 <<'PY'
+import glob, hashlib, json, os, re, struct, sys
+
+root, tp, name = sys.argv[1], int(sys.argv[2]), sys.argv[3]
+GIB = 1024 ** 3
+
+
+def headers(d):
+    out, digest = {}, hashlib.sha256()
+    shards = sorted(glob.glob(os.path.join(d, "*.safetensors")))
+    if not shards:
+        raise SystemExit(f"no *.safetensors in {d}")
+    for p in shards:
+        with open(p, "rb") as f:
+            n = struct.unpack("<Q", f.read(8))[0]
+            if n > 500_000_000:
+                raise SystemExit(f"{os.path.basename(p)}: a {n}-byte header is not a safetensors header")
+            h = json.loads(f.read(n))
+        digest.update(f"{os.path.basename(p)}:{os.path.getsize(p)}\n".encode())
+        h.pop("__metadata__", None)
+        for tname, t in h.items():
+            a, b = t["data_offsets"]
+            out[tname] = (t["dtype"], t["shape"], b - a)
+    return out, digest
+
+
+T, digest = headers(root)
+cfg_bytes = open(os.path.join(root, "config.json"), "rb").read()
+digest.update(cfg_bytes)
+cfg = json.loads(cfg_bytes)
+tc = cfg.get("text_config", cfg)
+total = sum(v[2] for v in T.values())
+
+
+def weights(n):
+    dtype, shape, _ = T[n]
+    w = 1
+    for s in shape:
+        w *= s
+    return w * 2 if dtype == "U8" else w
+
+
+def nbytes(n):
+    base = n.rsplit(".", 1)[0]
+    return T[n][2] + (T[base + ".weight_scale"][2] if base + ".weight_scale" in T else 0)
+
+
+body, mtp, exp_body, exp_mtp, head = [], [], [], [], []
+ple_b = vis_b = emb_b = mtp_b = 0
+for n, (dtype, shape, nb) in T.items():
+    if ".ple.ple_embedding." in n:
+        ple_b += nb
+        continue
+    if n.startswith("model.visual."):
+        vis_b += nb
+        continue
+    if n.startswith("mtp."):
+        mtp_b += nb
+    if "embed_tokens" in n:
+        emb_b += nb
+        continue
+    if not n.endswith(".weight") or len(shape) != 2 or min(shape) < 32:
+        continue
+    if n.startswith("lm_head."):
+        head.append(n)
+    elif re.search(r"\.mlp\.experts\.\d+\.", n):
+        (exp_mtp if n.startswith("mtp.") else exp_body).append(n)
+    elif n.startswith("mtp."):
+        mtp.append(n)
+    elif n.startswith("model.language_model."):
+        body.append(n)
+
+lt = tc.get("layer_types") or []
+n_full, n_lin = lt.count("full_attention"), lt.count("linear_attention")
+experts, top_k = int(tc.get("num_experts") or 0), int(tc.get("num_experts_per_tok") or 0)
+n_layers = int(tc["num_hidden_layers"])
+W = lambda names: sum(weights(n) for n in names)
+B = lambda names: sum(nbytes(n) for n in names)
+per_expert = W(exp_body) / (experts * n_layers) if experts and n_layers else 0
+heads, hd, kvh = int(tc["num_attention_heads"]), int(tc["head_dim"]), int(tc["num_key_value_heads"])
+indexer = "indexer_budget" in tc
+flops_per_token = 2 * (W(body) + top_k * per_expert * n_layers) / tp
+attn_ctx = n_full * (heads / tp) * hd * 4
+if indexer:
+    flops_per_token += attn_ctx * int(tc["indexer_budget"])
+    attn_ctx = (n_full * (int(tc["indexer_n_heads"]) / tp) * int(tc["indexer_head_dim"]) * 2
+                / int(tc.get("indexer_compress_ratio") or 1))
+mtp_exp_per = (W(exp_mtp) / experts) if experts and exp_mtp else 0
+mtp_layers = int(tc.get("mtp_num_hidden_layers") or 0)
+# The drafter per pass per sequence: its dense matrices and the lm_head, plus the experts a token touches.
+draft_bytes = (B(mtp) + B(head) + B(exp_mtp) * (top_k / experts if experts else 0)) / tp
+draft_flops = (2 * (W(mtp) + top_k * mtp_exp_per) + 2 * W(head)) / tp
+
+# KV, the architecture's: K and V (bf16) per token per full-attention layer per rank — and the indexer's
+# compressed keys where there is one; the linear layers' state is per SEQUENCE (ssm fp32 + conv bf16).
+attn_per_layer = (kvh / tp) * hd * 2 * 2
+if indexer:
+    attn_per_layer += int(tc["indexer_kv_heads"]) * int(tc["indexer_head_dim"]) * 2 / int(tc.get("indexer_compress_ratio") or 1)
+mamba = 0.0
+if n_lin and "linear_num_value_heads" in tc:
+    hv, hk = int(tc["linear_num_value_heads"]), int(tc["linear_num_key_heads"])
+    dk, dv, k = int(tc["linear_key_head_dim"]), int(tc["linear_value_head_dim"]), int(tc.get("linear_conv_kernel_dim") or 0)
+    ssm = (hv / tp) * dk * dv * 4
+    conv = ((hk * dk * 2 + hv * dv) / tp) * max(0, k - 1) * 2
+    mamba = n_lin * (ssm + conv)
+
+# Which precision the FLOPs run in — a token passes top_k of the experts, so theirs are weighted.
+mix = {}
+for n in body + exp_body:
+    dtype = T[n][0]
+    prec = {"U8": "nvfp4", "F8_E4M3": "fp8", "BF16": "bf16", "F16": "fp16"}.get(dtype, dtype.lower())
+    w = weights(n) * (top_k / experts if experts and n in exp_body else 1)
+    mix[prec] = mix.get(prec, 0) + 2 * w / tp
+mix_total = sum(mix.values()) or 1
+mix = {k: round(v / mix_total, 4) for k, v in sorted(mix.items(), key=lambda kv: -kv[1])}
+
+efforts = None
+try:
+    tpl = open(os.path.join(root, "chat_template.jinja"), encoding="utf-8").read()
+    default = re.search(r"reasoning_effort\s*\|\s*default\(\s*'([A-Za-z0-9_-]+)'\s*\)", tpl)
+    allowed = re.search(r"reasoning_effort\s+not\s+in\s*\(([^)]*)\)", tpl)
+    if default and allowed:
+        words = re.findall(r"'([A-Za-z0-9_-]+)'", allowed.group(1))
+        if default.group(1) in words:
+            efforts = {"default": default.group(1),
+                       "supported": [default.group(1)] + [w for w in words if w != default.group(1)]}
+except OSError:
+    pass
+
+vision = vis_b > 0 and not bool(cfg.get("language_model_only"))
+out = {
+    "ok": True, "model": name, "dir": root, "tp": tp, "fingerprint": digest.hexdigest(),
+    "config": {"architectures": cfg.get("architectures"), "model_type": cfg.get("model_type"),
+               "num_hidden_layers": n_layers, "full_attention": n_full, "linear_attention": n_lin,
+               "mtp_layers": mtp_layers, "experts": experts, "top_k": top_k, "hidden_size": tc.get("hidden_size"),
+               "vocab_size": tc.get("vocab_size"), "max_position_embeddings": tc.get("max_position_embeddings"),
+               "tensors": len(T)},
+    "shape": {"experts": experts, "top_k": top_k,
+              "expert_bytes": round(B(exp_body) / tp), "fixed_bytes": round((B(body) + B(head)) / tp),
+              "flops_per_token": round(flops_per_token), "flops_per_logit": round(2 * W(head) / tp),
+              "draft_bytes": round(draft_bytes), "draft_flops": round(draft_flops),
+              "attn_flops_per_ctx_token": round(attn_ctx, 3)},
+    "memory": {"size_gib": round(total / GIB, 3), "ple_gib": round(ple_b / GIB, 3),
+               "mtp_gib": round(mtp_b / tp / GIB, 3),
+               "weights_gib": round((total - ple_b - mtp_b + vis_b) / tp / GIB, 3),
+               "visual_gib": round(vis_b / GIB, 3), "embed_gib": round(emb_b / GIB, 3),
+               "rule": "weights = (size - ple - mtp + visual) / tp; the catalog's calibrated figures take precedence"},
+    "kv": {"attn_bytes_per_token_per_layer": round(attn_per_layer, 1), "kv_layers": n_full + mtp_layers,
+           "bytes_per_token_arch": round(attn_per_layer * (n_full + mtp_layers), 1),
+           "mamba_state_bytes_per_seq": round(mamba)},
+    "capabilities": {"vision": vision},
+    "efforts": efforts,
+    "precision_mix": mix,
+}
+print(json.dumps(out, separators=(",", ":")))
+PY
+  ) || rc=$?
+  if (( rc != 0 )); then
+    if (( rc == 124 )); then
+      fail 1 "shape: reading $found/$name did not finish within $TP_RANK_SHAPE_TIMEOUT_S s"
+    fi
+    fail 1 "shape: $found/$name: ${out:-python3 exited $rc with no output}"
+  fi
+  printf '%s\n' "${out##*$'\n'}"
+}
+
+# THE TOPOLOGY FACTS, each validated, none defaulted — or a refusal naming the one that is missing or wrong.
+need_topology() {
+  int_in "$CLUSTER_TP_SIZE" 1 64 \
+    || fail 1 "CLUSTER_TP_SIZE must be the GPUs the engine spans, 1..64 (the fleet's serving cards), not '${CLUSTER_TP_SIZE:0:16}'"
+  int_in "$CLUSTER_NNODES" 1 64 \
+    || fail 1 "CLUSTER_NNODES must be the hosts the engine spans, 1..64 (the fleet's ranks), not '${CLUSTER_NNODES:0:16}'"
+  (( CLUSTER_TP_SIZE % CLUSTER_NNODES == 0 )) \
+    || fail 1 "CLUSTER_TP_SIZE $CLUSTER_TP_SIZE is not a whole number of GPUs on each of $CLUSTER_NNODES hosts"
+  [[ $CLUSTER_GPUS == all || $CLUSTER_GPUS =~ ^device=[0-9]{1,2}(,[0-9]{1,2}){0,15}$ ]] \
+    || fail 1 "CLUSTER_GPUS must be docker's --gpus for this rank: all or device=<i>[,<j>…], not '${CLUSTER_GPUS:0:32}'"
+  [[ $CLUSTER_LINK =~ ^(roce|ethernet|pcie|nvlink)$ ]] \
+    || fail 1 "CLUSTER_LINK must be roce, ethernet, pcie or nvlink (the fleet's link), not '${CLUSTER_LINK:0:16}'"
+  [[ $CLUSTER_MEMORY =~ ^(unified|discrete)$ ]] \
+    || fail 1 "CLUSTER_MEMORY must be unified or discrete (the cards' memory family), not '${CLUSTER_MEMORY:0:16}'"
+  local machine=${TP_RANK_MACHINE:-$(uname -m)} here
+  case $machine in
+    x86_64) here=linux/amd64 ;;
+    aarch64|arm64) here=linux/arm64 ;;
+    *) here=unknown ;;
+  esac
+  [[ $CLUSTER_PLATFORM =~ ^linux/(amd64|arm64)$ ]] \
+    || fail 1 "CLUSTER_PLATFORM must be linux/amd64 or linux/arm64 (the fleet's platform), not '${CLUSTER_PLATFORM:0:16}'"
+  [[ $CLUSTER_PLATFORM == "$here" ]] \
+    || fail 1 "the fleet says this box is $CLUSTER_PLATFORM, but it is $machine: an image built for the fleet's platform cannot run here"
+}
+
+cmd_up() {
+  local rank=$1 gen=$2 seqs=$3 len=$4 choice=${5-}
+  need_topology
+  int_in "$rank" 0 $(( CLUSTER_NNODES - 1 )) || fail 2 "rank must be 0..$(( CLUSTER_NNODES - 1 )), not $rank"
+  int_in "$gen" 1 999999 || fail 2 "gen must be 1..999999, not $gen"
+  int_in "$seqs" 1 48 || fail 2 "max_num_seqs must be 1..48, not $seqs"
+  int_in "$len" 1024 262144 || fail 2 "max_model_len must be 1024..262144, not $len"
+  if [[ ${CLUSTER_GUARD:-1} == 1 ]] && ! [[ $CLUSTER_RAM_USABLE_FRACTION =~ ^0\.[0-9]*[1-9][0-9]*$ ]]; then
+    fail 2 "CLUSTER_RAM_USABLE_FRACTION must be a fraction in (0, 1) — the fleet's ram_usable_fraction, the memory guard's floor — not '${CLUSTER_RAM_USABLE_FRACTION:0:16}'"
+  fi
+  if [[ -n $choice && ! $choice =~ $CHOICE_ID ]]; then
+    fail 2 "model_choice must be a catalog id of [a-z0-9._-] starting with a letter or digit, not '${choice:0:64}'"
+  fi
+  [[ -n ${CLUSTER_HOST_IP:-} ]] \
+    || fail 1 "CLUSTER_HOST_IP is not set: NCCL and vLLM need this box's own interconnect address"
+  [[ -n ${CLUSTER_IFACE:-} ]] \
+    || fail 1 "CLUSTER_IFACE is not set: NCCL and Gloo need the interface the ranks talk over (the fleet file's iface)"
+  int_in "$CLUSTER_PORT" 1 65535 || fail 1 "CLUSTER_PORT is not a port number: $CLUSTER_PORT"
+  check_launch_settings
+  (( CLUSTER_LONG_PREFILL_TOKEN_THRESHOLD <= len )) \
+    || fail 1 "CLUSTER_LONG_PREFILL_TOKEN_THRESHOLD ($CLUSTER_LONG_PREFILL_TOKEN_THRESHOLD) cannot be greater than max_model_len ($len)"
+  profile_key
+
+  observe_rank
+  # A generation alone cannot tell two models apart: a rank launched for another ModelChoice is stale.
+  if [[ $RANK_RUNNING == true && $RANK_GEN == "$gen" && $RANK_CHOICE_LABEL == "$choice" ]]; then
+    printf '{"ok": true, "action": "already-running"}\n'
+    return 0
+  fi
+
+  # The checkpoint is found, and the drafter view and the cache dir made ready, before anything is
+  # removed: a launch that cannot happen changes nothing.
+  check_kv_cache_dtype
+  find_checkpoint
+  drafter_view
+  draft_checkpoint
+  # SGLang only: the sibling view that carries the hf_quant_config.json a mixed-precision checkpoint
+  # does not ship. A no-op for every other engine and for any checkpoint that already has the file.
+  quant_view
+  local cache=() out
+  if [[ -n $CLUSTER_CACHE_DIR ]]; then
+    out=$(mkdir -p -- "$CLUSTER_CACHE_DIR/$PROFILE_KEY" 2>&1) \
+      || fail 1 "cannot create the cache dir $CLUSTER_CACHE_DIR/$PROFILE_KEY: $out"
+    cache=(-v "$CLUSTER_CACHE_DIR/$PROFILE_KEY:/cache"
+      -e VLLM_CACHE_ROOT=/cache/vllm -e FLASHINFER_WORKSPACE_BASE=/cache/flashinfer
+      --tmpfs "$AUTOTUNE_TMPFS" -e "VLLM_FLASHINFER_AUTOTUNE_CACHE_DIR=$AUTOTUNE_DIR")
+  fi
+
+  # The ModelChoice this rank is launched FOR, carried on the rank itself: what `status` reports, and
+  # what the next `up` compares its own against. No choice given, no label — as a rank from before them.
+  local choice_label=()
+  if [[ -n $choice ]]; then
+    choice_label=(--label "lb.cluster.model_choice=$choice")
+  fi
+  # A launch setting its LaunchProfile left EMPTY passes no flag at all: the model has none of it.
+  local model_flags=()
+  if [[ -n $CLUSTER_TOOL_CALL_PARSER ]]; then
+    model_flags+=(--enable-auto-tool-choice --tool-call-parser "$CLUSTER_TOOL_CALL_PARSER")
+  fi
+  if [[ -n $CLUSTER_REASONING_PARSER ]]; then
+    model_flags+=(--reasoning-parser "$CLUSTER_REASONING_PARSER")
+  fi
+  if [[ -n $SPEC ]]; then
+    model_flags+=(--speculative-config "$SPEC")
+  fi
+  # The profile's engine flags: CLUSTER_KV_CACHE_DTYPE -> --kv-cache-dtype <value>; a bool -> its bare flag at 1.
+  local name flag
+  for name in "${VLLM_VALUE_FLAGS[@]}" "${VLLM_BOOL_FLAGS[@]}"; do
+    [[ -z ${!name} || ${!name} == 0 ]] && continue
+    flag=${name#CLUSTER_}; flag=--${flag,,}; flag=${flag//_/-}
+    if [[ " ${VLLM_BOOL_FLAGS[*]} " == *" $name "* ]]; then
+      model_flags+=("$flag")
+    else
+      model_flags+=("$flag" "${!name}")
+    fi
+  done
+  # The long-prefill threshold: ON adds its one flag beside the budget's; OFF (0) adds nothing at all.
+  local prefill_flags=()
+  if [[ $CLUSTER_LONG_PREFILL_TOKEN_THRESHOLD != 0 ]]; then
+    prefill_flags=(--long-prefill-token-threshold "$CLUSTER_LONG_PREFILL_TOKEN_THRESHOLD")
+  fi
+
+  # Whatever holds the name — an older generation, an exited rank, a stranger — goes first. Its
+  # failure is not the verdict: `run` says whether the name is free.
+  dock rm -f "$NAME"
+
+  # --restart no: a rank that dies stays dead until the planner decides. Docker bringing back half
+  # of a TP pair on its own cannot rejoin the group; it would only hold the memory.
+  # --cap-add SYS_PTRACE: NCCL shares CUDA memory across processes, and the only launch of this
+  # image that ever reached healthy on these GB10 boxes ran with it.
+  # vLLM's own FLOP/s + GB/s accounting (vllm/v1/metrics/perf.py). The three
+  # vllm:estimated_*_per_gpu_total counters are registered unconditionally but stay 0.0
+  # unless the engine is started with this flag, so the saturation panel would otherwise
+  # have to report "not measured" instead of a real ceiling. CLUSTER_MFU_METRICS=0 opts out.
+  local mfu_flags=()
+  [[ ${CLUSTER_MFU_METRICS:-1} == 1 ]] && mfu_flags=(--enable-mfu-metrics)
+
+  # The weight width is MEASURED, not guessed: 3 x (2560 x 640) = 4,915,200 params per expert per
+  # layer against 2.765 MB on disk = 0.5625 B/weight, i.e. nvfp4 plus one scale per group of 16.
+  # DeepSeek-V4-Flash (nvidia NVFP4, `deepseek_v4_fp8`) is the same case: its routed experts are NVFP4 at the
+  # same width; its shared experts and linears are FP8-block, but vLLM's model takes ONE width per method, so
+  # the experts' (the decode bytes) is the one given. Its attention stays unmodeled: no `kv_lora_rank`.
+  # sitecustomize fails open: a broken patch must never stop the engine booting.
+  local mfu_patch=()
+  # vLLM's patch; SGLang carries it as it always has, TensorFold (no vllm module, no MFU counters) never.
+  if [[ ${CLUSTER_MFU_QUANT_FIX:-1} == 1 && $CLUSTER_ENGINE != tensorfold ]]; then
+    # NOT under $HOME/.cache: the revert path (CLUSTER_CACHE_DIR=, CLUSTER_MTP_PREFIX=) is
+    # asserted to leave that directory untouched, and this patch is regenerated every launch
+    # anyway, so it belongs in temp.
+    local patch_dir=${TMPDIR:-/tmp}/vllm-cluster-mfu
+    mkdir -p "$patch_dir" || true
+    cat > "$patch_dir/sitecustomize.py" <<'PATCH' || true
+try:
+    from vllm.v1.metrics import perf as _perf
+    _perf._QUANT_WEIGHT_BYTE_SIZE.setdefault("modelopt_mixed", 0.5625)
+    _perf._QUANT_WEIGHT_BYTE_SIZE.setdefault("deepseek_v4_fp8", 0.5625)
+except Exception:
+    pass
+PATCH
+    [[ -f $patch_dir/sitecustomize.py ]] && \
+      mfu_patch=(-v "$patch_dir:/mfu-patch:ro" -e PYTHONPATH=/mfu-patch)
+  fi
+  # The disk tier: a directory on THIS box's own NVMe, the LB's config document in it, and vLLM pointed at
+  # LMCache's in-process connector. Empty/0 leaves all three unset, so `run` is assembled as it always was.
+  local offload=()
+  local offload_flags=()
+  if [[ -n $CLUSTER_KV_OFFLOAD_GIB && $CLUSTER_KV_OFFLOAD_GIB != 0 ]]; then
+    local kv_dir=${CLUSTER_KV_OFFLOAD_DIR:-$HOME/.cache/vllm-cluster-kv}
+    if mkdir -p "$kv_dir" && printf '%s' "$CLUSTER_KV_OFFLOAD_YAML" > "$kv_dir/lmcache.yaml"; then
+      offload=(-v "$kv_dir:/kvcache" -e LMCACHE_CONFIG_FILE=/kvcache/lmcache.yaml)
+      # NOT --kv-offloading-backend lmcache: that wires LMCacheMPConnector to a standalone server whose
+      # storage backend accepts only "cpu" (LMCache 0.5.4), which on a GB10 takes from the pool it caches.
+      offload_flags=(--kv-transfer-config '{"kv_connector":"LMCacheConnectorV1","kv_role":"kv_both"}')
+    else
+      fail 1 "could not write the KV offload config to $kv_dir"
+    fi
+  fi
+  # vLLM's candidate selector for a separate-checkpoint drafter is in the V2 model runner ONLY: on V1 the
+  # same drafter runs through the proposer that never calls it, and the engine serves a weaker drafter
+  # without saying so. Asking for V2 turns that silence into a startup error.
+  local draft_env=()
+  # vLLM only: SGLang's DFlash2 selector is not behind a runner flag, and an unknown VLLM_* variable in
+  # its environment is noise at best.
+  [[ -n $CLUSTER_DRAFT_NAME && $CLUSTER_ENGINE == vllm ]] && draft_env=(-e VLLM_USE_V2_MODEL_RUNNER=1)
+  # The engine decides the command and the environment only it needs. Everything in the run array above
+  # that — the GPU, the fabric, the models mount, the cache dir, the labels, the port — is the same for
+  # either, which is what keeps :8010 answering whichever engine is behind it.
+  local engine_env=() engine_cmd=()
+  if [[ $CLUSTER_ENGINE == tensorfold ]]; then
+    tensorfold_cmd "$rank" "$seqs" "$len"
+    engine_cmd=("${TF_CMD[@]}")
+    engine_env=("${TF_ENV[@]}")
+  elif [[ $CLUSTER_ENGINE == sglang ]]; then
+    sglang_cmd "$rank" "$seqs" "$len"
+    engine_cmd=("${SGLANG_CMD[@]}")
+    # NCCL_CUMEM and NVLS off: measured necessary for this pair (deploy/sglang-27b-tp2/sglang-rank).
+    # HF_HOME and the Triton cache point inside the same per-profile dir vLLM's caches use, so a profile
+    # switch cannot leave one engine reading the other's compiled artefacts.
+    engine_env=(-e NCCL_CUMEM_ENABLE=0 -e NCCL_NVLS_ENABLE=0)
+    [[ -n $CLUSTER_CACHE_DIR ]] \
+      && engine_env+=(-e HF_HOME=/cache/huggingface -e TRITON_CACHE_DIR=/cache/triton)
+  else
+    engine_env=(-e "VLLM_HOST_IP=$CLUSTER_HOST_IP")
+    engine_cmd=(--model "/models/$CLUSTER_MODEL_NAME" --host 0.0.0.0 --port "$CLUSTER_PORT"
+      --nnodes "$CLUSTER_NNODES" --node-rank "$rank"
+      --master-addr "$CLUSTER_MASTER_ADDR" --master-port "$CLUSTER_MASTER_PORT"
+      --tensor-parallel-size "$TP_SIZE" --served-model-name "$CLUSTER_SERVED_MODEL_NAME"
+      --max-model-len "$len" --max-num-seqs "$seqs" --max-num-batched-tokens "$CLUSTER_MAX_NUM_BATCHED_TOKENS"
+      ${prefill_flags[@]+"${prefill_flags[@]}"}
+      --gpu-memory-utilization "$CLUSTER_GPU_MEMORY_UTILIZATION"
+      --kv-cache-memory "$CLUSTER_KV_CACHE_MEMORY"
+      --enable-prefix-caching --scheduling-policy priority
+      ${mfu_flags[@]+"${mfu_flags[@]}"} ${model_flags[@]+"${model_flags[@]}"}
+      ${offload_flags[@]+"${offload_flags[@]}"})
+  fi
+  # An image whose weight loader reads through io_uring (b12x) says so in its own label `lb.io_uring=1`: Docker
+  # >= 25's default seccomp profile refuses io_uring_setup ("io_uring bounce initialization failed: Operation not
+  # permitted", generation 232). Every other image keeps the filter.
+  local seccomp=()
+  dock image inspect -f '{{index .Config.Labels "lb.io_uring"}}' "$CLUSTER_IMAGE"
+  (( DRC == 0 )) || fail 1 "docker image inspect failed (exit $DRC): $DOUT"
+  [[ $DOUT == 1 ]] && seccomp=(--security-opt seccomp=unconfined)
+  # THE LINK (CLUSTER_LINK): RoCE opens the RDMA device, locks its pages and lets NCCL use it; every other link opens
+  # no RDMA device and tells NCCL so — never a device a host does not have, never IB silently tried.
+  local link=() ib=(-e NCCL_IB_DISABLE=1)
+  if [[ $CLUSTER_LINK == roce ]]; then
+    link=(--device /dev/infiniband --cap-add IPC_LOCK --ulimit memlock=-1:-1)
+    ib=(-e NCCL_IB_DISABLE=0)
+  fi
+  local run=(run -d --restart no --name "$NAME"
+    --label "lb.cluster.gen=$gen" --label "lb.cluster.rank=$rank"
+    ${choice_label[@]+"${choice_label[@]}"}
+    --gpus "$CLUSTER_GPUS" --ipc=host --network host --cap-add SYS_PTRACE
+    ${link[@]+"${link[@]}"} ${seccomp[@]+"${seccomp[@]}"}
+    -v "$MODELS_DIR:/models:ro" "${cache[@]}"
+    -e HF_HUB_OFFLINE=1 -e TRANSFORMERS_OFFLINE=1 -e "MBX_PLE_REPLICATE=$CLUSTER_PLE_REPLICATE"
+    -e TORCH_NCCL_ASYNC_ERROR_HANDLING=1 -e TORCH_NCCL_HEARTBEAT_TIMEOUT_SEC=180
+    -e "NCCL_SOCKET_IFNAME=$CLUSTER_IFACE" -e "GLOO_SOCKET_IFNAME=$CLUSTER_IFACE"
+    ${engine_env[@]+"${engine_env[@]}"} "${ib[@]}"
+    ${draft_env[@]+"${draft_env[@]}"}
+    ${mfu_patch[@]+"${mfu_patch[@]}"} ${offload[@]+"${offload[@]}"}
+    "$CLUSTER_IMAGE" ${engine_cmd[@]+"${engine_cmd[@]}"})
+  if (( rank == 1 )); then
+    # Rank 1 serves no API: rank 0 on the head is the endpoint. vLLM takes a flag for it; SGLang's
+    # headless node is simply the one whose node-rank is not 0, and it has no such flag to take.
+    [[ $CLUSTER_ENGINE == vllm ]] && run+=(--headless)
+  fi
+
+  dock "${run[@]}"
+  (( DRC == 0 )) || fail 1 "docker run failed (exit $DRC): $DOUT"
+  local id=${DOUT##*$'\n'}
+  # The RAM guard watches the GPU's pool only where the GPU's memory IS this box's RAM (CLUSTER_MEMORY unified).
+  [[ $CLUSTER_MEMORY == unified ]] && arm_mem_guard "$gen"
+  printf '{"ok": true, "action": "started", "container": %s}\n' "$(json_str "${id:0:12}")"
+}
+
+# ── the memory guard: a load that is eating the box kills ITSELF ──────────────
+#
+# 2026-10-05, generation 144. A start whose estimate under-counted by 26.8 GiB took both GB10 boxes to
+# 121 of 122 GiB and 4.9 GiB of swap. The kernel stayed up and answered ping; everything else did not —
+# sshd could not fork far enough to finish a banner exchange, so neither the LB nor a human could reach
+# in to stop the thing that was eating the box, and the boxes had to be rebooted by hand. THE LESSON IS
+# NOT "get the estimate right". The estimate will be wrong again — it is arithmetic over a model nobody
+# has run yet, which is exactly what a first start is. What must never happen again is that being wrong
+# costs a reboot. So the load watches the box and kills ITSELF while killing is still possible.
+#
+# ARMED ONLY WHILE LOADING, and this is the whole subtlety: a HEALTHY pair serving this hardware sits at
+# ~4.8 GiB available under load against ~11 GiB at idle (worklog memory on box-a headroom), so a floor
+# that protects the load would shoot a working cluster in the back. The guard therefore disarms itself
+# the moment the HEAD answers /health with 200 — after that the engine owns its own memory and the LB's
+# own start gate and stall detector are the instruments. The window it covers is precisely the one that
+# has twice now been dangerous: weights streaming in before anything is serving.
+#
+# THE HEAD'S /health, ON EVERY RANK. Until 2026-10-11 each guard asked its OWN box, and rank 1 runs
+# headless (vLLM's --headless, SGLang's node-rank 1): it answers nothing, so box-b's guard was still armed
+# under the serving generation 193, having swapped past the allowance since launch — only its ~29 GiB
+# available kept the swap rule from killing a pair in service. The pair serves when its head does, so
+# every rank asks ONE url: the address both ranks meet at (CLUSTER_MASTER_ADDR, which the LB sends from
+# the fleet file) on the head's port. The LB launches the head first and `up` removes whatever held the
+# name, so the head a rank-1 guard hears is its own generation's. No address, no guess: the guard says so
+# in its log and stays armed for the life of the rank — never its own box or loopback in the head's place.
+#
+# WHAT TRIPS IT, both measured off /proc/meminfo on the box, not inside the container:
+#   MemAvailable below CLUSTER_GUARD_MEM_FLOOR_GIB for CLUSTER_GUARD_STRIKES consecutive polls — three
+#   in a row, so a one-sample dip while a 98 GiB checkpoint streams does not count; and
+#   SwapFree falling CLUSTER_GUARD_SWAP_GIB below where it started, because a box that has begun
+#   swapping during a load has already lost — that is the state sshd could not fork out of.
+#
+# It kills ONLY our own container, by the one name this script owns, and only while that container is
+# the generation it was armed for: a guard whose rank has already gone exits rather than firing at
+# whatever took its place. It logs to GUARD_FILE what it waits for, when it disarmed and why it killed;
+# `logs` prints that after the container's own output, so the LB's failure evidence says "the box ran
+# out" instead of only "exit 137".
+arm_mem_guard() {
+  local gen=$1
+  [[ ${CLUSTER_GUARD:-1} == 1 ]] || return 0
+  local floor_kb
+  floor_kb=$(awk -v f="$CLUSTER_RAM_USABLE_FRACTION" '$1 == "MemTotal:" { printf "%d", $2 * (1 - f); exit }' \
+    "${TP_RANK_MEMINFO:-/proc/meminfo}")
+  local swap_kb=$(( CLUSTER_GUARD_SWAP_GIB * 1024 * 1024 ))
+  local head='' now
+  now=$(date -u +%FT%TZ)
+  rm -f -- "$GUARD_FILE" 2>/dev/null
+  if [[ -n $CLUSTER_MASTER_ADDR ]]; then
+    head="http://$CLUSTER_MASTER_ADDR:$CLUSTER_PORT/health"
+    printf '%s tp-rank memory guard ARMED for generation %s: disarms when the head %s answers 200\n' \
+      "$now" "$gen" "$head" >>"$GUARD_FILE" 2>/dev/null || true
+  else
+    printf "%s tp-rank memory guard ARMED for generation %s, and it cannot disarm: the head's address is not known (CLUSTER_MASTER_ADDR is empty), so nothing tells it the engine serves — it guards until the rank exits\n" \
+      "$now" "$gen" >>"$GUARD_FILE" 2>/dev/null || true
+  fi
+  # setsid + nohup: it outlives this SSH session, which ends as soon as `up` has printed its JSON.
+  setsid nohup bash -c '
+    name=$1 gen=$2 floor_kb=$3 swap_kb=$4 strikes_max=$5 guard=$6 head=$7 meminfo=$8
+    swap0=$(awk "/^SwapFree:/ {print \$2}" "$meminfo")
+    strikes=0
+    while sleep 2; do
+      running=$(docker inspect -f "{{.State.Running}}|{{index .Config.Labels \"lb.cluster.gen\"}}" "$name" 2>/dev/null) || exit 0
+      [[ $running == "true|$gen" ]] || exit 0          # our rank is gone, or it is a newer generation
+      # The head serves: the load is over and the floor no longer applies — on this box too.
+      if [[ -n $head ]]; then
+        code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 2 "$head" 2>/dev/null)
+        if [[ $code == 200 ]]; then
+          printf "%s tp-rank memory guard DISARMED generation %s: the head %s answered 200\n" \
+            "$(date -u +%FT%TZ)" "$gen" "$head" >>"$guard"
+          exit 0
+        fi
+      fi
+      avail=$(awk "/^MemAvailable:/ {print \$2}" "$meminfo")
+      swap=$(awk "/^SwapFree:/ {print \$2}" "$meminfo")
+      reason=""
+      if [[ -n $avail && $avail -lt $floor_kb ]]; then
+        strikes=$((strikes+1))
+        (( strikes >= strikes_max )) && reason="MemAvailable $((avail/1024)) MiB below the $((floor_kb/1024)) MiB floor on $strikes consecutive polls"
+      else
+        strikes=0
+      fi
+      # SWAP IS ONLY A SIGNAL WHEN MEMORY IS ALSO TIGHT. A box with room to spare that swaps a couple
+      # of gigabytes is doing ordinary reclaim — pushing cold anonymous pages out as page cache grows
+      # while a 98 GiB checkpoint streams — and generation 148 was killed for exactly that with 21 GiB
+      # still available, on a load whose accounting was correct (88.6 GiB used against 88.16 predicted).
+      # At the hang that motivated this guard, swap grew while MemAvailable was already near zero. That
+      # conjunction is the distress; swap alone is not.
+      if [[ -z $reason && -n $swap0 && -n $swap && -n $avail \
+            && $avail -lt $((floor_kb * 2)) && $((swap0 - swap)) -gt $swap_kb ]]; then
+        reason="the box swapped $(((swap0-swap)/1024)) MiB with only $((avail/1024)) MiB available"
+      fi
+      if [[ -n $reason ]]; then
+        printf "%s tp-rank memory guard KILLED generation %s: %s\n" "$(date -u +%FT%TZ)" "$gen" "$reason" >>"$guard"
+        docker kill -s SIGKILL "$name" >/dev/null 2>&1
+        exit 0
+      fi
+    done
+  ' _ "$NAME" "$gen" "$floor_kb" "$swap_kb" "$CLUSTER_GUARD_STRIKES" "$GUARD_FILE" "$head" \
+    "${TP_RANK_MEMINFO:-/proc/meminfo}" </dev/null >/dev/null 2>&1 &
+  disown 2>/dev/null || true
+}
+
+# Take our rank out of service: `docker <words…> NAME` when the RANK_* flag named by $1 says there is one
+# to act on, reported under the key $2. Nothing to act on is a success — every verb is idempotent.
+end_rank() {
+  local needed=$1 key=$2
+  shift 2
+  observe_rank
+  if [[ ${!needed} != true ]]; then
+    printf '{"ok": true, "%s": false}\n' "$key"
+    return 0
+  fi
+  dock "$@" "$NAME"
+  (( DRC == 0 )) || fail 1 "docker $* $NAME failed (exit $DRC): $DOUT"
+  printf '{"ok": true, "%s": true}\n' "$key"
+}
+
+# A FAILED pair is halted, never removed: the process and its memory go, the container stays with its
+# exit code and its log — the only record of why it died — until `down` removes it.
+cmd_halt() { end_rank RANK_RUNNING halted stop -t "$HALT_GRACE_S"; }
+
+cmd_down() { end_rank RANK_PRESENT removed rm -f; }
+
+cmd_logs() {
+  local n=${1:-160}
+  int_in "$n" 1 2000 || fail 2 "logs takes a line count of 1..2000, not $n"
+  observe_rank
+  if [[ $RANK_PRESENT == true ]]; then
+    docker logs --tail "$n" "$NAME" 2>&1       # vLLM writes its log to stderr
+  fi
+  # The guard's log — what it waited for, whether it disarmed, and its verdict if it fired: the engine cannot
+  # log its own SIGKILL, so without this the only evidence a load was killed for eating the box is an exit code.
+  [[ -s $GUARD_FILE ]] && cat -- "$GUARD_FILE"
+  return 0
+}
+
+# ── stacks: what a hung rank is doing, before the LB takes it down ────────────
+#
+# The LB keeps this beside both ranks' logs under its state dir (start-hangs/gen<N>-attempt<k>/) before it tears
+# a HUNG start down (lb/vllm_lb/cluster_loop.py `_save_hang_evidence`). Generation 131 hung in "capturing CUDA
+# graphs" with rank 0 inside libcuda on a 128-byte device-to-host copy (FlashInfer plan's
+# `paged_kv_last_page_len.to("cpu")`), its stream empty and the GPU at idle power (10.4-11.2 W against 17-22 W
+# while capturing), and rank 1 at the gloo barrier — which only stacks, thread states and the box's own GPU and
+# kernel could tell. For every engine process of the rank — SGLang's `sglang::scheduler_TP<n>`, vLLM's `VLLM::*`
+# (EngineCore, Worker_TP<n>), by the title each sets for itself — cheapest and most telling first: py-spy's
+# Python stacks, every thread's state and wchan (/proc/<pid>/task/*/{wchan,stat}), py-spy's native stacks, then
+# every thread's native stack by eu-stack or gdb when the image has one (py-spy cannot see libcuda's or NCCL's
+# threads). py-spy is pip-installed within TP_RANK_STACKS_PIP_S when the image lacks it; the rank already runs
+# with SYS_PTRACE. Then the host: the GPU as nvidia-smi reads it, /proc/meminfo, and the last 15 minutes of the
+# kernel log — through the docker-group root shell `heal` uses when this account cannot read it. Text, not JSON;
+# nothing when no rank runs; read-only but for the pauses; ~30 s at most (TP_RANK_STACKS_TIMEOUT_S inside the
+# rank, a few seconds per host read), so the evidence never holds a relaunch up for long.
+: "${TP_RANK_STACKS_TIMEOUT_S:=15}"
+: "${TP_RANK_STACKS_PIP_S:=8}"
+readonly STACKS_SH='pip_s=$1
+pids=""
+for d in /proc/[0-9]*; do
+  cmd=$(tr "\0" " " <"$d/cmdline" 2>/dev/null) || continue
+  case $cmd in sglang::scheduler*|VLLM::*) pids="$pids ${d#/proc/}" ;; esac
+done
+[ -n "$pids" ] || { echo "no sglang::scheduler or VLLM:: process in the rank"; exit 0; }
+title() { tr "\0" " " <"/proc/$1/cmdline" 2>/dev/null; }
+if ! command -v py-spy >/dev/null 2>&1; then
+  echo "py-spy is not in the image: pip-installing it (at most $pip_s s)"
+  PIP_BREAK_SYSTEM_PACKAGES=1 timeout "$pip_s" python3 -m pip install -q --disable-pip-version-check py-spy 2>&1 | tail -n 5
+fi
+spy=0
+command -v py-spy >/dev/null 2>&1 && spy=1
+[ "$spy" = 1 ] || echo "py-spy: not available, so no Python stacks"
+for pid in $pids; do
+  [ "$spy" = 1 ] || break
+  echo "=== py-spy, pid $pid: $(title "$pid")"
+  timeout 4 py-spy dump --pid "$pid" 2>&1
+done
+for pid in $pids; do
+  echo "=== threads, pid $pid: $(title "$pid") (tid wchan stat)"
+  for t in /proc/"$pid"/task/[0-9]*; do
+    echo "${t##*/} $(cat "$t/wchan" 2>/dev/null) $(cat "$t/stat" 2>/dev/null)"
+  done
+done
+for pid in $pids; do
+  [ "$spy" = 1 ] || break
+  echo "=== py-spy --native, pid $pid: $(title "$pid")"
+  timeout 5 py-spy dump --native --pid "$pid" 2>&1
+done
+for pid in $pids; do
+  if command -v eu-stack >/dev/null 2>&1; then
+    echo "=== eu-stack, pid $pid: every thread"
+    timeout 6 eu-stack -p "$pid" 2>&1
+  elif command -v gdb >/dev/null 2>&1; then
+    echo "=== gdb, pid $pid: every thread"
+    timeout 6 gdb -p "$pid" -batch -ex "thread apply all bt" 2>&1
+  fi
+done'
+# Runs as root in the HOST's namespaces, through the same root shell `heal` uses.
+readonly KERNEL_LOG_SH='journalctl -k --since -15min --no-pager -q | tail -n 50'
+
+cmd_stacks() {
+  int_in "$TP_RANK_STACKS_TIMEOUT_S" 1 600 \
+    || fail 1 "TP_RANK_STACKS_TIMEOUT_S must be 1..600 seconds, not '${TP_RANK_STACKS_TIMEOUT_S:0:64}'"
+  int_in "$TP_RANK_STACKS_PIP_S" 1 600 \
+    || fail 1 "TP_RANK_STACKS_PIP_S must be 1..600 seconds, not '${TP_RANK_STACKS_PIP_S:0:64}'"
+  observe_rank
+  [[ $RANK_RUNNING == true ]] || return 0
+  timeout "$TP_RANK_STACKS_TIMEOUT_S" docker exec "$NAME" sh -c "$STACKS_SH" sh "$TP_RANK_STACKS_PIP_S" 2>&1 \
+    || printf '(stacks: docker exec ended with exit %s)\n' "$?"
+  echo "=== host: GPU"
+  if command -v nvidia-smi >/dev/null 2>&1; then
+    timeout 3 nvidia-smi --query-gpu=utilization.gpu,power.draw,memory.used --format=csv 2>&1 \
+      || echo "(nvidia-smi did not answer)"
+  else
+    echo "(no nvidia-smi on this box)"
+  fi
+  echo "=== host: meminfo"
+  cat -- "${TP_RANK_MEMINFO:-/proc/meminfo}" 2>&1 || true
+  echo "=== host: kernel log, last 15 minutes"
+  local klog=''
+  if command -v journalctl >/dev/null 2>&1; then
+    klog=$(timeout 5 journalctl -k --since -15min --no-pager -q 2>/dev/null | tail -n 50) || true
+  fi
+  if [[ -z $klog ]] && root_image; then
+    klog=$(timeout 6 docker run --rm --privileged --pid=host --net=host "$ROOT_IMAGE" \
+      nsenter -t 1 -m -u -i -n -p -- sh -c "$KERNEL_LOG_SH" sh 2>&1) || true
+  fi
+  printf '%s\n' "${klog:-(not readable here, or nothing in the last 15 minutes)}"
+}
+
+# ── heal: bring this box's broker worker back ─────────────────────────────────
+#
+# Our reservation on this box waits for a broker_parrot lane to claim it, and that lane is the
+# broker worker's container (the unit CLUSTER_WORKER_UNIT names). A boot can leave it missing for good: dockerd touches an NFS bind source
+# before the link has carrier, the mount fails a few times inside a second, systemd's start limit
+# latches it `failed`, and the worker's boot backstop — which rightly never deploys onto a stub dir —
+# waits for a mount that can no longer arrive (box-b, 2026-09-28: 105 checks, 1 h 45 min, cluster
+# generation 29 `reserving` while box-a sat held and idle). `heal` undoes exactly that:
+#
+#   1. every fstab NFS mount that is not a mountpoint gets its units reset-failed and is mounted, as
+#      root — through the docker group, a privileged container entering PID 1's namespaces, because
+#      there is no passwordless sudo on the GB10 boxes and this account is in `docker`. The image is one
+#      already on the box: nothing is pulled.
+#   2. the backstop unit is restarted, unless it is RUNNING — then it is already waiting, and a restart
+#      would only interrupt its `compose up`. It never deploys onto an unmounted path, so a restart
+#      while a mount is still missing only waits.
+#
+# Harmless on a healthy box: a mounted path is not touched, and `up -d` leaves a running worker
+# running. Every probe is under `timeout`: these are `hard` NFS mounts, and a stat can hang forever.
+
+# The fstab's NFS mounts, `<source> <mount point>` per line — only mount points the root shell below can
+# take as ONE word.
+fstab_nfs() {
+  local dev mp type rest
+  [[ -r $TP_RANK_FSTAB ]] || return 0
+  while read -r dev mp type rest; do
+    [[ -n $dev && $dev != \#* ]] || continue
+    [[ $type == nfs || $type == nfs4 ]] || continue
+    [[ $mp =~ ^/[A-Za-z0-9_./-]+$ ]] || continue
+    printf '%s %s\n' "$dev" "$mp"
+  done < "$TP_RANK_FSTAB"
+}
+
+# The fstab's NFS mount points, one per line.
+nfs_mounts() {
+  local dev mp
+  while read -r dev mp; do
+    printf '%s\n' "$mp"
+  done < <(fstab_nfs)
+}
+
+# The fstab NFS mount that folder $1 is, or is under — the deepest one — in NFS_MP (its mount point) and
+# NFS_DEV (its source, `192.0.2.201:/`); both empty when the folder is on no share of this box's.
+nfs_mount_over() {
+  local dir=$1 dev mp
+  NFS_MP='' NFS_DEV=''
+  while read -r dev mp; do
+    if [[ $dir == "$mp" || $dir == "$mp"/* ]] && (( ${#mp} > ${#NFS_MP} )); then
+      NFS_MP=$mp NFS_DEV=$dev
+    fi
+  done < <(fstab_nfs)
+}
+
+mounted() { timeout "$TP_RANK_PROBE_TIMEOUT_S" mountpoint -q "$1" >/dev/null 2>&1; }
+
+# The first image on this box with a shell and nsenter in it, into ROOT_IMAGE; false if there is none.
+ROOT_IMAGE=''
+root_image() {
+  local ref
+  dock images --format '{{.Repository}}:{{.Tag}}'
+  (( DRC == 0 )) || return 1
+  while read -r ref; do
+    if [[ $ref =~ ^(alpine|busybox|debian|ubuntu): ]]; then
+      ROOT_IMAGE=$ref
+      return 0
+    fi
+  done <<< "$DOUT"
+  return 1
+}
+
+# A JSON array of strings.
+json_list() {
+  local out='' s
+  for s in "$@"; do
+    out+="${out:+, }$(json_str "$s")"
+  done
+  printf '[%s]' "$out"
+}
+
+# Runs as root in the HOST's namespaces: `sh -c` gets the timeout, then the mount points, as arguments.
+readonly REMOUNT='t=$1; shift; for mp; do u=$(systemd-escape -p "$mp"); systemctl reset-failed "$u.mount" "$u.automount" 2>/dev/null; timeout "$t" mount "$mp" 2>&1; done'
+
+cmd_heal() {
+  [[ -z $CLUSTER_WORKER_UNIT || $CLUSTER_WORKER_UNIT =~ ^[A-Za-z0-9_.@-]+\.service$ ]] \
+    || fail 2 "CLUSTER_WORKER_UNIT must be a unit name ending in .service, not '${CLUSTER_WORKER_UNIT:0:64}'"
+  int_in "$CLUSTER_HEAL_MOUNT_TIMEOUT_S" 1 600 \
+    || fail 2 "CLUSTER_HEAL_MOUNT_TIMEOUT_S must be 1..600 seconds, not '${CLUSTER_HEAL_MOUNT_TIMEOUT_S:0:16}'"
+  local mp out sub load unit=
+  local missing=() remounted=() unmounted=() problems=()
+  while read -r mp; do
+    if [[ -n $mp ]] && ! mounted "$mp"; then
+      missing+=("$mp")
+    fi
+  done < <(nfs_mounts)
+
+  if (( ${#missing[@]} )); then
+    if root_image; then
+      dock run --rm --privileged --pid=host --net=host "$ROOT_IMAGE" \
+        nsenter -t 1 -m -u -i -n -p -- sh -c "$REMOUNT" sh "$CLUSTER_HEAL_MOUNT_TIMEOUT_S" "${missing[@]}"
+      out=$DOUT                           # mount's own words; `mountpoint` below is the verdict
+    else
+      out="no alpine, busybox, debian or ubuntu image on this box to get root with"
+    fi
+    for mp in "${missing[@]}"; do
+      if mounted "$mp"; then remounted+=("$mp"); else unmounted+=("$mp"); fi
+    done
+    if (( ${#unmounted[@]} )); then
+      problems+=("still not mounted: ${unmounted[*]} (${out:-no output})")
+    fi
+  fi
+
+  # The backstop, whatever the mounts did: it waits for them itself. No unit named = none to restart.
+  if [[ -z $CLUSTER_WORKER_UNIT ]]; then
+    unit=none; load=
+  else
+    load=$(timeout 10 systemctl --user show -p LoadState --value "$CLUSTER_WORKER_UNIT" 2>&1) || load="unknown ($load)"
+  fi
+  if [[ $unit == none ]]; then
+    :
+  elif [[ $load != loaded ]]; then
+    unit=absent
+    problems+=("$CLUSTER_WORKER_UNIT is not a user unit here: $load")
+  else
+    sub=$(timeout 10 systemctl --user show -p SubState --value "$CLUSTER_WORKER_UNIT" 2>&1) || sub=unknown
+    if [[ $sub == running ]]; then
+      unit=waiting
+    elif out=$(timeout 30 systemctl --user restart "$CLUSTER_WORKER_UNIT" 2>&1); then
+      unit=restarted
+    else
+      unit=failed
+      problems+=("restarting $CLUSTER_WORKER_UNIT failed: ${out:-no output}")
+    fi
+  fi
+
+  local said
+  said=$(printf '"remounted": %s, "unmounted": %s, "worker_unit": %s' \
+    "$(json_list ${remounted[@]+"${remounted[@]}"})" "$(json_list ${unmounted[@]+"${unmounted[@]}"})" \
+    "$(json_str "$unit")")
+  if (( ${#problems[@]} )); then
+    local why='' p
+    for p in "${problems[@]}"; do
+      why+="${why:+; }$p"
+    done
+    printf '{"ok": false, "error": %s, %s}\n' "$(json_str "$why")" "$said"
+    exit 1
+  fi
+  printf '{"ok": true, "action": "healed", %s}\n' "$said"
+}
+
+# ── the request ───────────────────────────────────────────────────────────────
+
+main() {
+  (( $# > 0 )) || fail 2 "no command; expected $USAGE"
+  local arg
+  for arg in "$@"; do
+    [[ $arg =~ ^[A-Za-z0-9_.-]+$ ]] \
+      || fail 2 "refused argument '${arg:0:64}': only [A-Za-z0-9_.-] is accepted"
+  done
+  local verb=$1
+  shift
+  case $verb in
+    status) (( $# == 0 )) || fail 2 "status takes no arguments"; cmd_status ;;
+    availability) (( $# == 0 )) || fail 2 "availability takes no arguments"; cmd_availability ;;
+    shape) (( $# == 1 )) || fail 2 "usage: shape <model>"; cmd_shape "$1" ;;
+    down) (( $# == 0 )) || fail 2 "down takes no arguments"; cmd_down ;;
+    halt) (( $# == 0 )) || fail 2 "halt takes no arguments"; cmd_halt ;;
+    up) (( $# == 4 || $# == 5 )) \
+      || fail 2 "usage: up <rank> <gen> <max_num_seqs> <max_model_len> [<model_choice>]"
+      cmd_up "$@" ;;
+    logs) (( $# <= 1 )) || fail 2 "usage: logs [n]"; cmd_logs "$@" ;;
+    heal) (( $# == 0 )) || fail 2 "heal takes no arguments"; cmd_heal ;;
+    stacks) (( $# == 0 )) || fail 2 "stacks takes no arguments"; cmd_stacks ;;
+    *) fail 2 "unknown verb '${verb:0:32}'; expected $USAGE" ;;
+  esac
+}
+
+main "$@"

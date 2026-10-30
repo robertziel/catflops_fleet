@@ -1,0 +1,41 @@
+diff --git a/python/sglang/srt/entrypoints/anthropic/serving.py b/python/sglang/srt/entrypoints/anthropic/serving.py
+index 23de4bb..4d4bc1c 100644
+--- a/python/sglang/srt/entrypoints/anthropic/serving.py
++++ b/python/sglang/srt/entrypoints/anthropic/serving.py
+@@ -623,17 +623,18 @@ class AnthropicServing:
+             self.openai_serving_chat.apply_reasoning_enabled(chat_request, enabled)
+ 
+         # Claude 4.7 ``output_config``: map ``effort`` onto the OpenAI
+-        # ``reasoning_effort`` knob. ``xhigh`` collapses to ``max`` because
+-        # the OpenAI Literal does not include the Anthropic-only ``xhigh``.
++        # ``reasoning_effort`` knob verbatim: the OpenAI ``ReasoningEffortType``
++        # Literal carries ``xhigh`` and ``max`` both, so the Anthropic word passes
++        # straight through. The earlier ``xhigh -> max`` collapse mapped onto a word
++        # the served chat template rejects (it takes ``low``/``medium``/``xhigh``
++        # and raises on ``max``) and 500'd every high-effort /v1/messages turn.
+         # ``task_budget`` is a soft hint forwarded as a custom param so the
+         # model can see it without it becoming a hard cap (``max_tokens``
+         # is still the hard cap).
+         if anthropic_request.output_config is not None:
+             oc = anthropic_request.output_config
+             if oc.effort is not None:
+-                chat_request.reasoning_effort = (
+-                    "max" if oc.effort == "xhigh" else oc.effort
+-                )
++                chat_request.reasoning_effort = oc.effort
+             if oc.task_budget is not None:
+                 # Custom params are silently ignored by backends that
+                 # don't recognise them; logging it makes the propagation
+diff --git a/test/registered/unit/entrypoints/anthropic/test_serving.py b/test/registered/unit/entrypoints/anthropic/test_serving.py
+index 96a990b..0c79b71 100644
+--- a/test/registered/unit/entrypoints/anthropic/test_serving.py
++++ b/test/registered/unit/entrypoints/anthropic/test_serving.py
+@@ -887,7 +887,7 @@ class TestAnthropicServing(unittest.TestCase):
+             ("low", "low"),
+             ("medium", "medium"),
+             ("high", "high"),
+-            ("xhigh", "max"),  # OpenAI Literal has no xhigh
++            ("xhigh", "xhigh"),  # passed through verbatim; the Literal carries xhigh
+             ("max", "max"),
+         ]:
+             with self.subTest(anthropic_effort=anthropic_effort):

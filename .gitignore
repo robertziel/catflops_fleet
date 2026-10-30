@@ -1,0 +1,28 @@
+node_modules/
+# Claude Code's local state and its worktrees (copies of tracked files): never published.
+.claude/
+lb/.env
+# The LB's fleet file — this deployment's boxes, hosts and addresses (lb/fleet.example.yml is the generic one).
+lb/fleet.yml
+__pycache__/
+.pytest_cache/
+.env
+# A node's server file per cluster (install-node-applier.sh --env): this deployment's wiring.
+deploy/standalone/*.env
+dashboard/.env
+lb/cluster-ssh/
+# deploy/setup/render.py's files for OTHER machines' checkouts (copied there, never tracked here).
+/hosts/
+lb/state/
+state-audit/
+
+# Credentials and private keys, wherever they land: never published. Keys: TLS / SSH / JWT signing.
+*.pem
+*.key
+id_*
+secrets/
+# SQLite databases are runtime state (session stores, broker copies), never source.
+*.db
+
+# Deep-research reports written by the benchmark workload (wiped per run)
+worklog/bench/research/

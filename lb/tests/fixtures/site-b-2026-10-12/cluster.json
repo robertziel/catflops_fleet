@@ -1,0 +1,1 @@
+{"id": 14, "at": 1791761213.6122184, "state": "up", "force": false, "launch": {"max_model_len": 131072, "max_num_seqs": 16, "gpu_memory_utilization": 0.95, "kv_cache_memory": 8501810176, "model": "qwen3.8-27b-nvidia-nvfp4@uncensored", "max_num_batched_tokens": null, "kv_offload_ram_gib": 32}}

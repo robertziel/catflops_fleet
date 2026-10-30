@@ -1,0 +1,69 @@
+# synthetic -- NOT a capture. No classic vLLM answered during pass 5 (http://192.0.2.2:8000 and
+# http://192.0.2.12:8000 refused on 2026-09-15 at 21:17Z). Built from the exposed family names,
+# types and labels cited in worklog/vllm-gateway-throughput.md Q2 (vLLM v0.23.0
+# vllm/v1/metrics/loggers.py; prometheus_client exposition: a counter gains `_total`, a histogram
+# exposes `_bucket`/`_count`/`_sum`, `_created` gauges follow). The depth and token-counter values
+# are the ones lb/tests/test_engine_stats.py captured from box-a. Shape: a sidecar SERVING, half
+# its prompt tokens from the prefix cache, with the `_total`-named histogram whose `_sum` a prefix
+# match would add to a counter. Follow-up for the coordinator: replace with a live GET of
+# http://192.0.2.2:8000/metrics taken under load.
+# HELP process_start_time_seconds Start time of the process since unix epoch in seconds.
+# TYPE process_start_time_seconds gauge
+process_start_time_seconds 1.78950412345e+09
+# HELP vllm:num_requests_running Number of requests in model execution batches.
+# TYPE vllm:num_requests_running gauge
+vllm:num_requests_running{engine="0",model_name="qwen3.8:latest"} 2.0
+# HELP vllm:num_requests_waiting Number of requests waiting to be processed.
+# TYPE vllm:num_requests_waiting gauge
+vllm:num_requests_waiting{engine="0",model_name="qwen3.8:latest"} 5.0
+# HELP vllm:num_requests_waiting_by_reason Number of requests waiting, broken down by reason.
+# TYPE vllm:num_requests_waiting_by_reason gauge
+vllm:num_requests_waiting_by_reason{engine="0",model_name="qwen3.8:latest",reason="capacity"} 5.0
+vllm:num_requests_waiting_by_reason{engine="0",model_name="qwen3.8:latest",reason="deferred"} 0.0
+# HELP vllm:kv_cache_usage_perc KV-cache usage. 1 means 100 percent usage.
+# TYPE vllm:kv_cache_usage_perc gauge
+vllm:kv_cache_usage_perc{engine="0",model_name="qwen3.8:latest"} 0.1234
+# HELP vllm:prompt_tokens_total Number of prefill tokens processed.
+# TYPE vllm:prompt_tokens_total counter
+vllm:prompt_tokens_total{engine="0",model_name="qwen3.8:latest"} 95027.0
+# HELP vllm:prompt_tokens_by_source_total Number of prompt tokens by source.
+# TYPE vllm:prompt_tokens_by_source_total counter
+vllm:prompt_tokens_by_source_total{engine="0",model_name="qwen3.8:latest",source="local_compute"} 48000.0
+vllm:prompt_tokens_by_source_total{engine="0",model_name="qwen3.8:latest",source="local_cache_hit"} 47027.0
+vllm:prompt_tokens_by_source_total{engine="0",model_name="qwen3.8:latest",source="external_kv_transfer"} 0.0
+# HELP vllm:prompt_tokens_cached_total Number of cached prompt tokens (local + external).
+# TYPE vllm:prompt_tokens_cached_total counter
+vllm:prompt_tokens_cached_total{engine="0",model_name="qwen3.8:latest"} 47027.0
+# HELP vllm:generation_tokens_total Number of generation tokens processed.
+# TYPE vllm:generation_tokens_total counter
+vllm:generation_tokens_total{engine="0",model_name="qwen3.8:latest"} 92438.0
+# HELP vllm:generation_tokens_created Number of generation tokens processed.
+# TYPE vllm:generation_tokens_created gauge
+vllm:generation_tokens_created{engine="0",model_name="qwen3.8:latest"} 1.7895041301e+09
+# HELP vllm:request_success_total Count of successfully processed requests.
+# TYPE vllm:request_success_total counter
+vllm:request_success_total{engine="0",finished_reason="stop",model_name="qwen3.8:latest"} 29.0
+vllm:request_success_total{engine="0",finished_reason="length",model_name="qwen3.8:latest"} 1.0
+vllm:request_success_total{engine="0",finished_reason="abort",model_name="qwen3.8:latest"} 1.0
+# HELP vllm:iteration_tokens_total Histogram of number of tokens per engine_step.
+# TYPE vllm:iteration_tokens_total histogram
+vllm:iteration_tokens_total_bucket{engine="0",model_name="qwen3.8:latest",le="1.0"} 51200.0
+vllm:iteration_tokens_total_bucket{engine="0",model_name="qwen3.8:latest",le="8192.0"} 51270.0
+vllm:iteration_tokens_total_bucket{engine="0",model_name="qwen3.8:latest",le="+Inf"} 51270.0
+vllm:iteration_tokens_total_count{engine="0",model_name="qwen3.8:latest"} 51270.0
+vllm:iteration_tokens_total_sum{engine="0",model_name="qwen3.8:latest"} 140438.0
+# HELP vllm:request_prefill_time_seconds Histogram of time spent in PREFILL phase for request.
+# TYPE vllm:request_prefill_time_seconds histogram
+vllm:request_prefill_time_seconds_bucket{engine="0",model_name="qwen3.8:latest",le="0.3"} 12.0
+vllm:request_prefill_time_seconds_bucket{engine="0",model_name="qwen3.8:latest",le="+Inf"} 31.0
+vllm:request_prefill_time_seconds_count{engine="0",model_name="qwen3.8:latest"} 31.0
+vllm:request_prefill_time_seconds_sum{engine="0",model_name="qwen3.8:latest"} 56.4
+# HELP vllm:request_prefill_kv_computed_tokens Histogram of new KV tokens computed during prefill (excluding cached tokens).
+# TYPE vllm:request_prefill_kv_computed_tokens histogram
+vllm:request_prefill_kv_computed_tokens_bucket{engine="0",model_name="qwen3.8:latest",le="1.0"} 0.0
+vllm:request_prefill_kv_computed_tokens_bucket{engine="0",model_name="qwen3.8:latest",le="+Inf"} 31.0
+vllm:request_prefill_kv_computed_tokens_count{engine="0",model_name="qwen3.8:latest"} 31.0
+vllm:request_prefill_kv_computed_tokens_sum{engine="0",model_name="qwen3.8:latest"} 48000.0
+# HELP vllm:cache_config_info Information of the LLMEngine CacheConfig
+# TYPE vllm:cache_config_info gauge
+vllm:cache_config_info{block_size="16",cache_dtype="auto",engine="0",gpu_memory_utilization="0.75",num_gpu_blocks="21812"} 1.0

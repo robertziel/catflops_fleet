@@ -1,0 +1,102 @@
+# SearXNG for vllm-lb's web_search (see lb/vllm_lb/websearch.py).
+#
+# This instance exists to answer ONE caller — the LB, over the docker network — so the
+# limiter is off (it is a bot by definition) and `json` is in `formats` (off by default;
+# without it /search?format=json returns 403). Bound to 127.0.0.1 on the host for eyeballing.
+# `secret_key` is session/CSRF salt for a LAN-local aggregator, not a credential.
+#
+# BREADTH (worklog/vllm-websearch-resilience.md). The stock configuration enables nine general
+# engines, but six of them cannot put a row in `results` — `currency`, `dictzone`, `lingva` and
+# `mymemory translated` answer only their own query shapes, and `wikidata`/`wikipedia` ship as
+# `display_type: ["infobox"]`. That left brave, duckduckgo and google cse; when brave and
+# google cse were suspended ("too many requests") and duckduckgo timed out, EVERY query came
+# back empty for four days. So the engines that carry a query are named here, explicitly, and
+# each one is key-less: this file is in git, and a key here would be a key in git.
+use_default_settings: true
+
+general:
+  instance_name: "vllm-lb search"
+  donation_url: false
+  contact_url: false
+  enable_metrics: false
+
+server:
+  # overridden at boot by SEARXNG_SECRET (lb/docker-compose.yml, required there): this value is never used
+  secret_key: "ultrasecretkey"
+  limiter: false
+  public_instance: false
+  image_proxy: false
+  method: "GET"
+
+search:
+  safe_search: 0
+  autocomplete: ""
+  default_lang: "all"
+  formats:
+    - html
+    - json
+
+# The LB gives a search `LB_SEARCH_TIMEOUT_S` (20 s, `Config.search_timeout_s`) and SearXNG
+# waits for the slowest engine it selected, so every per-engine timeout below and this cap
+# have to stay well inside that deadline — otherwise the LB abandons a search that was still
+# coming, and the client is told `unavailable` about a search that would have answered.
+outgoing:
+  request_timeout: 6.0
+  max_request_timeout: 12.0
+  pool_connections: 100
+  pool_maxsize: 20
+
+# Every engine that may answer a query, with what it is here for. Each was probed from this
+# host on 2026-09-15 (worklog/vllm-websearch-resilience.md § "Which engines actually answer"):
+# the five that failed that probe — mojeek and fastbot (access denied), qwant (CAPTCHA),
+# duckduckgo web (timeout), yahoo (parsing error) — are deliberately left off rather than
+# enabled in hope, since a dead engine only adds latency and noise to `unresponsive_engines`.
+engines:
+  # The three that were already carrying everything. Kept, and no longer alone.
+  - name: brave
+    disabled: false
+    timeout: 5.0
+  - name: duckduckgo
+    disabled: false
+    timeout: 5.0
+  - name: google cse
+    disabled: false
+    timeout: 5.0
+  # Big independent indexes, no key: google's own scraper (not the CSE above, which is what
+  # gets suspended), bing and yandex.
+  - name: google
+    disabled: false
+    timeout: 5.0
+  - name: bing
+    disabled: false
+    timeout: 5.0
+  - name: yandex
+    disabled: false
+    timeout: 5.0
+  # Independent crawls that do not share the majors' rate limiters at all.
+  - name: yep
+    disabled: false
+    timeout: 5.0
+  - name: mwmbl
+    disabled: false
+    timeout: 5.0
+  # Aggregators over yet other indexes: three more ways for a query to come back answered.
+  - name: privacywall
+    disabled: false
+    timeout: 5.0
+  - name: zapmeta
+    disabled: false
+    timeout: 5.0
+  - name: resulthunter
+    disabled: false
+    timeout: 5.0
+  # Wikipedia ships infobox-only, and the LB reads `results` — so it contributed nothing.
+  # `list` puts the article in the results the model actually sees, and it is the one engine
+  # here that never rate-limits us.
+  - name: wikipedia
+    disabled: false
+    timeout: 5.0
+    display_type: ["infobox", "list"]
+
+ui:
+  static_use_hash: true

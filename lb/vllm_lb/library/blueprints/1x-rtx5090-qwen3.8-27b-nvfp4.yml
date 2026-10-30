@@ -1,0 +1,21 @@
+# A REFERENCE SETUP (a blueprint: vllm_lb/blueprints.py; docs/design/engines.md "Blueprints") — the project's own
+# production setup on one RTX 5090, which the setup wizard (SETUP.md; deploy/setup/render.py --prefill) proposes as a
+# deployment's answers; never read by the LB. A one-host NODE launch (control local): its knobs are the node engine's
+# settings (fleet.NodeEngine), where null is vLLM's own (no flag); `fixed` names the parsers its launch block runs.
+label: "1× RTX 5090 · Qwen3.8 27B NVFP4 · one-host node"
+source: "running in production on one RTX 5090 (one-host node) since 2026-10-25; vLLM 2eb491e + priority patch (image matrix: vllm build priority, nvidia-sm120 × linux/amd64), read from the running node 2026-10-30. 7.92 GiB pin = the boot log's whole-card figure; 32 GiB host-RAM KV tier (native backend); prefill chunk vLLM's own. Measurement vllm × nvidia-sm120 × TP=1 (library/measurements.json qwen3.8-27b-nvidia-nvfp4: single_card_kv_blocks, single_card_overhead)"
+target: {accelerator: nvidia-sm120, tp: 1, control: local}
+model: qwen3.8-27b-nvidia-nvfp4
+uncensored: true
+estimated: false
+knobs:
+  max_num_seqs: 32
+  max_model_len: 98304
+  gpu_memory_utilization: 0.98
+  max_num_batched_tokens: null
+  kv_cache_memory: 8501810176
+  kv_offload_ram_gib: 32
+  kv_cache_dtype: fp8_e4m3
+fixed:
+  reasoning_parser: qwen3
+  tool_call_parser: qwen3_coder

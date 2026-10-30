@@ -1,0 +1,11 @@
+{"hardware": {"box-a": {"host": "box-a-host", "age_s": 4.6, "stale": false, "mem_unified": true, "memory": "unified",
+  "cpu_percent": 18.1, "ram_percent": 85.3, "ram_used_mb": 106295, "ram_total_mb": 124610, "swap_used_mb": 5365,
+  "gpu_pct": 94, "gpu_count": 1, "mem_used_mb": 106295, "mem_total_mb": 124610,
+  "cpu_per_core": [2.4, 2.2, 2.6, 1.4, 2.0, 4.6, 3.2, 100.0, 1.4, 2.8, 2.8, 2.6, 17.0, 9.5, 5.5, 2.8, 3.8, 4.0, 3.6, 14.8],
+  "gpus": [{"id": 0, "use_pct": 94, "vram_used_mb": 0, "vram_total_mb": 0}],
+  "cards": [{"box": "box-a", "index": 0, "type": "gb10", "name": "NVIDIA GB10 (DGX Spark)", "serves": true}],
+  "rows": [{"label": "GPU", "card": null, "box_gpu": true, "use_pct": 94, "history": [93, 94, 94, 93, 94, 94],
+            "vram_label": null, "vram_used_mb": null, "vram_total_mb": null}],
+  "history": {"gpu_pct": [93, 94, 94, 93, 94, 94], "cpu_pct": [17.1, 16.8, 16.8, 18.1, 18.1, 18.1],
+              "mem_pct": [85.3, 85.3, 85.3, 85.3, 85.3, 85.3], "ram_pct": [85.3, 85.3, 85.3, 85.3, 85.3, 85.3],
+              "gpus": {"0": [93, 94, 94, 93, 94, 94]}}}}}

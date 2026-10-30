@@ -1,0 +1,9 @@
+# THE IMAGE MATRIX for TensorFold (vllm_lb/images.py): which image runs a BUILD of this engine on an ACCELERATOR for a
+# CPU PLATFORM. A recipe names its build; the resolver picks the image for the cluster's accelerator and platform, or
+# REFUSES naming the missing combination. ONE ENTRY PER LINE in this key order (deploy build scripts read it by grep).
+builds:
+  native: {source: "deploy/images/tensorfold: tensorfold-native (TensorFold zig-flashnext db281878 + mia-ai patches f3e1300f4f62) rebuilt with this project's patches 0013 and 0014"}
+  py066: {source: "TensorFold 0.6.6 (cb2ebf0540f4) pip-installed on the mia-ai image (tf066.Dockerfile, worklog/tensorfold-spike.md)"}
+images:
+  - {build: native, accelerator: nvidia-sm121, platform: linux/arm64, image: "tensorfold-qwen38fn:zig-db28187-f3e1300f4f62-fleet.2", source: "the catalog's pin for qwen3.8-flash-next-tensorfold-nvfp4 until 2026-10-30; built once on box-b, copied to box-a by id (deploy/images/build.sh tensorfold native nvidia-sm121, image sha256:b9d1b0869fc9)"}
+  - {build: py066, accelerator: nvidia-sm121, platform: linux/arm64, image: "tensorfold-py066:cb2ebf0", source: "the catalog's pin for qwen3.8-flash-next-tensorfold-mlx-mtp until 2026-10-30 (tf066.Dockerfile, sha256:717426f22760)"}

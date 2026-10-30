@@ -1,0 +1,34 @@
+# vllm-crawl — a standalone Crawl4AI web scraper for the fleet.
+#   cd crawl && docker compose up -d
+# It runs the upstream Crawl4AI server image unchanged (headless Chromium + a REST API):
+# POST /crawl renders a page and returns its Markdown; GET /health is the liveness probe.
+# This repo adds NO code to it — only the deployment (bind, resources). A future lb/
+# caller reaches it over the loopback port; see README.md for the call contract.
+name: vllm-crawl
+services:
+  crawl:
+    # Pinned upstream image (never :latest). 0.9.4 is the current stable tag on Docker Hub
+    # (unclecode/crawl4ai, published 2026-09-23). Bump deliberately, re-run tests/test_smoke.py.
+    image: unclecode/crawl4ai:0.9.4
+    container_name: vllm-crawl
+    restart: unless-stopped
+    environment:
+      # Crawl4AI 0.9.x REFUSES to serve on a reachable interface without a credential: with no token
+      # it binds the CONTAINER's own loopback (not 0.0.0.0), so a published port is reset — see its
+      # entrypoint.sh. Setting a token makes it bind all interfaces INSIDE the container (reachable via
+      # the host port map below) AND require `Authorization: Bearer <token>` on every call but /health.
+      # So the service is loopback-only on THIS host (the port map) AND token-gated. The token is a
+      # secret: it lives in crawl/.env (gitignored), never here. ${VAR:?} fails the boot loudly if unset
+      # — no default, no silent open instance.
+      CRAWL4AI_API_TOKEN: "${CRAWL_API_TOKEN:?set CRAWL_API_TOKEN in crawl/.env (openssl rand -hex 32)}"
+    ports:
+      # LOOPBACK ONLY. Like every other service here, the API is published on 127.0.0.1 and must never
+      # reach the LAN or the tailnet. The container always listens on 11235; CRAWL_PORT is only the
+      # host-side port, so the SAME compose runs on any box (box-c, site-b) with a different crawl/.env.
+      - "127.0.0.1:${CRAWL_PORT:?set CRAWL_PORT in crawl/.env}:11235"
+    # Headless Chromium needs more shared memory than Docker's 64 MB default, or tabs crash with
+    # "Target closed". The upstream docker run examples use 1g; match that.
+    shm_size: "1gb"
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}

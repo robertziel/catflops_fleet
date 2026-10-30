@@ -1,0 +1,7 @@
+Base image: eugr/spark-vllm-b12x@sha256:03a956544e9f9b4b7ba91690469fbe7848bdbef29a7d2e0f5788368467bb3595
+  (nightly-20261015), built by https://github.com/eugr/spark-vllm-docker on nvidia/cuda (NVIDIA Deep Learning
+  Container License) with vLLM (Apache-2.0) from an experimental B12X fork and the b12x kernels. Its stage in
+  ../Dockerfile (deepseek-v4-b12x) adds environment variables, an entrypoint and ONE modified vLLM file, held in this
+  directory: quant_config.py, the base's
+  vllm/models/deepseek_v4/quant_config.py (Apache-2.0, Copyright contributors to the vLLM project, its SPDX header
+  kept) with `_is_nvfp4_layer` added by catflops_fleet.

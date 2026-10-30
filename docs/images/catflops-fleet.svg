@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="440" height="104" viewBox="0 0 440 104" role="img" aria-label="CatFlops Fleet">
+  <!-- The gateway's header brand (lb/vllm_lb/static/index.html .mark + .wordmark, colours from gateway.css), on the page's background. -->
+  <rect width="440" height="104" rx="14" fill="#0d1117"/>
+  <g transform="translate(18 12) scale(1.25)">
+    <path d="M10 52h12v6H10zM26 52h22v6H26z" fill="#818A94" fill-opacity=".55"/>
+    <path fill-rule="evenodd" d="M7 38H49a3 3 0 0 1 3 3V49a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V41a3 3 0 0 1 3-3ZM40 45a4 4 0 1 0 8 0a4 4 0 1 0-8 0Z" fill="#1B2129" stroke="#818A94" stroke-width="2"/>
+    <rect x="8" y="42.5" width="5" height="5" rx="1" fill="#8B949E" fill-opacity=".5"/>
+    <rect x="14" y="42.5" width="5" height="5" rx="1" fill="#78F9E5"/>
+    <rect x="20" y="42.5" width="5" height="5" rx="1" fill="#8B949E" fill-opacity=".5"/>
+    <rect x="26" y="42.5" width="5" height="5" rx="1" fill="#3FF27A"/>
+    <rect x="32" y="42.5" width="5" height="5" rx="1" fill="#8B949E" fill-opacity=".5"/>
+    <rect x="8" y="24" width="44" height="11" rx="5.5" fill="#B1B8C0"/>
+    <circle cx="14" cy="28" r="7" fill="#B1B8C0"/>
+    <path d="M8 25V17l7 5zM15 22l7-5v9z" fill="#B1B8C0"/>
+    <path d="M50 29C57 29 59 33 59 38V47" fill="none" stroke="#B1B8C0" stroke-width="4" stroke-linecap="round"/>
+    <path d="M33 7l1.5 3.5 3.5 1.5-3.5 1.5L33 17l-1.5-3.5-3.5-1.5 3.5-1.5z" fill="#78F9E5"/>
+    <path d="M43 14.5l1.1 2.4 2.4 1.1-2.4 1.1L43 21.5l-1.1-2.4-2.4-1.1 2.4-1.1z" fill="#3FF27A"/>
+  </g>
+  <text x="112" y="66" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="40" font-weight="600" letter-spacing=".4"><tspan fill="#CBD2D9">Cat</tspan><tspan fill="#64EBDB">Flops</tspan><tspan fill="#7BEE98" dx="10">Fleet</tspan></text>
+</svg>

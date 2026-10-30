@@ -1,0 +1,539 @@
+{
+  "models": [
+    {
+      "id": "qwen3.8-flash-next-hibrid48",
+      "label": "Qwen3.8 Flash-Next hibrid48 · MoE NVFP4",
+      "path": "qwen38-flash-next-cluster/Qwen3.8-Flash-Next-hibrid48",
+      "uncensored": {"path": "qwen38-flash-next-cluster/Qwen3.8-Flash-Next-hibrid48_uncensored", "default": true, "calibration": "ARCH-EXACT, NOT CALIBRATION-VERIFIED (2026-10-10): myllmbox/Qwen3.8-Flash-Next-hibrid48-uncensored (rev 572e216), hibrid48's own abliterated sibling - OrcaRouter's abliteration (one refusal direction removed from 149 residual writers), the same architectures, layer count, 262,144 window, MTP drafter and a byte-identical NVFP4 PLE table - REWRITTEN from the publisher's compressed-tensors into hibrid48's own ModelOpt MIXED_PRECISION layout by deploy/sglang-27b-tp2/ct_to_modelopt.py (README-modelopt-conversion.md beside the weights), so it loads through the same kernels, config path and tp-rank views as the original. WHAT CHANGED: routed experts and lm_head keep their NVFP4 bytes (weight_scale_2 = 1/weight_global_scale, exact); the experts' per-expert input_scale is COPIED from hibrid48's same expert and projection - the publisher's build is weight-only and carries no activation statistics, so those scales are hibrid48's calibration, not this checkpoint's; the drafter's 507 experts whose w1 and w3 (silu and linear halves) carry different globals are folded exactly into down_proj; the 300 FP8 per-channel GDN/QSA/shared-expert linears are dequantised to BF16 (one bf16 rounding; +1.36 GiB a rank over the original, whose GDN is W4A16_NVFP4). Verified tensor-for-tensor against the source (ct_to_modelopt.py verify). WATCHED LOADING ON THIS ROW 2026-10-11, generation 193 (PLE split, every other setting the default): 'Model loading took 51.98 GiB' a rank, serving at 20:08:35Z, the boxes using 91.6/86.7 GiB against the estimate's 89.8/84.3 - the memory block is still the ORIGINAL's measurement, about 1.4 GiB a rank light for this checkpoint. Its earlier vLLM failures were NOT its layout: generations 183/184 (the publisher's compressed-tensors) and 190/191 (this rewrite) were killed by tp-rank's memory guard before the KV pool exactly as the ORIGINAL was in 192 - all five with the PLE table replicated (lb/tests/test_flash_next_ple_split.py)."},
+      "served_name": "Qwen/Qwen3.8-Flash-Next",
+      "size_gib": 98.1,
+      "quant_method": {"value": "modelopt_mixed", "source": "the checkpoint's own config.json (qwen38-flash-next-cluster/Qwen3.8-Flash-Next-hibrid48, read 2026-10-17 on box-c /srv/models): quantization_config quant_method modelopt, quant_algo MIXED_PRECISION — which vLLM reports as modelopt_mixed (its MFU model has no byte size for it: the patch, fleet.MFU_PATCHED_QUANTS)"},
+      "quant_format": {"value": "modelopt_mixed", "source": "its quantization_config's method (this row's quant_method source)"},
+      "format": {"value": "hf", "source": "a Hugging Face folder whose config.json names its architectures"},
+      "architectures": {"value": ["Qwen4ExpForConditionalGeneration"], "source": "worklog/vllm-cluster-ram-headroom.md: Qwen3.8-Flash-Next-hibrid48's config.json read on box-a: architectures = ['Qwen4ExpForConditionalGeneration'], model_type qwen4_exp"},
+      "chat": {"value": true, "source": "a Qwen3.8 instruct checkpoint with the Qwen chat template (tool calls, thinking levels): what the chat has served since 2026-09 (operator 2026-10-18: the chat lists only models it can use)"},
+      "task": {"value": "chat", "source": "a generative LLM checkpoint served through the engine's OpenAI and Anthropic chat APIs (/v1/chat/completions, /v1/messages); it takes no audio upload"},
+      "node_engine": "vllm",
+      "limits": {"max_model_len": 262144, "max_num_seqs": [1, 48]},
+      "memory": {
+        "weights_gib": 36.89,
+        "ple_gib": 26.82,
+        "mtp_gib": 0.745,
+        "kv_bytes_per_token": 16392, "kv_cache_dtype": "bfloat16",
+        "seq_state_gib": 0.0551,
+        "calibration": "2026-09-15 run 1 (lb/tests/fixtures/qwen38-start-2026-09-15-rank0.log, rank1.log, cluster-e2e-2026-09-15-memory.json), measured with the PLE table REPLICATED. The profile launches it SPLIT since 2026-10-11 (ple_replicate false): every replicated start after tp-rank's memory guard landed (2026-10-05) was killed by it before the KV pool - generations 183/184/190/191/192, both checkpoints, at 9.9-16.2 GiB available against the guard's 16 - while split loaded generation 193 at 51.98 GiB a rank and never under 24 GiB available (lb/tests/test_flash_next_ple_split.py). The estimate takes ple_gib / 2 off each rank for split.",
+        "calibrated_batched_tokens": 8192,
+        "activation_gib_per_1k_tokens": 1.1,
+        "calibrated_max_num_seqs": 16,
+        "concurrency_gib_per_seq": 1.2,
+        "kv_blocks": {
+          "kv_cache_dtype": "bfloat16",
+          "block_tokens": 1616,
+          "block_bytes": 22857142,
+          "fixed_blocks": 25,
+          "source": "vllm:cache_config_info 2026-09-30: num_gpu_blocks 1,225 for the 28 GB pin (22,857,142 B a block), 6.516x at 262,144 = 1225 / (163 + 25); 'Setting attention block size to 1616 tokens' (lb/tests/fixtures/qwen38-start-2026-09-15-rank0.log); generation 99's 35 GB pin: 1,531 / 188 = the 8.14x the engine printed"
+        }
+      },
+      "launch": {
+        "cluster": {
+          "default": true,
+          "build": "fleet",
+          "kv_cache_dtype": "fp8_e4m3",
+          "kv_cache_dtype_backend": {"name": "QWEN4_EXP_QSA_TRITON", "reads": ["bfloat16", "fp8", "fp8_e4m3", "nvfp4"], "source": "models/qwen4_exp/nvidia/qsa.py in myllmbox/qwen38-flash-next-cluster-vllm:v5 (read on box-a 2026-10-26, no engine started): Qwen4ExpQSAFlashAttentionBackend (get_name QWEN4_EXP_QSA_TRITON) supported_kv_cache_dtypes auto, bfloat16, fp8, fp8_e4m3, nvfp4; supports_kv_cache_dtype: 'The QSA main cache is only read by the Triton kernel in ops/qsa.py, which dequantizes in registers, so the FlashAttention capability is irrelevant here' - nvfp4 has its own page geometry, writer and read kernel there; the MTP drafter's attentions are QSA too (mtp.py _iter_qsa_attentions). Anything else raises 'Qwen4Exp QSA requires a BF16, FP8-E4M3 or NVFP4 main KV cache' (qsa.py:437; generations 262/265 at int4_per_token_head). NVFP4 NOT MEASURED on this fleet"},
+          "tuned": {
+            "max_num_seqs": 6,
+            "max_model_len": 262144,
+            "max_num_batched_tokens": 4096,
+            "num_speculative_tokens": 4,
+            "source": "OPERATOR'S CHOICE 2026-10-05, from the Flash-Next sweep. BUDGET 4,096: generation 99 ran it at 135.6 gen tok/s over 889 requests against generation 97's 112.0 at 8,192 and generations 101-102's 51.4 and 117.0 at 2,048 (lb/state/perf/perf-2026-10-01.jsonl, perf-2026-10-02.jsonl). DEPTH 4: the winner of the one claude-bench set where depths are comparable, P1-s16-b8k-sp4 at 145.2 gen tok/s against sp2's 119.0 (worklog/bench/claude/P1-*-summary.json, real Claude Code sessions). SEATS 6: what the 28 GB pin itself holds at 262,144 - vLLM's own 'Maximum concurrency 6.52x' line (cluster_defaults.py) - chosen over the 147.5 tok/s measured at 24 seats (P2-s24-b8k-sp3; perf generation 90's 147.4) because 24 seats REST at 1.7 GiB free with no traffic (generation 90), inside the 0.8-4.2 GiB band that hung both GB10 boxes, which is why worklog/bench/claude/queue.txt deferred every seqs-24 row. The throughput at 6 seats is not measured on this workload: it is the memory-safe seat count, and the operator's call."
+          },
+          "tool_call_parser": "qwen3_xml",
+          "reasoning_parser": "qwen3",
+          "speculative_config": {"method": "mtp", "num_speculative_tokens": 4},
+          "gpu_memory_utilization": 0.70,
+          "kv_cache_memory": 28000000000,
+          "ple_replicate": false,
+          "mtp_prefix": "mtp.",
+          "overhead_gib": {"head": 12.66, "worker": 7.16}
+        }
+      }
+    },
+    {
+      "id": "qwen3.8-flash-next-sglang",
+      "label": "Qwen3.8 Flash-Next hibrid48 \u00b7 MoE NVFP4 \u00b7 SGLang NEXTN",
+      "path": "qwen38-flash-next-cluster/Qwen3.8-Flash-Next-hibrid48",
+      "uncensored": {"path": "qwen38-flash-next-cluster/Qwen3.8-Flash-Next-hibrid48_uncensored", "default": true, "calibration": "ARCH-EXACT, NOT CALIBRATION-VERIFIED (2026-10-10): the same twin dir as the vLLM row's - myllmbox/Qwen3.8-Flash-Next-hibrid48-uncensored (rev 572e216) REWRITTEN from the publisher's compressed-tensors into hibrid48's ModelOpt MIXED_PRECISION layout by deploy/sglang-27b-tp2/ct_to_modelopt.py (README-modelopt-conversion.md beside the weights). SGLang's fleet image has no compressed-tensors scheme for a W4A16 NVFP4 MoE or linear (`Unsupported FusedMoe scheme`, 2026-10-10); in the ModelOpt layout the experts are NVFP4 with per-expert input_scale COPIED from hibrid48's same expert (the publisher's build is weight-only, so these are hibrid48's calibration, not this checkpoint's), lm_head is W4A16_NVFP4, the drafter's 507 experts whose w1 and w3 (silu and linear halves) carry different globals are folded exactly into down_proj, and the 300 FP8 per-channel GDN/QSA/shared-expert linears are BF16 (+1.36 GiB a rank over the original's W4A16_NVFP4 GDN). tp-rank builds the -hfquant view from its config.json exactly as for the original, and the -ple-fp8 view it needs is a symlink farm onto hibrid48's (byte-identical tables; on box-a since 2026-10-10). Never watched loading: the memory block is the ORIGINAL's measurement, 1.36 GiB a rank light for this checkpoint."},
+      "served_name": "Qwen/Qwen3.8-Flash-Next-SGLang",
+      "size_gib": 98.1,
+      "quant_method": {"value": "modelopt_mixed", "source": "the checkpoint's own config.json (qwen38-flash-next-cluster/Qwen3.8-Flash-Next-hibrid48, read 2026-10-17 on box-c /srv/models): quantization_config quant_method modelopt, quant_algo MIXED_PRECISION — which vLLM reports as modelopt_mixed (its MFU model has no byte size for it: the patch, fleet.MFU_PATCHED_QUANTS); served by SGLang here, which loads no vLLM patch — the fact is the checkpoint's"},
+      "quant_format": {"value": "modelopt_mixed", "source": "its quantization_config's method (this row's quant_method source)"},
+      "format": {"value": "hf", "source": "a Hugging Face folder whose config.json names its architectures"},
+      "architectures": {"value": ["Qwen4ExpForConditionalGeneration"], "source": "worklog/vllm-cluster-ram-headroom.md: Qwen3.8-Flash-Next-hibrid48's config.json read on box-a: architectures = ['Qwen4ExpForConditionalGeneration'], model_type qwen4_exp"},
+      "chat": {"value": true, "source": "a Qwen3.8 instruct checkpoint with the Qwen chat template (tool calls, thinking levels): what the chat has served since 2026-09 (operator 2026-10-18: the chat lists only models it can use)"},
+      "task": {"value": "chat", "source": "a generative LLM checkpoint served through the engine's OpenAI and Anthropic chat APIs (/v1/chat/completions, /v1/messages); it takes no audio upload"},
+      "limits": {"max_model_len": 262144, "max_num_seqs": [1, 48]},
+      "memory": {
+        "weights_gib": 36.89,
+        "ple_gib": 47.7,
+        "mtp_gib": 0.745,
+        "kv_bytes_per_token": 13058, "kv_cache_dtype": "bfloat16",
+        "seq_state_gib": 0.0551,
+        "calibration": "MEASURED 2026-10-05 from generations 149/150, after the n-gram table was converted. THE TABLE IS TP-SHARDED: ngram_embedding is a VocabParallelEmbedding of 320,001,536 x 160, so each rank holds half - 95.37 GiB whole / 47.7 a rank at bf16, 47.7 whole / 23.85 a rank at fp8. ple_gib states the WHOLE table and ple_replicate is false, so the estimate charges half a box, which is what the ranks actually hold. WHY fp8 AT ALL: the checkpoint ships the table as 8 x {packed U8, scales F8_E4M3} plus an F32 global, a layout only the MBX vLLM overlay reads; SGLang skips those tensors by name and leaves the bf16 allocation standing, which is what drove both boxes to 121/122 GiB on generations 146-148. deploy/sglang-27b-tp2/ple-to-fp8 converts them once into the shard_<i>.weight layout SGLang does read, measured at 1.12% mean and 3.78% worst relative error against an independent dequantisation of the source, nothing flushed to zero and no sign errors. THE ARITHMETIC THAT MATTERS: generation 150 reported avail 110.20 GB before the weight load and 24.12 GB after, so 93.3 GiB went to weights 36.89 + the bf16 table 47.7 + about 8.7 of engine - which also says the overhead_gib carried over from the dense SGLang profile (23.7/22.7) OVERSTATES this model by roughly 15 GiB. It is left overstated on purpose: it makes the start estimate stricter, not looser, and one measurement of a model that has never served is not a calibration. Correct it from the first run that completes",
+        "calibrated_batched_tokens": 4096,
+        "calibrated_max_num_seqs": 16
+      },
+      "launch": {
+        "cluster": {
+          "engine": "sglang",
+          "build": "fleet.4",
+          "kv_cache_dtype_refuses": {"nvfp4": "the fleet's qsa-fp8-kv patch (myllmbox/sglang-27b-tp2:708f51e-fleet.4) widens only an FP8 pool to the BF16 the SM121 QSA kernel reads (\"unsupported SM121 QSA call: expected BF16 D=256 …\", generation 153); an FP4 pool is not widened", "fp4_mx_block16": "the fleet's qsa-fp8-kv patch (myllmbox/sglang-27b-tp2:708f51e-fleet.4) widens only an FP8 pool to the BF16 the SM121 QSA kernel reads (\"unsupported SM121 QSA call: expected BF16 D=256 …\", generation 153); an FP4 pool is not widened"},
+          "tuned": {
+            "max_num_seqs": 16,
+            "max_model_len": 262144,
+            "max_num_batched_tokens": 4096,
+            "num_speculative_tokens": 4,
+            "source": "MEASURED, 2026-10-05: a four-point sweep of 15-minute deep-research swarms on this profile. gen tok/s over each generation's own perf window: 6 seats/131,072 = 67.4 (400 s, 62 requests); 6/262,144 = 49.0 (891 s, 65); 16/262,144 = 96.2 (920 s, 109); 32/262,144 = 88.8 (893 s, 95). SIXTEEN WINS AND THE FULL 262,144 CONTEXT IS FREE: 16 seats at full context beat 6 seats at HALF context by 43%, so the 27% that looked like a context cost at 6 seats was the pair being decode-starved, not the context. THIRTY-TWO IS WORSE by 7.7%, and the KV pool says why: every seat costs ten GDN slots, so the pool fell from 1,720,000 tokens at 6 seats to 1,482,304 at 16 to 1,140,288 at 32 - at 32 it backs 4.35 requests of full context, so the extra seats buy queueing while taking memory from the cache that would have served them. The next lever is the POOL, not the seat count: mem_fraction_static 0.74 leaves about 24 GB free a box and raising it is untested. Peak 64/66 C at 32 seats, nowhere near the 83-85 C the community 2x-box recipe soaks at. DEPTH 0 IS NOT A TUNING RESULT: the profile keeps its nextn speculative_config because the drafter really is in the checkpoint, but it cannot load on either image - the MTP module allocates its MoE experts at full hidden size while the loader hands it the TP shard, and the start dies in eagle_worker_v2 on a 2560-against-1280 size mismatch (generation 149). Every number here was measured without it, so a default start must be too. Restore the depth when the drafter loads. BUDGET 4,096 is carried from the vLLM profile of these weights and was NOT swept here - it is the one number in this block nobody has measured on SGLang."
+          },
+          "tool_call_parser": "qwen3_coder",
+          "reasoning_parser": "qwen3",
+          "speculative_config": {"method": "nextn", "num_speculative_tokens": 4},
+          "kv_cache_memory": 18000000000,
+          "ple_replicate": false,
+          "mtp_prefix": "",
+          "engine_args": {"speculative_algorithm": "NEXTN", "speculative_num_steps": 3, "speculative_eagle_topk": 1, "mem_fraction_static": 0.74, "kv_pool_calibration": {"reference_bytes": 6993411168, "pre_load_gib": 109.43, "max_fraction": 0.85}, "mamba_slots_per_req": 10, "linear_attn_prefill_backend": "flashinfer", "fp4_gemm_backend": "flashinfer_cutlass", "moe_runner_backend": "flashinfer_cutlass", "kv_cache_dtype": "fp8_e4m3", "page_size": 64, "cuda_graph_max_bs_decode": 32},
+          "overhead_gib": {"head": 23.7, "worker": 22.7}
+        }
+      }
+    },
+    {"id": "qwen3.8-flash-next-tensorfold-nvfp4", "label": "Qwen3.8 Flash-Next NVFP4 · TensorFold native · RoCE", "path": "tensorfold-hf/hub/models--nvidia--Qwen3.8-Flash-Next-NVFP4/snapshots/fc694b54fb0174e0913e6adf86691ef85a4ead47", "served_name": "Qwen/Qwen3.8-Flash-Next-TensorFold", "size_gib": 123.6, "quant_method": {"value": "modelopt", "source": "the checkpoint's own config.json (nvidia/Qwen3.8-Flash-Next-NVFP4 rev fc694b54, read 2026-10-29 on box-a): quantization_config quant_method modelopt; TensorFold reads the format itself (the recipe: 'the engine reads the format from config.json') and loads no vLLM patch"}, "quant_format": {"value": "modelopt", "source": "its quantization_config's method (this row's quant_method source)"}, "format": {"value": "hf", "source": "a Hugging Face folder whose config.json names its architectures"}, "architectures": {"value": ["Qwen4ExpForConditionalGeneration"], "source": "INFERRED, NOT READ from this checkpoint's own config.json (staged on the pair only): a ModelOpt NVFP4 export of it keeps the base model's `architectures`, Qwen3.8-Flash-Next's Qwen4ExpForConditionalGeneration (worklog/vllm-cluster-ram-headroom.md), and TensorFold's native engine serves that one family. Confirm with `python -m vllm_lb.model_facts <checkpoint>` on a box holding it (docs/design/engines.md, Open items)"}, "chat": {"value": true, "source": "a Qwen3.8 Flash-Next instruct checkpoint served through TensorFold's OpenAI and Anthropic APIs (/v1/chat/completions, /v1/messages; its server renders the chat template and tool calls itself — the spike's tool check returned get_weather({\"city\":\"Warsaw\"}), finish tool_calls, 2026-10-29)"}, "task": {"value": "chat", "source": "a generative LLM checkpoint served through the engine's OpenAI and Anthropic chat APIs; it takes no audio upload"}, "vision": {"value": true, "source": "the spike's rank 0 (2026-10-29): '[tensorfold] vision: image and video input on this GPU, a 0.84 GiB tower' — launched with --vision (engine_args.vision), as the recipe's default"}, "limits": {"max_model_len": 262144, "max_num_seqs": [1, 16]}, "memory": {"weights_gib": 62.3, "ple_gib": 0.0, "mtp_gib": 0.0, "kv_bytes_per_token": 15749, "kv_cache_dtype": "fp8_e4m3", "seq_state_gib": 0.0, "calibration": "PARTLY MEASURED 2026-10-29 (worklog/tensorfold-spike.md, worklog/bench/tensorfold/leg a, 16 streams x 131,072, fp8 KV): each rank's own 'sequence memory: 30.76 GiB' = 15,749 B a token of window a rank (30.76 GiB / 2,097,152) — TensorFold sizes it to seats x context itself, which is why the pool is per token here and no pin. weights_gib 62.3 is the recipe's own figure ('NVFP4's 62.3 GiB of weights a rank', scripts/config.sh mem_need_gib), not a measurement here; overhead_gib is DERIVED, not watched: rank 0 had 43.35 GiB free after its load, against ~110 GiB free before a load on this pair (generation 150's 110.20), so ~66.9 GiB went to weights + 4.6 GiB (the 0.84 GiB vision tower, CUDA context, scratch), plus the vision workspace's 2.00 GiB kept free on the head. Correct it from the first LB start that serves"}, "launch": {"cluster": {"engine": "tensorfold", "build": "native", "tool_call_parser": "", "reasoning_parser": "", "mtp_prefix": "", "engine_args": {"cli": "tensorfold-native", "kv_cache_dtype": "fp8_e4m3", "drafts": true, "thinking": true, "vision": true, "max_tokens": 32768, "roce": 1, "l2pf": 1, "yarn": 0, "memory_reserve_gib": 10, "nccl_channels": 4}, "tuned": {"max_num_seqs": 6, "max_model_len": 262144, "source": "NOT A BENCH: the figures the LB's former compose defaults gave this row until 2026-10-29 - 6 seats = the default row's (qwen3.8-flash-next-hibrid48) 28 GB pool rule at 262,144 (LB_CLUSTER_MAX_NUM_SEQS unset), 262,144 = LB_CLUSTER_MAX_MODEL_LEN's compose default - written into the row when those settings were retired so the row states what it is offered (a Start of it launched at exactly these before). Replace with a measured sweep."}, "overhead_gib": {"head": 6.6, "worker": 4.6}}}},
+    {"id": "qwen3.8-flash-next-tensorfold-mlx-mtp", "label": "Qwen3.8 Flash-Next MLX 4-bit MTP · TensorFold 0.6.6", "path": "tensorfold-hf/hub/models--TensorFold--Qwen3.8-Flash-Next-MLX-4bit-MTP/snapshots/2b170fa6309d5d1ee380b35636075fac7945f286", "served_name": "Qwen/Qwen3.8-Flash-Next-MLX-TensorFold", "size_gib": 105.5, "quant_method": {"value": null, "source": "the checkpoint's own config.json (TensorFold/Qwen3.8-Flash-Next-MLX-4bit-MTP rev 2b170fa6, read 2026-10-29 on box-a) has no quantization_config quant_method: it states MLX's own `quantization` {group_size 32, bits 4, mode affine}, which only TensorFold reads — no vLLM method, so none"}, "quant_format": {"value": "mlx", "source": "its config.json states MLX's own `quantization` {group_size 32, bits 4, mode affine} and no quantization_config (this row's quant_method source)"}, "format": {"value": "hf", "source": "a Hugging Face folder whose config.json names its architectures"}, "architectures": {"value": ["Qwen4ExpForConditionalGeneration"], "source": "INFERRED, NOT READ from this checkpoint's own config.json (staged on the pair only): an MLX conversion of it keeps the base model's `architectures`, Qwen3.8-Flash-Next's Qwen4ExpForConditionalGeneration (worklog/vllm-cluster-ram-headroom.md), and TensorFold's native engine serves that one family. Confirm with `python -m vllm_lb.model_facts <checkpoint>` on a box holding it (docs/design/engines.md, Open items)"}, "chat": {"value": true, "source": "a Qwen3.8 Flash-Next instruct checkpoint served through TensorFold's OpenAI and Anthropic APIs (/v1/chat/completions, /v1/messages; its server renders the chat template and tool calls itself — the spike's tool check returned get_weather({\"city\":\"Warsaw\"}), finish tool_calls, 2026-10-29)"}, "task": {"value": "chat", "source": "a generative LLM checkpoint served through the engine's OpenAI and Anthropic chat APIs; it takes no audio upload"}, "limits": {"max_model_len": 262144, "max_num_seqs": [1, 16]}, "memory": {"weights_gib": 52.73, "ple_gib": 0.0, "mtp_gib": 0.0, "kv_bytes_per_token": 17449, "kv_cache_dtype": "bfloat16", "seq_state_gib": 0.0, "calibration": "PARTLY MEASURED 2026-10-29 (worklog/tensorfold-spike.md, worklog/bench/tensorfold/leg b, 16 streams x 131,072, bf16 KV): the engine's own '2.13 GiB for one at the full window' = 17,449 B a token a rank (2.13 GiB / 131,072). weights_gib 52.73 is HALF THE CHECKPOINT ON DISK (113,233,048,033 B / 2), an upper bound and not a measurement: the rank's own line says 57.6 GiB stayed free for caches. overhead_gib is the native leg's derived non-vision share, never watched here. Correct it from the first LB start that serves"}, "launch": {"cluster": {"engine": "tensorfold", "build": "py066", "tool_call_parser": "", "reasoning_parser": "", "mtp_prefix": "", "engine_args": {"cli": "tensorfold", "kv_cache_dtype": "bfloat16", "drafts": true, "thinking": true, "vision": false, "max_tokens": 32768, "roce": 0, "memory_reserve_gib": 10}, "tuned": {"max_num_seqs": 6, "max_model_len": 262144, "source": "NOT A BENCH: the figures the LB's former compose defaults gave this row until 2026-10-29 - 6 seats = the default row's (qwen3.8-flash-next-hibrid48) 28 GB pool rule at 262,144 (LB_CLUSTER_MAX_NUM_SEQS unset), 262,144 = LB_CLUSTER_MAX_MODEL_LEN's compose default - written into the row when those settings were retired so the row states what it is offered (a Start of it launched at exactly these before). Replace with a measured sweep."}, "overhead_gib": {"head": 4.6, "worker": 4.6}}}},
+    {
+      "id": "qwen3.8-27b-nvidia-nvfp4",
+      "label": "Qwen3.8 27B · dense NVFP4",
+      "path": "Qwen3.8-27B-NVFP4",
+      "uncensored": {"path": "Qwen3.8-27B-NVFP4_uncensored", "default": true, "calibration": "ARCH-EXACT, NOT CALIBRATION-VERIFIED (2026-10-07): edp1096/Huihui-RadixArk-Qwen3.8-27B-abliterated-NVFP4, 20.4 GiB in 3 shards, identical shape to nvidia/Qwen3.8-27B-NVFP4 (same architectures, quant_method modelopt, layer count, max_position_embeddings 262144). The memory block is the ORIGINAL's measurement and has not been watched loading on this checkpoint."},
+      "served_name": "Qwen/Qwen3.8-27B",
+      "quant_method": {"value": "modelopt_mixed", "source": "what vLLM reports for this NVFP4 checkpoint (nvidia/Qwen3.8-27B-NVFP4: quant_method modelopt, MIXED_PRECISION) — the key vLLM's MFU model has no byte size for, so lb/cluster/tp-rank and the standalone node load the 0.5625 B/weight patch for it (deploy/standalone/vllm-mfu/sitecustomize.py)"},
+      "quant_format": {"value": "modelopt_mixed", "source": "its quantization_config's method (this row's quant_method source)"},
+      "format": {"value": "hf", "source": "a Hugging Face folder whose config.json names its architectures"},
+      "architectures": {"value": ["Qwen3_5ForConditionalGeneration"], "source": "worklog/prefill-audit.md: the Qwen3.8-27B NVFP4 checkpoint's model_config facts printed by vLLM from its config.json: architectures = ['Qwen3_5ForConditionalGeneration'] (the same name read 2026-10-30 in base.qwen3.6-dense-nvfp4-vllm/config.json, the dense family's staged folder)"},
+      "chat": {"value": true, "source": "a Qwen3.8 instruct checkpoint with the Qwen chat template (tool calls, thinking levels): what the chat has served since 2026-09 (operator 2026-10-18: the chat lists only models it can use)"},
+      "task": {"value": "chat", "source": "a generative LLM checkpoint served through the engine's OpenAI and Anthropic chat APIs (/v1/chat/completions, /v1/messages); it takes no audio upload"},
+      "node_engine": "vllm",
+      "efforts": {"ladder": ["xhigh", "medium", "low", "off"], "source": "the model's own chat_template.jinja lines 46-55 (md5 519239a4908b; read 2026-10-14 on box-c's Qwen3.8-27B-NVFP4 and site-b's Qwen3.8-27B-NVFP4_uncensored): with enable_thinking undefined or true it takes reasoning_effort|default('xhigh') and raises unless it is xhigh, medium or low (xhigh and low inject an instruction, medium none); enable_thinking false = no reasoning, which the LB sends for 'off' (router.rewrite_effort; vLLM's /v1/messages refuses 'none'/'minimal' with 400 literal_error, thinking disabled answers 200 text-only, 2026-10-14). The LB's effort_map still maps Claude Code's high to medium and max to xhigh."},
+      "size_gib": 20.4,
+      "limits": {"max_model_len": 262144, "max_num_seqs": [1, 48]},
+      "memory": {
+        "weights_gib": 10.28,
+        "ple_gib": 0,
+        "mtp_gib": 0.4,
+        "kv_bytes_per_token": 36860, "kv_cache_dtype": "bfloat16",
+        "seq_state_gib": 0.0735,
+        "calibration": "2026-10-02 generations 103+104 (seqs 16, batched 8192, 48 GB pin, MTP 4; lb/tests/fixtures/cluster-27b-2026-10-02-memory.json): per-seat and per-budget slopes unmeasured",
+        "calibrated_batched_tokens": 8192,
+        "calibrated_max_num_seqs": 16,
+        "kv_blocks": {
+          "kv_cache_dtype": "bfloat16",
+          "block_tokens": 816,
+          "block_bytes": 28418000,
+          "fixed_blocks": 18,
+          "source": "vllm:cache_config_info 2026-10-02 (generation 105): block_size 816, num_gpu_blocks 1,689 for the 48 GB pin (28,418,000 B a block), 4.9676x at 262,144 = 1689 / (322 + 18) (lb/tests/fixtures/cluster-27b-2026-10-02-memory.json)"
+        },
+        "single_card_kv_blocks": {
+          "kv_cache_dtype": "fp8_e4m3",
+          "block_tokens": 1568,
+          "block_bytes": 51392444,
+          "fixed_blocks": 6,
+          "source": "the live 5090 node, 2026-10-11 (docker logs qwen38-5090, read-only; vLLM v0.31.1rc1.dev273, image vllm/vllm-openai@sha256:514cd427…, the twin at max_model_len 131072, max_num_seqs 4, gpu_memory_utilization 0.9, kv_cache_dtype fp8_e4m3, no drafter): 'Setting attention block size to 1568 tokens'; its vllm:cache_config_info: num_gpu_blocks=\"116\", block_size=\"1568\", kv_cache_max_concurrency=\"1.288888888888889\" = 116 / 90, so one request takes ceil(131072 / 1568) = 84 + 6 fixed blocks; and gpu_worker.py:1020 at 20:10:46: '--kv-cache-memory=8633930752 (8.04 GiB) to fully utilize gpu memory' = 168 blocks (≤ 254,016 tokens a request), so block_bytes = 8633930752 // 168 (rounded down), the largest page that count allows. The twin is byte-identical in shape to this row's checkpoint"
+        },
+        "single_card_overhead": {
+          "gib": 3.559,
+          "source": "the live 5090 node, 2026-10-11 20:10:46 (docker logs qwen38-5090, read-only, gpu_worker.py:1020): 'Free memory on device (30.85/31.36 GiB) on startup. Desired GPU memory utilization is (0.9, 28.22 GiB). Actual usage is 20.45 GiB for consumed memory (weights + non-torch), 2.18 GiB for peak activation, and 0.04 GiB for CUDAGraph memory. … `--kv-cache-memory=8633930752` (8.04 GiB) to fully utilize gpu memory' — at gpu_memory_utilization 1.0 the card leaves 8,633,930,752 B for KV, so the rest is the rtx5090's 32 GiB (its type's memory_gb) less this row's 20.4 GiB (size_gib) less that: 3.559 GiB, which makes the fit check reproduce the engine's own ceiling (168 blocks, 254,016 tokens) at 1.0",
+          "chunk": {"max_num_batched_tokens": 2048, "source": "the 5090 node's launch passed no --max-num-batched-tokens (its kv_blocks source lists the launch: window, seats, memory fraction, KV dtype, no drafter), so vLLM ran its OWN default chunk: its image, v0.31.1rc1.dev273 (vllm-project/vllm 2eb491e), defaults the API server to 2,048 tokens on a card under 70 GiB (vllm/engine/arg_utils.py get_batch_defaults, L2920-2934; this card: 31.36 GiB, the boot line above), and caps it at max_num_seqs x max_model_len, far above. The boot log's own 'Chunked prefill is enabled with max_num_batched_tokens=' line was not captured"}
+        }
+      },
+      "launch": {
+        "cluster": {
+          "build": "fleet",
+          "kv_cache_dtype": "int4_per_token_head",
+          "tool_call_parser": "qwen3_xml",
+          "reasoning_parser": "qwen3",
+          "speculative_config": {"method": "mtp", "num_speculative_tokens": 4},
+          "gpu_memory_utilization": 0.70,
+          "kv_cache_memory": 48000000000,
+          "mtp_prefix": "mtp.",
+          "tuned": {
+            "max_num_seqs": 6,
+            "max_model_len": 262144,
+            "source": "NOT A BENCH: the figures the LB's former compose defaults gave this row until 2026-10-29 - 6 seats = the default row's (qwen3.8-flash-next-hibrid48) 28 GB pool rule at 262,144 (LB_CLUSTER_MAX_NUM_SEQS unset), 262,144 = LB_CLUSTER_MAX_MODEL_LEN's compose default - written into the row when those settings were retired so the row states what it is offered (a Start of it launched at exactly these before). Replace with a measured sweep."
+          },
+          "overhead_gib": {"head": 14.8, "worker": 11.3}
+        }
+      }
+    },
+    {
+      "id": "qwen3.8-27b-nvfp4",
+      "label": "Qwen3.8 27B · dense NVFP4",
+      "path": "base.qwen3.8-dense-nvfp4-vllm",
+      "served_name": "qwen3.8:latest",
+      "efforts": {"ladder": ["xhigh", "medium", "low", "off"], "source": "the model's own chat_template.jinja lines 46-55 (md5 519239a4908b; read 2026-10-14 on box-c's base.qwen3.8-dense-nvfp4-vllm and site-b's Qwen3.8-27B-NVFP4_uncensored): with enable_thinking undefined or true it takes reasoning_effort|default('xhigh') and raises unless it is xhigh, medium or low (xhigh and low inject an instruction, medium none); enable_thinking false = no reasoning, which the LB sends for 'off' (router.rewrite_effort; vLLM's /v1/messages refuses 'none'/'minimal' with 400 literal_error, thinking disabled answers 200 text-only, 2026-10-14). The LB's effort_map still maps Claude Code's high to medium and max to xhigh."},
+      "size_gib": 18.4,
+      "quant_method": {"value": "compressed-tensors", "source": "the checkpoint's own config.json (base.qwen3.8-dense-nvfp4-vllm, read 2026-10-17 on box-c /srv/models): quantization_config quant_method compressed-tensors — not one the MFU byte-size patch serves (fleet.MFU_PATCHED_QUANTS)"},
+      "quant_format": {"value": "compressed-tensors", "source": "its quantization_config's method (this row's quant_method source)"},
+      "format": {"value": "hf", "source": "a Hugging Face folder whose config.json names its architectures"},
+      "architectures": {"value": ["Qwen3_5ForConditionalGeneration"], "source": "worklog/prefill-audit.md: the Qwen3.8-27B NVFP4 checkpoint's model_config facts printed by vLLM from its config.json: architectures = ['Qwen3_5ForConditionalGeneration'] (the same name read 2026-10-30 in base.qwen3.6-dense-nvfp4-vllm/config.json, the dense family's staged folder)"},
+      "chat": {"value": true, "source": "a Qwen3.8 instruct checkpoint with the Qwen chat template (tool calls, thinking levels): what the chat has served since 2026-09 (operator 2026-10-18: the chat lists only models it can use)"},
+      "task": {"value": "chat", "source": "a generative LLM checkpoint served through the engine's OpenAI and Anthropic chat APIs (/v1/chat/completions, /v1/messages); it takes no audio upload"},
+      "node_engine": "vllm",
+      "limits": {"max_model_len": 262144, "max_num_seqs": [1, 8]},
+      "launch": {
+        "classic": {
+          "default": true,
+          "build": "upstream-0.23",
+          "tool_call_parser": "qwen3_coder",
+          "reasoning_parser": "qwen3"
+        }
+      }
+    },
+    {
+      "id": "qwen3.8-27b-dflash2",
+      "label": "Qwen3.8 27B · dense NVFP4, BF16 head · DFlash2",
+      "path": "dflash2-27b-tp2/Qwen3.8-27B-NVFP4-bf16head",
+      "served_name": "Qwen/Qwen3.8-27B-DFlash2",
+      "size_gib": 22.1,
+      "quant_method": {"value": "modelopt_mixed", "source": "built from Qwen3.8-27B-NVFP4 (quantization_config quant_method modelopt, quant_algo MIXED_PRECISION, read 2026-10-17 on box-c /srv/models) by deploy/dflash2-27b-tp2/make_bf16_lmhead.py, which only moves lm_head into the ignore list (worklog/dflash2-27b-tp2.md: 'config.json: dropped 2 lm_head quant entries') — the copy itself lives on box-a only; vLLM reports it as modelopt_mixed"},
+      "quant_format": {"value": "modelopt_mixed", "source": "its quantization_config's method (this row's quant_method source)"},
+      "format": {"value": "hf", "source": "a Hugging Face folder whose config.json names its architectures"},
+      "architectures": {"value": ["Qwen3_5ForConditionalGeneration"], "source": "worklog/prefill-audit.md: the Qwen3.8-27B NVFP4 checkpoint's model_config facts printed by vLLM from its config.json: architectures = ['Qwen3_5ForConditionalGeneration'] (the same name read 2026-10-30 in base.qwen3.6-dense-nvfp4-vllm/config.json, the dense family's staged folder)"},
+      "chat": {"value": true, "source": "a Qwen3.8 instruct checkpoint with the Qwen chat template (tool calls, thinking levels): what the chat has served since 2026-09 (operator 2026-10-18: the chat lists only models it can use)"},
+      "task": {"value": "chat", "source": "a generative LLM checkpoint served through the engine's OpenAI and Anthropic chat APIs (/v1/chat/completions, /v1/messages); it takes no audio upload"},
+      "node_engine": "vllm",
+      "limits": {"max_model_len": 262144, "max_num_seqs": [1, 48]},
+      "memory": {
+        "weights_gib": 11.4,
+        "ple_gib": 0,
+        "mtp_gib": 3.58,
+        "kv_bytes_per_token": 36860, "kv_cache_dtype": "bfloat16",
+        "seq_state_gib": 0.0735,
+        "calibration": "TUNED 2026-10-03 over five generations through the switch (worklog/dflash2-27b-tp2-tuning.md): K=4, not 7 — 201.5 tok/s in total at 8 streams against K=7's 187.6 and K=8's 185.9, because it accepts 0.577 of what it drafts against 0.393 and 0.380, and an exact repeat reproduces the totals to 1.4%, five times the noise. There IS a crossover: at ONE stream K=8 is 33% faster, so a latency-first pair would choose differently. The prefill budget is 4,096, against the engine's own advice: it warns on every start to consider raising max_num_batched_tokens, and 8,192 measured 8.2% SLOWER at 8 streams with acceptance down to 0.530. Under serving load the pair draws 25-27 W a box at 59-63 C; the 60-73 W seen earlier is a ~31-second boot transient on the FlashInfer autotune phase, not a cost of serving. Earlier, 2026-10-02, worklog/dflash2-27b-tp2.md: loaded 61 GiB (box-a) / 56 GiB (box-b) at K=16 against 56/51 at K=0 — +5 GiB a box for the drafter, which is its own 1.92 B checkpoint REPLICATED per rank (mtp_gib), and the BF16 head. The overheads are the dense 27B's, not recalibrated for dflash; the per-seat and per-budget slopes are unmeasured, and a dflash decode step submits 1 + K queries a seat — 48 seats at K=7 is 384 of them, inside the 8,192-token budget, so the budget is not what binds. Seats run to the whole 1..48 this LB allows (MAX_NUM_SEQS_CAP, which mirrors tp-rank's `cmd_up` bound) since 2026-10-02, at the operator's decision; 64 was asked for and is impossible at this pin at ANY context, since 64 seats' fixed_blocks alone are 32.7 GB of a 28 GB pool. READ THIS BEFORE TRUSTING A 48-SEAT ESTIMATE: the estimate charges nothing for seats 9..48, because concurrency_gib_per_seq is 0.0 here, so nothing pre-flight can refuse a 48-seat start that will not fit. The nearest measured slope in this catalog is Flash-Next's 1.2 GiB a seat (16 to 24) — borrowed, and explicitly NOT this model's measurement: it puts the 40 seats above the anchor at +48 GiB a rank on top of the 61 GiB loaded here, 109 GiB of a 121 GiB box, against the ~4.8 GiB a LOADED box really keeps free. What the pin itself admits is the block rule's, not the seat count's: 49 requests at the 1,024-token minimum context and 3 at the 262,144 default, so past a few seats the pool queues the rest. Measured heat, not modelled: at 8 seats the pair drew 60-68 W a box and box-a went unreachable at 21:03Z, back only by a reboot.",
+        "calibrated_batched_tokens": 4096,
+        "calibrated_max_num_seqs": 8,
+        "kv_blocks": {
+          "kv_cache_dtype": "bfloat16",
+          "block_tokens": 832,
+          "block_bytes": 28418000,
+          "fixed_blocks": 18,
+          "source": "the engine's own line at THIS model's own defaults — generation 109, seats 8, 262,144, the 28 GB pin, prefill budget 4,096 (lb/tests/fixtures/qwen38-dflash2-start-2026-10-02-rank0.log:66): 'Setting attention block size to 832 tokens to ensure that attention page size is >= mamba page size'. NOT a constant of the model: the same checkpoint at the same pin and seats paged at 864 with a budget of 8,192 (the 17:29 generation, worklog/dflash2-27b-tp2.md), and the MTP profile pages at 816, so this figure moves with the LAUNCH and is only the pre-start estimate's anchor. The engine's own published pool is what the page says once a pair serves (cluster_defaults.EnginePool, 2026-10-02); block_bytes here is still the MTP profile's, measured at its 48 GB pin, and no start of THIS profile has been read for its own value — treat the seat and context arithmetic below as an approximation until one is"
+        }
+      },
+      "launch": {
+        "cluster": {
+          "build": "fleet",
+          "tool_call_parser": "qwen3_xml",
+          "reasoning_parser": "qwen3",
+          "speculative_config": {"method": "dflash", "num_speculative_tokens": 4},
+          "draft_path": "dflash2-27b-tp2/Qwen3.8-27B-DFlash2",
+          "gpu_memory_utilization": 0.70,
+          "kv_cache_memory": 28000000000,
+          "mtp_prefix": "",
+          "tuned": {
+            "max_num_seqs": 6,
+            "max_model_len": 262144,
+            "source": "NOT A BENCH: the figures the LB's former compose defaults gave this row until 2026-10-29 - 6 seats = the default row's (qwen3.8-flash-next-hibrid48) 28 GB pool rule at 262,144 (LB_CLUSTER_MAX_NUM_SEQS unset), 262,144 = LB_CLUSTER_MAX_MODEL_LEN's compose default - written into the row when those settings were retired so the row states what it is offered (a Start of it launched at exactly these before). Replace with a measured sweep."
+          },
+          "overhead_gib": {"head": 14.8, "worker": 11.3}
+        }
+      }
+    },
+    {
+      "id": "qwen3.8-27b-sglang-dflash2",
+      "label": "Qwen3.8 27B · dense NVFP4 · SGLang DFlash2",
+      "path": "Qwen3.8-27B-NVFP4",
+      "uncensored": {"path": "Qwen3.8-27B-NVFP4_uncensored", "default": true, "calibration": "ARCH-EXACT, NOT CALIBRATION-VERIFIED (2026-10-07): edp1096/Huihui-RadixArk-Qwen3.8-27B-abliterated-NVFP4, 20.4 GiB in 3 shards, identical shape to nvidia/Qwen3.8-27B-NVFP4 (same architectures, quant_method modelopt, layer count, max_position_embeddings 262144). The memory block is the ORIGINAL's measurement and has not been watched loading on this checkpoint."},
+      "served_name": "Qwen/Qwen3.8-27B-SGLang",
+      "node_engine": "sglang",
+      "efforts": {"ladder": ["xhigh", "medium", "low", "off"], "source": "the model's own chat_template.jinja lines 46-55 (md5 519239a4908b; read 2026-10-14 on box-c's Qwen3.8-27B-NVFP4 and site-b's Qwen3.8-27B-NVFP4_uncensored): with enable_thinking undefined or true it takes reasoning_effort|default('xhigh') and raises unless it is xhigh, medium or low (xhigh and low inject an instruction, medium none); enable_thinking false = no reasoning, which the LB sends for 'off' (router.rewrite_effort; vLLM's /v1/messages refuses 'none'/'minimal' with 400 literal_error, thinking disabled answers 200 text-only, 2026-10-14). The LB's effort_map still maps Claude Code's high to medium and max to xhigh."},
+      "size_gib": 20.4,
+      "quant_method": {"value": "modelopt_mixed", "source": "the checkpoint's own config.json (Qwen3.8-27B-NVFP4, read 2026-10-17 on box-c /srv/models): quantization_config quant_method modelopt, quant_algo MIXED_PRECISION — which vLLM reports as modelopt_mixed (its MFU model has no byte size for it: the patch, fleet.MFU_PATCHED_QUANTS); served by SGLang here, which loads no vLLM patch — the fact is the checkpoint's"},
+      "quant_format": {"value": "modelopt_mixed", "source": "its quantization_config's method (this row's quant_method source)"},
+      "format": {"value": "hf", "source": "a Hugging Face folder whose config.json names its architectures"},
+      "architectures": {"value": ["Qwen3_5ForConditionalGeneration"], "source": "worklog/prefill-audit.md: the Qwen3.8-27B NVFP4 checkpoint's model_config facts printed by vLLM from its config.json: architectures = ['Qwen3_5ForConditionalGeneration'] (the same name read 2026-10-30 in base.qwen3.6-dense-nvfp4-vllm/config.json, the dense family's staged folder)"},
+      "chat": {"value": true, "source": "a Qwen3.8 instruct checkpoint with the Qwen chat template (tool calls, thinking levels): what the chat has served since 2026-09 (operator 2026-10-18: the chat lists only models it can use)"},
+      "task": {"value": "chat", "source": "a generative LLM checkpoint served through the engine's OpenAI and Anthropic chat APIs (/v1/chat/completions, /v1/messages); it takes no audio upload"},
+      "limits": {"max_model_len": 262144, "max_num_seqs": [1, 48]},
+      "memory": {
+        "weights_gib": 10.28,
+        "ple_gib": 0,
+        "mtp_gib": 3.58,
+        "kv_bytes_per_token": 21502, "kv_cache_dtype": "fp8_e4m3",
+        "seq_state_gib": 0.0735,
+        "calibration": "2026-10-02/03, worklog/sglang-27b-tp2-c16.md: a verified 16-seat pair (the engine's own max_running_requests=16, no cap) at mem-fraction 0.80 held 61.5 GB of target KV and 19.2 GB of DRAFT KV — DFlash2 runs a second pool — beside ~14 GiB of weights and drafter, for 106 GiB used a box and 14-15 GiB left. SGLang sizes all of that as a FRACTION of the box, not as the absolute pin every other profile here states, so kv_cache_memory below is the measured KV pool itself — 61.5 + 19.2 GB — and engine_args.mem_fraction_static is what the engine is actually told. The first version of this entry set the pin to the fraction's whole share (86.7 GB) and the start was REFUSED at 117 GiB needed on a 115 GiB box (generation 117, 2026-10-03): the fraction covers weights AND KV, while this estimate adds weights and overhead ON TOP of the pin, so stating the fraction's share as the pin counts the weights twice. CORRECTED 2026-10-03 against generation 123's own lines, because the first figures here were the vLLM profile's and the page printed two different token counts for one pool (worklog/sglang-ui-audit.md C3). The engine allocates TWO pools and says so: 'KV Cache is allocated … #tokens: 3415240, K size: 26.06 GB, V size: 26.06 GB' for the target and 'K size: 8.14 GB, V size: 8.14 GB' for the draft — 68.392 GiB together, 73,435,823,273 B, over 3,415,240 tokens, which is 21,502 B a token and NOT the 36,860 of the vLLM profile (SGLang stores KV in fp8_e4m3 and pages at page_size 1). The pin states those two pools, so pin / kv_bytes_per_token reproduces the engine's own token count instead of a number 36% below it. The overheads are back-figured from the same run: 10.28 + 3.58 + 68.4 + 23.7 = 106.0 GiB against the 106 the box held with 15.05 GB free. Per-seat and per-budget slopes unmeasured, as for the vLLM dflash profile. GDN SLOTS (engine_args.mamba_slots_per_req, 10 since 2026-10-03; tp-rank passes --max-mamba-cache-size seats x slots): SGLang carves them out of the same fraction before the KV pools get the rest, so a slot costs 1,824 KV tokens (39,223,296 B a rank) and never box memory - its two committed starts left 21.74 GiB (80 slots) and 21.83 GiB (160) beside the pools (tests/test_memory_estimate.py). The pin therefore stays the TOTAL's figure; the engine's own token count at 32 seats x 10 slots is ~2.89M, not pin / kv_bytes_per_token. Peak draw 35.7 W a box at 63 C with zero throttle microseconds accumulated over the run — roughly half what the same model and drafter drew through vLLM at 8 seats, which is why this profile exists rather than being a curiosity.",
+        "calibrated_batched_tokens": 8192,
+        "calibrated_max_num_seqs": 16
+      },
+      "traffic": {
+        "target_read_bytes": 8804567176,
+        "draft_read_bytes": 2353031688,
+        "full_attention_layers": 16,
+        "num_key_value_heads": 4,
+        "head_dim": 256,
+        "kv_cache_dtype_bytes": 1,
+        "linear_attention_layers": 48,
+        "linear_num_value_heads": 48,
+        "linear_key_head_dim": 128,
+        "linear_value_head_dim": 128,
+        "linear_state_dtype_bytes": 2,
+        "draft_attention_layers": 5,
+        "draft_num_key_value_heads": 8,
+        "draft_head_dim": 128,
+        "draft_sliding_window": 2048,
+        "source": "Per rank, TP=2, read 2026-10-03 (tests/test_sglang_bandwidth_model.py checks each against SGLang's own allocations). BYTES A PASS STREAMS, off the shard headers on box-c: target = the 64 layers of /srv/models/Qwen3.8-27B-NVFP4 (16,891,248,640 B of 2-D+ tensors halved + 1,351,808 B of 1-D ones every rank holds) + half the NVFP4 lm_head (357,580,808) = 8,804,567,176; the embedding shard (1.27e9, gathered by token) and the vision tower (0.92e9, idle on text) are resident and never streamed, which is why memory.weights_gib (10.28 GiB, resident) is not this figure. draft = Qwen3.8-27B-DFlash2's attention + MLP halved (QKV/MergedColumn/RowParallel in SGLang srt/models/dflash.py: 3,198,156,800 / 2) + its replicated fc, grouped convs and norms (396,372,480) + the target's lm_head shard its selector projects onto every pass (dflash.py:1097-1124) = 2,353,031,688; the selector's two 248,320 x 256 codebooks are gathered by candidate id. SGLang SHARDS the drafter ('Load weight end ... DFlash2DraftModel ... mem usage=2.25 GB' per rank), so memory.mtp_gib (3.58, the whole file) overstates it here. SHAPES, off the two config.json: 16 full-attention + 48 linear-attention (GDN) layers, 4 KV heads x 256, GDN 48 value heads x 128 x 128; drafter 5 sliding-attention layers, 8 KV heads x 128, sliding_window 2048. DTYPES are the launch's: tp-rank sglang_cmd passes --kv-cache-dtype fp8_e4m3 (1 B, the drafter's pool too) and --mamba-ssm-dtype bfloat16 (2 B; the checkpoint says float32)."
+      },
+      "launch": {
+        "cluster": {
+          "engine": "sglang",
+          "build": "fleet.2",
+          "tuned": {
+            "max_num_seqs": 32,
+            "max_model_len": 262144,
+            "max_num_batched_tokens": 2048,
+            "num_speculative_tokens": 4,
+            "source": "GENERATION 137, 2026-10-03 20:26Z to 2026-10-04 18:51Z - the longest run this pair has had: 98.4 gen tok/s over 13,210 finished requests and 1,346 spans at 32 seats, a 2,048-token prefill budget and DFlash2 K=4 (lb/state/perf/perf-2026-10-03.jsonl, perf-2026-10-04.jsonl; generation 136, the same config, 84.1 over 4,883). THE BUDGET IS THE POINT: engine_args.chunked_prefill_size used to say 8,192, which no generation since 135 had run - this block replaces it as the one place the budget is stated, and at 8,192 generation 132 measured 119.8 tok/s over only 301 requests in 35 spans - a short window whose bottleneck audit shows prefill-first scheduling freezing all 30 streams for the whole of a multi-chunk prompt (131k cold = 16 chunks = ~55 s; worklog/sglang-bottleneck-2026-10-03.md). 2,048 is what ran a day without that, and it is this profile's measured default until a longer A/B says otherwise."
+          },
+          "tool_call_parser": "qwen3_coder",
+          "reasoning_parser": "qwen3",
+          "speculative_config": {"method": "dflash", "num_speculative_tokens": 4},
+          "draft_path": "Qwen3.8-27B-DFlash2",
+          "engine_args": {"mem_fraction_static": 0.80, "kv_pool_calibration": {"reference_bytes": 73435823273, "pre_load_gib": 109.63, "max_fraction": 0.85}, "mamba_slots_per_req": 10, "linear_attn_prefill_backend": "flashinfer"},
+          "kv_cache_memory": 73435823273,
+          "mtp_prefix": "",
+          "overhead_gib": {"head": 23.7, "worker": 22.7}
+        }
+      }
+    },
+    {
+      "id": "glm-5.3-flash-nvfp4",
+      "label": "GLM-5.3-Flash · MoE NVFP4",
+      "path": "glm53-flash-cluster/GLM-5.3-Flash-NVFP4",
+      "served_name": "zai-org/GLM-5.3-Flash",
+      "size_gib": 184.29,
+      "quant_method": {"value": "compressed-tensors", "source": "the checkpoint's own config.json (RedHatAI/GLM-5.3-Flash-NVFP4 rev 18d55bfd, read 2026-10-20 on box-c /srv/models/glm53-flash-cluster): quantization_config quant_method compressed-tensors, format mixed-precision (llm-compressor NVFP4 experts and linears, the MTP layer FP8-block, the vision tower ignored)"},
+      "quant_format": {"value": "compressed-tensors", "source": "its quantization_config's method (this row's quant_method source)"},
+      "format": {"value": "hf", "source": "a Hugging Face folder whose config.json names its architectures"},
+      "architectures": {"value": ["Glm5NextForConditionalGeneration"], "source": "read 2026-10-30 from the staged checkpoint's own config.json (GLM-5.3-Flash-NVFP4)"},
+      "chat": {"value": true, "source": "zai-org's GLM-5.3-Flash chat model with its own chat template (tool calls, thinking): the checkpoint card serves it with --tool-call-parser glm47 --reasoning-parser glm45 (README.md, rev 18d55bfd)"},
+      "task": {"value": "chat", "source": "a generative LLM checkpoint served through the engine's OpenAI and Anthropic chat APIs (/v1/chat/completions, /v1/messages); it takes no audio upload"},
+      "node_engine": "vllm",
+      "vision": {"value": true, "source": "NOT YET ON THIS PAIR — Glm5NextForConditionalGeneration with its vision tower in the checkpoint (347 model.visual.* tensors, 1.05 GiB bf16, and processor_config.json; read 2026-10-21 on box-c) and a chat template that emits images and video; MiaAI-Lab/GLM-5.3-Flash-NVFP4-Dual-DGX-Spark @aed98a1 serves image + video on 2x DGX Spark with the same kernels (its seven sm90 steps all already in this image: probed 2026-10-21)"},
+      "limits": {"max_model_len": 262144, "max_num_seqs": [1, 8]},
+      "memory": {
+        "weights_gib": 88.57,
+        "ple_gib": 0,
+        "mtp_gib": 3.55,
+        "kv_bytes_per_token": 6973, "kv_cache_dtype": "fp8_e4m3",
+        "seq_state_gib": 0.0664,
+        "calibration": ""
+      },
+      "launch": {
+        "cluster": {
+          "build": "glm53",
+          "tuned": {
+            "max_num_seqs": 8,
+            "max_model_len": 262144,
+            "max_num_batched_tokens": 4096,
+            "num_speculative_tokens": 4,
+            "source": "NOT MEASURED ON THIS PAIR — Classmethod's 2x DGX Spark run of this checkpoint (dev.classmethod.jp/en/articles/dgx-spark-2node-glm-5-3-flash-nvfp4-vllm, 2026-09-02; himorishige/glm53-flash-2x-dgx-spark-recipe @9993555 docs/measurements.md): the shared 8-slot profile at 262,144 with MTP 4 drafts, 76.2 gen tok/s at 8 concurrent (57.7 at 4); MTP 3 is the single-stream best (26.5 tok/s at 2 slots). MiaAI-Lab's multimodal launch (README @aed98a1, MTP 4, 8 seats): 23-30 tok/s at 1 stream, 72 tok/s in all at 8. BUDGET 4,096: 8,192 OOMed the GB10 driver (docs/pitfalls.md). Replace with this pair's own minutes after its first start."
+          },
+          "tool_call_parser": "glm47",
+          "reasoning_parser": "glm45",
+          "speculative_config": {"method": "mtp", "num_speculative_tokens": 4},
+          "gpu_memory_utilization": 0.84,
+          "kv_cache_memory": 5400000000,
+          "mtp_prefix": "",
+          "kv_cache_dtype": "fp8_e4m3",
+          "kv_cache_dtype_refuses": {"nvfp4": "GLM-5.3-Flash attends through MLA (kv_lora_rank 512), and this vLLM refuses an nvfp4 KV cache with MLA (config/vllm.py:2539-2549 validate_nvfp4_kv_cache_with_mla @487ecf187)"},
+          "block_size": 2304,
+          "moe_backend": "marlin",
+          "enforce_eager": true,
+          "skip_mm_profiling": true,
+          "limit_mm_per_prompt": {"image": 4, "video": 1},
+          "overhead_gib": {"head": 4.3, "worker": 4.3}
+        }
+      }
+    },
+    {
+      "id": "deepseek-v4-flash-nvfp4",
+      "label": "DeepSeek-V4-Flash-0731 · MoE NVFP4",
+      "path": "deepseek-v4-flash-cluster/DeepSeek-V4-Flash-0731-NVFP4",
+      "served_name": "deepseek-ai/DeepSeek-V4-Flash",
+      "size_gib": 163.48,
+      "quant_method": {"value": "deepseek_v4_fp8", "source": "what vLLM resolves it to (myllmbox/deepseek-v4-flash-cluster-vllm base, vllm/models/deepseek_v4/quant_config.py:135-151 override_quantization_method: model_type deepseek_v4 + quant_method fp8 -> deepseek_v4_fp8): the checkpoint's config.json says quant_method fp8 (FP8-block linears and attention) with moe_quant_algo NVFP4 (modelopt dsv4-nvfp4-experts), which the same file routes to ModelOptNvFp4FusedMoE (:181-190); read 2026-10-23"},
+      "quant_format": {"value": "deepseek_v4_fp8", "source": "its quantization_config's method (this row's quant_method source)"},
+      "format": {"value": "hf", "source": "a Hugging Face folder whose config.json names its architectures"},
+      "architectures": {"value": ["DeepseekV4ForCausalLM"], "source": "read 2026-10-30 from the staged checkpoint's own config.json (DeepSeek-V4-Flash-0731-NVFP4)"},
+      "chat": {"value": true, "source": "DeepSeek-V4-Flash-0731's chat model with thinking and tool calls: nvidia's card serves it with --tokenizer-mode deepseek_v4 --tool-call-parser deepseek_v4 --reasoning-parser deepseek_v4 (README.md, rev f1caa711)"},
+      "task": {"value": "chat", "source": "a generative LLM checkpoint served through the engine's OpenAI and Anthropic chat APIs (/v1/chat/completions, /v1/messages); it takes no audio upload"},
+      "node_engine": "vllm",
+      "vision": {"value": false, "source": "DeepseekV4ForCausalLM, text only: no vision tensors in the 48 shard headers and no processor config (rev f1caa711, read 2026-10-23); DeepSeek's image model is the separate DeepSeek-V4-Flash-Vision-Exp checkpoint"},
+      "limits": {"max_model_len": 262144, "max_num_seqs": [1, 8]},
+      "memory": {
+        "weights_gib": 79.29,
+        "ple_gib": 0,
+        "mtp_gib": 5.06,
+        "kv_bytes_per_token": 55011, "kv_cache_dtype": "fp8",
+        "seq_state_gib": 0.01,
+        "calibration": "MEASURED 2026-10-24, generation 235 (8 seats, 131,072, budget 8,192, DSpark OFF, KV pin 10e9): vLLM 'Model loading took 79.29 GiB' a rank (the 48 shard headers said 76.68); 'GPU KV cache size: 181,777 tokens' for 10e9 B and 290,858 for 16e9 B (generation 234) = 55,011 B/token a rank, 4x the 13,952 read off the published pools, so 10e9 backs 1.39 requests of 131,072. MemAvailable on box-a 117.2 GiB before the start, 15.2 at idle after it: 102.0 GiB held = 79.29 weights + 9.31 KV + 13.4 overhead (b12x workspaces, CUDA graphs to 48). Generation 234 at a 16e9 pin was KILLED by tp-rank's memory guard during b12x warmup (MemAvailable 7.9 GiB, under its 8 GiB minimum). mtp_gib unmeasured: the drafter does not load (tuned source)."
+      },
+      "launch": {
+        "cluster": {
+          "build": "deepseek-v4-b12x",
+          "tuned": {
+            "max_num_seqs": 8,
+            "max_model_len": 131072,
+            "max_num_batched_tokens": 8192,
+            "num_speculative_tokens": 0,
+            "source": "DEPTH 0 IS NOT A TUNING RESULT: nvidia's NVFP4 build stores the DSpark drafter's experts as MXFP4 (mtp.*.ffn.experts.*.scale F8_E8M0 [2048, 128], per 32) while this vLLM gives every RoutedExperts layer, mtp included, ModelOptNvFp4FusedMoE (models/deepseek_v4/quant_config.py get_quant_method: NVFP4 scales F8_E4M3 per 16), so the drafter cannot load (generation 233: b12x 'strided dtype conversion: mtp.0.ffn.experts.0.w1.scale'); nvidia's card did not validate speculative decoding on this build. The profile keeps its dspark speculative_config because the drafter is in the checkpoint; restore the depth (eugr's recipe: 5 = dspark_block_size) when it loads. MEASURED 2026-10-24, generation 235: 28.8 gen tok/s at 1 stream with thinking off (1,107 tokens in 38.5 s). Seats 8 and budget 8,192 are eugr/spark-vllm-docker @0bdc9c94 recipes/deepseek-v4-flash-0731.yaml's, not swept here; at a 10e9 pin the pool backs 181,777 tokens, so 8 seats share it. CONTEXT 131,072: the operator's cap (2026-10-13)."
+          },
+          "tool_call_parser": "deepseek_v4",
+          "reasoning_parser": "deepseek_v4",
+          "speculative_config": {"method": "dspark", "num_speculative_tokens": 5, "draft_sample_method": "probabilistic", "attention_backend": "B12X"},
+          "gpu_memory_utilization": 0.85,
+          "kv_cache_memory": 10000000000,
+          "mtp_prefix": "",
+          "kv_cache_dtype": "fp8",
+          "kv_cache_dtype_refuses": {"fp8_e4m3": "DeepSeek-V4's sparse MLA backend takes auto, fp8_ds_mla and its alias fp8 only (vllm/models/deepseek_v4/sparse_mla.py:53-57 in this image)"},
+          "block_size": 256,
+          "moe_backend": "b12x",
+          "trust_remote_code": true,
+          "tokenizer_mode": "deepseek_v4",
+          "load_format": "b12x",
+          "linear_backend": "b12x",
+          "attention_backend": "B12X",
+          "max_cudagraph_capture_size": 48,
+          "compilation_config": {"cudagraph_mode": "FULL_AND_PIECEWISE", "custom_ops": ["all"]},
+          "reasoning_config": {"reasoning_parser": "deepseek_v4", "reasoning_start_str": "", "reasoning_end_str": ""},
+          "default_chat_template_kwargs": {"thinking": true, "reasoning_effort": "high"},
+          "overhead_gib": {"head": 13.4, "worker": 13.4}
+        }
+      }
+    },
+    {
+      "id": "mai-ui-2b",
+      "label": "MAI-UI 2B · Qwen3-VL BF16",
+      "path": "MAI-UI-2B",
+      "served_name": "Tongyi-MAI/MAI-UI-2B",
+      "quant_method": {"value": null, "source": "an unquantised BF16 checkpoint: config.json of Tongyi-MAI/MAI-UI-2B (rev 503050934809558c8dfd2ddedaf9621fa74ac2de) carries no quantization_config; torch_dtype bfloat16 — so the MFU byte-size patch (modelopt_mixed) is not needed (vLLM's own MFU model sized it: vllm:estimated_flops_per_gpu_total populated without it, 2026-10-17)"},
+      "quant_format": {"value": "none", "source": "no quantization_config: unquantised weights (this row's quant_method source)"},
+      "format": {"value": "hf", "source": "a Hugging Face folder whose config.json names its architectures"},
+      "architectures": {"value": ["Qwen3VLForConditionalGeneration"], "source": "read 2026-10-30 from the staged checkpoint's own config.json (MAI-UI-2B)"},
+      "chat": {"value": false, "source": "a GUI-grounding agent: given a screenshot and an instruction it answers click(x,y) or a [x0,y0,x1,y1] box on a 0-1000 grid, not prose (live 2026-10-18, a browser agent's locate) — the chat never offers it (operator 2026-10-18)"},
+      "task": {"value": "chat", "source": "a GUI-grounding VLM answered through vLLM's /v1/chat/completions (a screenshot and an instruction in, click(x,y) out: its `chat` fact) — a chat-completions model, not a speech one"},
+      "node_engine": "vllm",
+      "vision": {"value": true, "source": "Qwen3VLForConditionalGeneration (model_type qwen3_vl; image_token_id 151655, video 151656 in config.json); proven 2026-10-17 on the AMD iGPU node: a 1440x900 PNG request answered from the image (1,290 prompt tokens)"},
+      "size_gib": 3.963,
+      "limits": {"max_model_len": 262144, "max_num_seqs": [1, 8]},
+      "memory": {
+        "weights_gib": 4.45,
+        "ple_gib": 0,
+        "mtp_gib": 0,
+        "kv_bytes_per_token": 114688, "kv_cache_dtype": "bfloat16",
+        "seq_state_gib": 0,
+        "calibration": "2026-10-17, the AMD iGPU node (Radeon 8060S, rocm/vllm@sha256:394194d36edcf9b36bcb563e143b21b80e64e7d04f33a447b448c0c0c00c04a8, vLLM 0.19.1+rocm7.13.0rc2), one boot at gpu_memory_utilization 0.10, max_model_len 32768, max_num_seqs 4, vLLM's default chunk 8192 (boot-a4.log): 'Model loading took 4.45 GiB memory' (:31), 'Available KV cache memory: 5.35 GiB' (:40); kv_bytes_per_token = 28 layers x 8 KV heads x head_dim 128 x 2 (K, V) x 2 B (bf16), which 5.35 GiB / 50,032 tokens agrees with. Measured at 32,768 tokens only (the config's window is 262,144); seats and chunk slopes unmeasured",
+        "calibrated_batched_tokens": 8192,
+        "calibrated_max_num_seqs": 4,
+        "single_card_kv_blocks": {
+          "kv_cache_dtype": "bfloat16",
+          "block_tokens": 16,
+          "block_bytes": 1835008,
+          "fixed_blocks": 0,
+          "source": "the same boot (boot-a4.log:41, its vllm:cache_config_info): num_gpu_blocks 3127 x block_size 16 = 50,032 tokens; 'Maximum concurrency for 32,768 tokens per request: 1.53x' = 3127 / ceil(32768 / 16) = 3127 / 2048, so no fixed blocks; block_bytes = 114,688 B a token x 16"
+        },
+        "single_card_overhead": {
+          "gib": 3.087,
+          "source": "DERIVED from the same boot, not fit-checked against a second one: the 0.10 x 124.0 GiB pool (the radeon8060s's visible_gib) = 12.40 GiB, less this row's 3.963 GiB on disk (size_gib), less the 5.35 GiB KV vLLM sized ('Available KV cache memory', boot-a4.log:40) = 3.087 GiB — the 5090 row's derivation, so the fit at 0.10 reproduces the engine's own KV size (in vLLM's own terms: 12.40 - 4.45 loaded - 5.35 KV = 2.60 for activation, non-torch and its 0.10 GiB of graphs)",
+          "chunk": {"max_num_batched_tokens": 8192, "source": "the boot passed no --max-num-batched-tokens; vLLM chose 8192 ('max_num_batched_tokens=8192', boot-a4.log:10)"}
+        }
+      },
+      "launch": {}
+    },
+    {
+      "id": "whisper-large-v3-turbo",
+      "label": "Whisper large-v3-turbo · vLLM FP16",
+      "path": "whisper-large-v3-turbo",
+      "served_name": "openai/whisper-large-v3-turbo",
+      "quant_method": {"value": null, "source": "an unquantised checkpoint: config.json of openai/whisper-large-v3-turbo carries no quantization_config, torch_dtype float16 (vLLM's boot line: quantization=None, dtype=torch.float16, 2026-10-23)"},
+      "quant_format": {"value": "none", "source": "no quantization_config: unquantised weights (this row's quant_method source)"},
+      "format": {"value": "hf", "source": "a Hugging Face folder whose config.json names its architectures"},
+      "architectures": {"value": ["WhisperForConditionalGeneration"], "source": "read 2026-10-30 from the staged checkpoint's own config.json (whisper-large-v3-turbo)"},
+      "chat": {"value": false, "source": "a speech-to-text model: it answers an audio upload with its transcript, never a conversation"},
+      "task": {"value": "transcription", "source": "WhisperForConditionalGeneration, served by vLLM 0.19.1 on /v1/audio/transcriptions (live 2026-10-23 on the throwaway boot below: a 6.9 s English WAV answered as verbose_json segments in 4.0 s; 'words': null — vLLM gives no word timestamps)"},
+      "node_engine": "vllm",
+      "size_gib": 1.511,
+      "limits": {"max_model_len": 448, "max_num_seqs": [1, 8]},
+      "memory": {
+        "weights_gib": 1.79,
+        "ple_gib": 0,
+        "mtp_gib": 0,
+        "kv_bytes_per_token": 20480, "kv_cache_dtype": "float16",
+        "seq_state_gib": 0,
+        "calibration": "2026-10-23, a Radeon 8060S (gfx1151), the vllm-audio image built from deploy/standalone/images/vllm-audio.Dockerfile on rocm/vllm@sha256:394194d36edcf9b36bcb563e143b21b80e64e7d04f33a447b448c0c0c00c04a8 (vLLM 0.19.1+rocm7.13.0rc2), one throwaway boot at gpu_memory_utilization 0.05, max_model_len 448, max_num_seqs 4, --enable-mfu-metrics (enforce_eager: 'CUDA graph is not supported for whisper on ROCm yet'; chunked prefill off): 'Model loading took 1.79 GiB memory', 'Available KV cache memory: 3.75 GiB', 'Maximum concurrency for 448 tokens per request: 87.72x'. kv_bytes_per_token = the decoder's self-attention, 4 layers x 20 heads x head_dim 64 x 2 (K, V) x 2 B (fp16) — config.json decoder_layers 4, decoder_attention_heads 20, d_model 1280. Measured at 448 tokens and 4 seats only",
+        "calibrated_max_num_seqs": 4,
+        "single_card_kv_blocks": {
+          "kv_cache_dtype": "float16",
+          "block_tokens": 16,
+          "block_bytes": 327680,
+          "fixed_blocks": 112,
+          "source": "the same boot, its vllm:cache_config_info: num_gpu_blocks 12281 x block_size 16; 'Maximum concurrency for 448 tokens per request: 87.72x' = 12281 / 140 blocks a request = ceil(448 / 16) + 112 fixed (the encoder's cross-attention); block_bytes: 3.75 GiB / 12281 = 327,868 B, the decoder's 20,480 B a token x 16 = 327,680 B"
+        },
+        "single_card_overhead": {
+          "gib": 0.939,
+          "source": "DERIVED from the same boot, as mai-ui-2b's: the 0.05 x 124.0 GiB pool (the radeon8060s's visible_gib) = 6.20 GiB, less this row's 1.511 GiB on disk (size_gib), less the 3.75 GiB KV vLLM sized = 0.939 GiB (GTT used rose 6.29 GB across the boot, 21,052,436,480 B to 27,343,187,968 B: the pool, whole)"
+        }
+      },
+      "launch": {}
+    },
+    {
+      "id": "faster-whisper-large-v3-turbo",
+      "label": "Whisper large-v3-turbo · faster-whisper CT2 FP16",
+      "path": "faster-whisper-large-v3-turbo",
+      "served_name": "/models/faster-whisper-large-v3-turbo",
+      "quant_method": {"value": null, "source": "a CTranslate2 FP16 conversion (mobiuslabsgmbh/faster-whisper-large-v3-turbo rev 0a363e9161cbc7ed1431c9597a8ceaf0c4f78fcf: model.bin, config.json); vLLM never loads it, and the MFU byte-size patch is vLLM's — none"},
+      "quant_format": {"value": "none", "source": "no quantization_config: unquantised weights (this row's quant_method source)"},
+      "format": {"value": "ctranslate2", "source": "model.bin beside a config.json with no `architectures` (read 2026-10-30 in the staged folder): a CTranslate2 conversion"},
+      "architectures": {"value": [], "source": "a CTranslate2 conversion: its config.json (read 2026-10-30) names no architectures"},
+      "chat": {"value": false, "source": "a speech-to-text model: it answers an audio upload with its transcript, never a conversation"},
+      "task": {"value": "transcription", "source": "Vexa's transcription service (core/meetings/services/transcription; image vexa-stt-rocm sha256:aae9377a47e3, Vexa a01db95ec) on faster-whisper: /v1/audio/transcriptions with word timestamps, /health, GET /v1/models listing its MODEL_SIZE — which is why served_name is the checkpoint's path in the node container (2026-10-23)"},
+      "node_engine": "faster-whisper",
+      "size_gib": 1.51,
+      "limits": {"max_model_len": 448, "max_num_seqs": [1, 4]},
+      "engine_memory": {
+        "gib": 2.59,
+        "max_num_seqs": 4,
+        "source": "measured 2026-10-23 on this fleet's Radeon 8060S, vexa-stt-rocm sha256:b135dc0591fa (CT2_CUDA_ALLOCATOR=cub_caching), MODEL_SIZE=/models/faster-whisper-large-v3-turbo, COMPUTE_TYPE float16, MAX_ACTIVE_REQUESTS 4, the stt node behind the LB: drm-total-gtt of its process (/proc/1/fdinfo) 2,715,816 KiB = 2.59 GiB after 4 concurrent word-timestamped transcriptions of a 137 s file, all four correct. cub_caching keeps what it allocated, so this held figure is the peak"
+      },
+      "launch": {}
+    },
+    {
+      "id": "faster-whisper-large-v3",
+      "label": "Whisper large-v3 · faster-whisper CT2 FP16",
+      "path": "faster-whisper-large-v3",
+      "served_name": "/models/faster-whisper-large-v3",
+      "quant_method": {"value": null, "source": "a CTranslate2 FP16 conversion (Systran/faster-whisper-large-v3 rev edaa852ec7e145841d8ffdb056a99866b5f0a478: model.bin 3,087,284,237 B, config.json); vLLM never loads it — none"},
+      "quant_format": {"value": "none", "source": "no quantization_config: unquantised weights (this row's quant_method source)"},
+      "format": {"value": "ctranslate2", "source": "model.bin beside a config.json with no `architectures` (read 2026-10-30 in the staged folder): a CTranslate2 conversion"},
+      "architectures": {"value": [], "source": "a CTranslate2 conversion: its config.json (read 2026-10-30) names no architectures"},
+      "chat": {"value": false, "source": "a speech-to-text model: it answers an audio upload with its transcript, never a conversation"},
+      "task": {"value": "transcription", "source": "the full large-v3 (32 decoder layers; turbo keeps 4): Whisper's paper reports the large family's best non-English accuracy (large-v2 Polish FLEURS WER 5.4, arXiv 2212.04356 Table 13), served by the same faster-whisper transcription server as faster-whisper-large-v3-turbo (2026-10-24)"},
+      "node_engine": "faster-whisper",
+      "size_gib": 2.88,
+      "limits": {"max_model_len": 448, "max_num_seqs": [1, 4]},
+      "engine_memory": {
+        "gib": 4.74,
+        "max_num_seqs": 4,
+        "source": "measured 2026-10-24 on this fleet's Radeon 8060S, vexa-stt-rocm sha256:0a7f36742208 (CT2_CUDA_ALLOCATOR=cub_caching), MODEL_SIZE=/models/faster-whisper-large-v3, COMPUTE_TYPE float16, MAX_ACTIVE_REQUESTS 4, the stt node behind the LB: drm-total-gtt of its process (/proc/1/fdinfo) 4,966,568 KiB = 4.74 GiB after 4 concurrent word-timestamped transcriptions of an 84 s file plus a 1200 s whole file. cub_caching keeps what it allocated, so this held figure is the peak"
+      },
+      "launch": {}
+    },
+    {"id": "parakeet-tdt-0.6b-v3", "label": "Parakeet TDT 0.6B v3 · NeMo", "path": "parakeet-tdt-0.6b-v3", "served_name": "/models/parakeet-tdt-0.6b-v3", "quant_method": {"value": null, "source": "NVIDIA's released .nemo checkpoint, unquantised (nvidia/parakeet-tdt-0.6b-v3 rev 541d1f99c6b0c3cd0b11a95167540bb8edefd82b: parakeet-tdt-0.6b-v3.nemo 2,509,332,480 B, sha256 3cbdc85877e6…); vLLM never loads it — none"}, "quant_format": {"value": "none", "source": "no quantization_config: unquantised weights (this row's quant_method source)"}, "format": {"value": "nemo", "source": "a NeMo .nemo archive, restored by ASRModel.restore_from"}, "architectures": {"value": [], "source": "a .nemo archive names a NeMo model class, not a Hugging Face architecture"}, "chat": {"value": false, "source": "a speech-to-text model: it answers an audio upload with its transcript, never a conversation"}, "task": {"value": "transcription", "source": "a FastConformer-TDT ASR model for 25 European languages, Polish among them, which detects the language itself (model card: Polish FLEURS WER 7.31). On a Polish test set (a CC Spoken Wikipedia reading, clean, under synthetic babble and with a noisy opening; 2026-10-24) it returned 180-187 of ~185 words on every sample, where Whisper large-v3-turbo with its VAD off dropped a 25 s window of clean speech; limits.max_model_len is the lowest the catalog takes: a TDT decoder has no token context"}, "node_engine": "nemo", "size_gib": 2.34, "limits": {"max_model_len": 1, "max_num_seqs": [1, 4]}, "engine_memory": {"gib": 8.41, "max_num_seqs": 4, "source": "measured 2026-10-24 on a GB10, a NeMo 3.0.0 transcription server cutting long files into 300 s pieces — nvidia-smi used_memory of its process, sampled each second: 8,609 MiB = 8.41 GiB decoding a 100 min file alone (the higher of two runs), 7,091 MiB with that file and 3 more word-timestamped requests at once (19 requests, all 200). Pieces decode one at a time (the server's lock), so more seats queue rather than add activations"}, "launch": {}}
+  ]
+}

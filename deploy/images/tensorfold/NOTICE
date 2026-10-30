@@ -1,0 +1,16 @@
+Third-party notices for deploy/images/tensorfold
+=================================================
+
+The image is the MiaAI-Lab recipe's image (github.com/MiaAI-Lab/Qwen3.8-Flash-Dual-DGX-Sparks-TensorFold, published as
+ghcr.io/miaai-lab/qwen3.8-flash-dual-dgx-sparks-tensorfold@sha256:e188128d…), with tensorfold-native rebuilt from
+TensorFold (github.com/ashhart/TensorFold, branch zig-flashnext @ db281878ddb8) plus that recipe's patches at
+be3ed857ab10 plus the patches in this directory. TensorFold and the recipe are licensed under the Apache License,
+Version 2.0; their LICENSE and NOTICE files ship in the image under /opt/tensorfold/share/doc/tensorfold.
+
+MODIFIED FILES. The files below are modified from the TensorFold source (after the recipe's patches) by the patch in
+this directory:
+
+  zig/src/server/anthropic_translate.zig      0013-anthropic-merge-late-system
+  zig/src/server/anthropic.zig                0013-anthropic-merge-late-system
+  zig/src/server/root.zig                     0013-anthropic-merge-late-system
+  zig/src/server/stream_preflight_test.zig    0013-anthropic-merge-late-system

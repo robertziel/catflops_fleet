@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "name": "column",
+  "label": "Column",
+  "what": "one column, a phone's order: tabs, the server card, throughput, requests, saturation, then the cluster",
+  "rows": [
+    { "cols": [
+      { "width": "1", "items": ["queued", "tabs", "server", "engine", "requests", "saturation", "cluster"] }
+    ] }
+  ],
+  "hidden": []
+}

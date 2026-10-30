@@ -1,0 +1,61 @@
+{
+  "what": "Every vLLM start of the Flash-Next hibrid48 row (qwen3.8-flash-next-hibrid48) between tp-rank's memory guard landing (bfbf893, 2026-10-05) and 2026-10-11, by PLE placement: the five REPLICATED ones (the whole 26.82 GiB per-layer-embedding table on each rank, MBX_PLE_REPLICATE=1) and the one SPLIT one (half a table a rank, MBX_PLE_REPLICATE=0). Every number is a measurement or a quoted log line; each block says where it was read.",
+  "sources": {
+    "boots": "lb/state/perf/boots-2026-10-10.jsonl and boots-2026-10-11.jsonl on box-c: each start's config, outcome, failure and failed_phase, as the LB recorded them",
+    "guard": "the line tp-rank's memory guard writes to /var/tmp/tp-rank-memguard.log on the box whose rank it killed (`arm_mem_guard`), quoted in the LB's failure text",
+    "vllm": "docker logs qwen38-cluster-vllm on each GB10 box",
+    "meminfo": "a read-only /proc/meminfo sampler on each GB10 box, every 3 s, during generation 193 (MemAvailable and SwapFree, MiB)",
+    "lb_status": "/lb/status cluster.boxes.<box>.mem_available_gib and .memory, read at 20:09Z on 2026-10-11"
+  },
+  "replicated": [
+    {"generation": 183, "checkpoint": "uncensored twin, the publisher's compressed-tensors layout", "kv_cache_memory": 28000000000,
+     "box": "box-b", "at": "2026-10-10T18:57:36Z", "swapped_mib": 2910, "available_mib": 11465,
+     "failed_phase": "compiling the model (torch.compile)"},
+    {"generation": 184, "checkpoint": "uncensored twin, the publisher's compressed-tensors layout", "kv_cache_memory": 28000000000,
+     "box": "box-a", "at": "2026-10-10T19:14:41Z", "swapped_mib": 3116, "available_mib": 10431,
+     "failed_phase": "compiling the model (torch.compile)"},
+    {"generation": 190, "checkpoint": "uncensored twin, rewritten to hibrid48's ModelOpt layout", "kv_cache_memory": 28000000000,
+     "box": "box-b", "at": "2026-10-11T18:53:06Z", "swapped_mib": 2953, "available_mib": 9920,
+     "failed_phase": "compiling the model (torch.compile)"},
+    {"generation": 191, "checkpoint": "uncensored twin, rewritten to hibrid48's ModelOpt layout", "kv_cache_memory": 20000000000,
+     "box": "box-b", "at": "2026-10-11T19:10:26Z", "swapped_mib": 2753, "available_mib": 10419,
+     "failed_phase": "initial profiling/warmup run"},
+    {"generation": 192, "checkpoint": "the ORIGINAL hibrid48", "kv_cache_memory": 20000000000,
+     "box": "box-a", "at": "2026-10-11T19:30:22Z", "swapped_mib": 2669, "available_mib": 16215,
+     "failed_phase": "profiling the encoder cache",
+     "other_box": {"box": "box-b", "at": "2026-10-11T19:30:21Z", "swapped_mib": 3001, "available_mib": 11654},
+     "vllm": ["Model loading took 63.97 GiB memory and 441.972896 seconds",
+              "PLE: NVFP4 table resident on GPU (320001536 rows this rank, REPLICATED (full table, no all-reduce), global scale 3.3242e-05)"]}
+  ],
+  "phases_before_the_kv_pool": {
+    "note": "The order a vLLM start of this row logs, from generation 193's own head log: the KV pool is reserved only after all of these, so a kill in any of them happens with no pool allocated and no pin size can change it.",
+    "order": ["model loaded", "profiling the encoder cache", "compiling the model (torch.compile)",
+              "initial profiling/warmup run", "compiling the MTP drafter (torch.compile)", "allocating the KV cache"]
+  },
+  "split": {
+    "generation": 193, "checkpoint": "uncensored twin, rewritten to hibrid48's ModelOpt layout",
+    "config": {"max_num_seqs": 6, "max_model_len": 262144, "max_num_batched_tokens": 4096, "num_speculative_tokens": 4,
+               "ple_replicate": false, "kv_cache_memory": 28000000000},
+    "vllm": ["Model loading took 51.98 GiB memory and 386.899727 seconds",
+             "PLE: NVFP4 table resident on GPU (160000768 rows this rank, row-sharded over TP, global scale 3.3242e-05)",
+             "GPU KV cache size: 1,708,119 tokens, Maximum concurrency for 262,144 tokens per request: 6.52x",
+             "Graph capturing finished in 9 secs, took 1.19 GiB"],
+    "attempts": [
+      {"launched": "2026-10-11T19:42:09Z", "outcome": "hung 416 s in capturing CUDA graphs, past the guard and past the KV pool; the LB saved both ranks' logs and stacks (lb/state/start-hangs/gen193-attempt1) and relaunched",
+       "min_available_mib": {"box-a": 24627, "box-b": 28766},
+       "min_available_mib_model_loaded_to_kv_pool": {"box-a": 42178, "box-b": 44156},
+       "swap_growth_mib": {"box-a": 7, "box-b": 2218}},
+      {"launched": "2026-10-11T19:59:20Z", "outcome": "running at 2026-10-11T20:08:35Z",
+       "min_available_mib": {"box-a": 24427, "box-b": 29783},
+       "min_available_mib_model_loaded_to_kv_pool": {"box-a": 54254, "box-b": 54463},
+       "swap_growth_mib": {"box-a": 3267, "box-b": 3541}}
+    ],
+    "serving": {"mem_available_gib": {"box-a": 23.9, "box-b": 29.6},
+                "estimate_total_gib": {"box-a": 89.8, "box-b": 84.3}, "actual_used_gib": {"box-a": 91.6, "box-b": 86.7},
+                "completion": "POST 127.0.0.1:8010/v1/chat/completions at 2026-10-11T20:08:46Z, 'What is 17*23+144/12?': '403', finish_reason stop"}
+  },
+  "twin_over_original_gib": {
+    "whole": 2.78,
+    "note": "safetensors headers, 2026-10-11: 100.792 GiB of tensors against hibrid48's 98.012, all of the difference in the 36 linear-attention layers' in_proj_qkv / in_proj_z / out_proj, U8 NVFP4 in the original and BF16 in the twin (tensor-parallel, so half of it a rank)"
+  }
+}

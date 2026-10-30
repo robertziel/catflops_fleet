@@ -1,0 +1,13 @@
+# For a host whose docker has no address pool left: the sealed network on a subnet the deployment names.
+#
+# docker-compose.yml lets docker choose the sealed network's subnet from its default pools. A host with
+# ~30 networks has none left, and compose then stops with "all predefined address pools have been fully
+# subnetted" — loudly, as it should. There, opt into this file in lb/bench_runner/.env:
+#   COMPOSE_FILE=docker-compose.yml:subnet.yml
+#   BENCH_SEALED_SUBNET=<a free private subnet, e.g. a /28 no docker network and no LAN uses>
+# `docker network inspect $(docker network ls -q)` lists what is taken. Nothing here picks one for you.
+networks:
+  sealed:
+    ipam:
+      config:
+        - subnet: "${BENCH_SEALED_SUBNET:?set in lb/bench_runner/.env when subnet.yml is used}"

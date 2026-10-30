@@ -1,0 +1,482 @@
+{
+  "about": "THE MEASUREMENTS (vllm_lb/catalog.py `document`): each model's memory footprint, engine memory, tuned start input and per-rank overhead, each as measured — keyed by what it was measured ON, `covers` (engine × accelerator × TP). A cluster launch on a target no measurement covers is REFUSED ('not measured on …') unless the operator explicitly starts it sized by the estimate.",
+  "measurements": [
+    {
+      "model": "qwen3.8-flash-next-hibrid48",
+      "covers": [
+        {
+          "engine": "vllm",
+          "accelerator": "nvidia-sm121",
+          "tp": 2
+        }
+      ],
+      "covers_source": "the calibration below names the run it was measured on",
+      "memory": {
+        "weights_gib": 36.89,
+        "ple_gib": 26.82,
+        "mtp_gib": 0.745,
+        "kv_bytes_per_token": 16392,
+        "kv_cache_dtype": "bfloat16",
+        "seq_state_gib": 0.0551,
+        "calibration": "2026-09-15 run 1 (lb/tests/fixtures/qwen38-start-2026-09-15-rank0.log, rank1.log, cluster-e2e-2026-09-15-memory.json), measured with the PLE table REPLICATED. The profile launches it SPLIT since 2026-10-11 (ple_replicate false): every replicated start after tp-rank's memory guard landed (2026-10-05) was killed by it before the KV pool - generations 183/184/190/191/192, both checkpoints, at 9.9-16.2 GiB available against the guard's 16 - while split loaded generation 193 at 51.98 GiB a rank and never under 24 GiB available (lb/tests/test_flash_next_ple_split.py). The estimate takes ple_gib / 2 off each rank for split.",
+        "calibrated_batched_tokens": 8192,
+        "activation_gib_per_1k_tokens": 1.1,
+        "calibrated_max_num_seqs": 16,
+        "concurrency_gib_per_seq": 1.2,
+        "kv_blocks": {
+          "kv_cache_dtype": "bfloat16",
+          "block_tokens": 1616,
+          "block_bytes": 22857142,
+          "fixed_blocks": 25,
+          "source": "vllm:cache_config_info 2026-09-30: num_gpu_blocks 1,225 for the 28 GB pin (22,857,142 B a block), 6.516x at 262,144 = 1225 / (163 + 25); 'Setting attention block size to 1616 tokens' (lb/tests/fixtures/qwen38-start-2026-09-15-rank0.log); generation 99's 35 GB pin: 1,531 / 188 = the 8.14x the engine printed"
+        }
+      },
+      "launch": {
+        "cluster": {
+          "tuned": {
+            "max_num_seqs": 6,
+            "max_model_len": 262144,
+            "max_num_batched_tokens": 4096,
+            "num_speculative_tokens": 4,
+            "source": "OPERATOR'S CHOICE 2026-10-05, from the Flash-Next sweep. BUDGET 4,096: generation 99 ran it at 135.6 gen tok/s over 889 requests against generation 97's 112.0 at 8,192 and generations 101-102's 51.4 and 117.0 at 2,048 (lb/state/perf/perf-2026-10-01.jsonl, perf-2026-10-02.jsonl). DEPTH 4: the winner of the one claude-bench set where depths are comparable, P1-s16-b8k-sp4 at 145.2 gen tok/s against sp2's 119.0 (worklog/bench/claude/P1-*-summary.json, real Claude Code sessions). SEATS 6: what the 28 GB pin itself holds at 262,144 - vLLM's own 'Maximum concurrency 6.52x' line (cluster_defaults.py) - chosen over the 147.5 tok/s measured at 24 seats (P2-s24-b8k-sp3; perf generation 90's 147.4) because 24 seats REST at 1.7 GiB free with no traffic (generation 90), inside the 0.8-4.2 GiB band that hung both GB10 boxes, which is why worklog/bench/claude/queue.txt deferred every seqs-24 row. The throughput at 6 seats is not measured on this workload: it is the memory-safe seat count, and the operator's call."
+          },
+          "overhead_gib": {
+            "head": 12.66,
+            "worker": 7.16
+          }
+        }
+      }
+    },
+    {
+      "model": "qwen3.8-flash-next-sglang",
+      "covers": [
+        {
+          "engine": "sglang",
+          "accelerator": "nvidia-sm121",
+          "tp": 2
+        }
+      ],
+      "covers_source": "the calibration below names the run it was measured on",
+      "memory": {
+        "weights_gib": 36.89,
+        "ple_gib": 47.7,
+        "mtp_gib": 0.745,
+        "kv_bytes_per_token": 13058,
+        "kv_cache_dtype": "bfloat16",
+        "seq_state_gib": 0.0551,
+        "calibration": "MEASURED 2026-10-05 from generations 149/150, after the n-gram table was converted. THE TABLE IS TP-SHARDED: ngram_embedding is a VocabParallelEmbedding of 320,001,536 x 160, so each rank holds half - 95.37 GiB whole / 47.7 a rank at bf16, 47.7 whole / 23.85 a rank at fp8. ple_gib states the WHOLE table and ple_replicate is false, so the estimate charges half a box, which is what the ranks actually hold. WHY fp8 AT ALL: the checkpoint ships the table as 8 x {packed U8, scales F8_E4M3} plus an F32 global, a layout only the MBX vLLM overlay reads; SGLang skips those tensors by name and leaves the bf16 allocation standing, which is what drove both boxes to 121/122 GiB on generations 146-148. deploy/sglang-27b-tp2/ple-to-fp8 converts them once into the shard_<i>.weight layout SGLang does read, measured at 1.12% mean and 3.78% worst relative error against an independent dequantisation of the source, nothing flushed to zero and no sign errors. THE ARITHMETIC THAT MATTERS: generation 150 reported avail 110.20 GB before the weight load and 24.12 GB after, so 93.3 GiB went to weights 36.89 + the bf16 table 47.7 + about 8.7 of engine - which also says the overhead_gib carried over from the dense SGLang profile (23.7/22.7) OVERSTATES this model by roughly 15 GiB. It is left overstated on purpose: it makes the start estimate stricter, not looser, and one measurement of a model that has never served is not a calibration. Correct it from the first run that completes",
+        "calibrated_batched_tokens": 4096,
+        "calibrated_max_num_seqs": 16
+      },
+      "launch": {
+        "cluster": {
+          "tuned": {
+            "max_num_seqs": 16,
+            "max_model_len": 262144,
+            "max_num_batched_tokens": 4096,
+            "num_speculative_tokens": 4,
+            "source": "MEASURED, 2026-10-05: a four-point sweep of 15-minute deep-research swarms on this profile. gen tok/s over each generation's own perf window: 6 seats/131,072 = 67.4 (400 s, 62 requests); 6/262,144 = 49.0 (891 s, 65); 16/262,144 = 96.2 (920 s, 109); 32/262,144 = 88.8 (893 s, 95). SIXTEEN WINS AND THE FULL 262,144 CONTEXT IS FREE: 16 seats at full context beat 6 seats at HALF context by 43%, so the 27% that looked like a context cost at 6 seats was the pair being decode-starved, not the context. THIRTY-TWO IS WORSE by 7.7%, and the KV pool says why: every seat costs ten GDN slots, so the pool fell from 1,720,000 tokens at 6 seats to 1,482,304 at 16 to 1,140,288 at 32 - at 32 it backs 4.35 requests of full context, so the extra seats buy queueing while taking memory from the cache that would have served them. The next lever is the POOL, not the seat count: mem_fraction_static 0.74 leaves about 24 GB free a box and raising it is untested. Peak 64/66 C at 32 seats, nowhere near the 83-85 C the community 2x-box recipe soaks at. DEPTH 0 IS NOT A TUNING RESULT: the profile keeps its nextn speculative_config because the drafter really is in the checkpoint, but it cannot load on either image - the MTP module allocates its MoE experts at full hidden size while the loader hands it the TP shard, and the start dies in eagle_worker_v2 on a 2560-against-1280 size mismatch (generation 149). Every number here was measured without it, so a default start must be too. Restore the depth when the drafter loads. BUDGET 4,096 is carried from the vLLM profile of these weights and was NOT swept here - it is the one number in this block nobody has measured on SGLang."
+          },
+          "overhead_gib": {
+            "head": 23.7,
+            "worker": 22.7
+          }
+        }
+      }
+    },
+    {
+      "model": "qwen3.8-flash-next-tensorfold-nvfp4",
+      "covers": [
+        {
+          "engine": "tensorfold",
+          "accelerator": "nvidia-sm121",
+          "tp": 2
+        }
+      ],
+      "covers_source": "the calibration below names the run it was measured on",
+      "memory": {
+        "weights_gib": 62.3,
+        "ple_gib": 0.0,
+        "mtp_gib": 0.0,
+        "kv_bytes_per_token": 15749,
+        "kv_cache_dtype": "fp8_e4m3",
+        "seq_state_gib": 0.0,
+        "calibration": "PARTLY MEASURED 2026-10-29 (worklog/tensorfold-spike.md, worklog/bench/tensorfold/leg a, 16 streams x 131,072, fp8 KV): each rank's own 'sequence memory: 30.76 GiB' = 15,749 B a token of window a rank (30.76 GiB / 2,097,152) — TensorFold sizes it to seats x context itself, which is why the pool is per token here and no pin. weights_gib 62.3 is the recipe's own figure ('NVFP4's 62.3 GiB of weights a rank', scripts/config.sh mem_need_gib), not a measurement here; overhead_gib is DERIVED, not watched: rank 0 had 43.35 GiB free after its load, against ~110 GiB free before a load on this pair (generation 150's 110.20), so ~66.9 GiB went to weights + 4.6 GiB (the 0.84 GiB vision tower, CUDA context, scratch), plus the vision workspace's 2.00 GiB kept free on the head. Correct it from the first LB start that serves"
+      },
+      "launch": {
+        "cluster": {
+          "tuned": {
+            "max_num_seqs": 6,
+            "max_model_len": 262144,
+            "source": "NOT A BENCH: the figures the LB's former compose defaults gave this row until 2026-10-29 - 6 seats = the default row's (qwen3.8-flash-next-hibrid48) 28 GB pool rule at 262,144 (LB_CLUSTER_MAX_NUM_SEQS unset), 262,144 = LB_CLUSTER_MAX_MODEL_LEN's compose default - written into the row when those settings were retired so the row states what it is offered (a Start of it launched at exactly these before). Replace with a measured sweep."
+          },
+          "overhead_gib": {
+            "head": 6.6,
+            "worker": 4.6
+          }
+        }
+      }
+    },
+    {
+      "model": "qwen3.8-flash-next-tensorfold-mlx-mtp",
+      "covers": [
+        {
+          "engine": "tensorfold",
+          "accelerator": "nvidia-sm121",
+          "tp": 2
+        }
+      ],
+      "covers_source": "the calibration below names the run it was measured on",
+      "memory": {
+        "weights_gib": 52.73,
+        "ple_gib": 0.0,
+        "mtp_gib": 0.0,
+        "kv_bytes_per_token": 17449,
+        "kv_cache_dtype": "bfloat16",
+        "seq_state_gib": 0.0,
+        "calibration": "PARTLY MEASURED 2026-10-29 (worklog/tensorfold-spike.md, worklog/bench/tensorfold/leg b, 16 streams x 131,072, bf16 KV): the engine's own '2.13 GiB for one at the full window' = 17,449 B a token a rank (2.13 GiB / 131,072). weights_gib 52.73 is HALF THE CHECKPOINT ON DISK (113,233,048,033 B / 2), an upper bound and not a measurement: the rank's own line says 57.6 GiB stayed free for caches. overhead_gib is the native leg's derived non-vision share, never watched here. Correct it from the first LB start that serves"
+      },
+      "launch": {
+        "cluster": {
+          "tuned": {
+            "max_num_seqs": 6,
+            "max_model_len": 262144,
+            "source": "NOT A BENCH: the figures the LB's former compose defaults gave this row until 2026-10-29 - 6 seats = the default row's (qwen3.8-flash-next-hibrid48) 28 GB pool rule at 262,144 (LB_CLUSTER_MAX_NUM_SEQS unset), 262,144 = LB_CLUSTER_MAX_MODEL_LEN's compose default - written into the row when those settings were retired so the row states what it is offered (a Start of it launched at exactly these before). Replace with a measured sweep."
+          },
+          "overhead_gib": {
+            "head": 4.6,
+            "worker": 4.6
+          }
+        }
+      }
+    },
+    {
+      "model": "qwen3.8-27b-nvidia-nvfp4",
+      "covers": [
+        {
+          "engine": "vllm",
+          "accelerator": "nvidia-sm121",
+          "tp": 2
+        },
+        {
+          "engine": "vllm",
+          "accelerator": "nvidia-sm120",
+          "tp": 1
+        }
+      ],
+      "covers_source": "the pair figures (weights, KV, kv_blocks, calibration) on the GB10 pair at TP=2, generations 103-105; single_card_kv_blocks and single_card_overhead on the RTX 5090 node, 2026-10-11 (their own sources)",
+      "memory": {
+        "weights_gib": 10.28,
+        "ple_gib": 0,
+        "mtp_gib": 0.4,
+        "kv_bytes_per_token": 36860,
+        "kv_cache_dtype": "bfloat16",
+        "seq_state_gib": 0.0735,
+        "calibration": "2026-10-02 generations 103+104 (seqs 16, batched 8192, 48 GB pin, MTP 4; lb/tests/fixtures/cluster-27b-2026-10-02-memory.json): per-seat and per-budget slopes unmeasured",
+        "calibrated_batched_tokens": 8192,
+        "calibrated_max_num_seqs": 16,
+        "kv_blocks": {
+          "kv_cache_dtype": "bfloat16",
+          "block_tokens": 816,
+          "block_bytes": 28418000,
+          "fixed_blocks": 18,
+          "source": "vllm:cache_config_info 2026-10-02 (generation 105): block_size 816, num_gpu_blocks 1,689 for the 48 GB pin (28,418,000 B a block), 4.9676x at 262,144 = 1689 / (322 + 18) (lb/tests/fixtures/cluster-27b-2026-10-02-memory.json)"
+        },
+        "single_card_kv_blocks": {
+          "kv_cache_dtype": "fp8_e4m3",
+          "block_tokens": 1568,
+          "block_bytes": 51392444,
+          "fixed_blocks": 6,
+          "source": "the live 5090 node, 2026-10-11 (docker logs qwen38-5090, read-only; vLLM v0.31.1rc1.dev273, image vllm/vllm-openai@sha256:514cd427…, the twin at max_model_len 131072, max_num_seqs 4, gpu_memory_utilization 0.9, kv_cache_dtype fp8_e4m3, no drafter): 'Setting attention block size to 1568 tokens'; its vllm:cache_config_info: num_gpu_blocks=\"116\", block_size=\"1568\", kv_cache_max_concurrency=\"1.288888888888889\" = 116 / 90, so one request takes ceil(131072 / 1568) = 84 + 6 fixed blocks; and gpu_worker.py:1020 at 20:10:46: '--kv-cache-memory=8633930752 (8.04 GiB) to fully utilize gpu memory' = 168 blocks (≤ 254,016 tokens a request), so block_bytes = 8633930752 // 168 (rounded down), the largest page that count allows. The twin is byte-identical in shape to this row's checkpoint"
+        },
+        "single_card_overhead": {
+          "gib": 3.559,
+          "source": "the live 5090 node, 2026-10-11 20:10:46 (docker logs qwen38-5090, read-only, gpu_worker.py:1020): 'Free memory on device (30.85/31.36 GiB) on startup. Desired GPU memory utilization is (0.9, 28.22 GiB). Actual usage is 20.45 GiB for consumed memory (weights + non-torch), 2.18 GiB for peak activation, and 0.04 GiB for CUDAGraph memory. … `--kv-cache-memory=8633930752` (8.04 GiB) to fully utilize gpu memory' — at gpu_memory_utilization 1.0 the card leaves 8,633,930,752 B for KV, so the rest is the rtx5090's 32 GiB (its type's memory_gb) less this row's 20.4 GiB (size_gib) less that: 3.559 GiB, which makes the fit check reproduce the engine's own ceiling (168 blocks, 254,016 tokens) at 1.0",
+          "chunk": {
+            "max_num_batched_tokens": 2048,
+            "source": "the 5090 node's launch passed no --max-num-batched-tokens (its kv_blocks source lists the launch: window, seats, memory fraction, KV dtype, no drafter), so vLLM ran its OWN default chunk: its image, v0.31.1rc1.dev273 (vllm-project/vllm 2eb491e), defaults the API server to 2,048 tokens on a card under 70 GiB (vllm/engine/arg_utils.py get_batch_defaults, L2920-2934; this card: 31.36 GiB, the boot line above), and caps it at max_num_seqs x max_model_len, far above. The boot log's own 'Chunked prefill is enabled with max_num_batched_tokens=' line was not captured"
+          }
+        }
+      },
+      "launch": {
+        "cluster": {
+          "tuned": {
+            "max_num_seqs": 6,
+            "max_model_len": 262144,
+            "source": "NOT A BENCH: the figures the LB's former compose defaults gave this row until 2026-10-29 - 6 seats = the default row's (qwen3.8-flash-next-hibrid48) 28 GB pool rule at 262,144 (LB_CLUSTER_MAX_NUM_SEQS unset), 262,144 = LB_CLUSTER_MAX_MODEL_LEN's compose default - written into the row when those settings were retired so the row states what it is offered (a Start of it launched at exactly these before). Replace with a measured sweep."
+          },
+          "overhead_gib": {
+            "head": 14.8,
+            "worker": 11.3
+          }
+        }
+      }
+    },
+    {
+      "model": "qwen3.8-27b-dflash2",
+      "covers": [
+        {
+          "engine": "vllm",
+          "accelerator": "nvidia-sm121",
+          "tp": 2
+        }
+      ],
+      "covers_source": "the calibration below names the run it was measured on",
+      "memory": {
+        "weights_gib": 11.4,
+        "ple_gib": 0,
+        "mtp_gib": 3.58,
+        "kv_bytes_per_token": 36860,
+        "kv_cache_dtype": "bfloat16",
+        "seq_state_gib": 0.0735,
+        "calibration": "TUNED 2026-10-03 over five generations through the switch (worklog/dflash2-27b-tp2-tuning.md): K=4, not 7 — 201.5 tok/s in total at 8 streams against K=7's 187.6 and K=8's 185.9, because it accepts 0.577 of what it drafts against 0.393 and 0.380, and an exact repeat reproduces the totals to 1.4%, five times the noise. There IS a crossover: at ONE stream K=8 is 33% faster, so a latency-first pair would choose differently. The prefill budget is 4,096, against the engine's own advice: it warns on every start to consider raising max_num_batched_tokens, and 8,192 measured 8.2% SLOWER at 8 streams with acceptance down to 0.530. Under serving load the pair draws 25-27 W a box at 59-63 C; the 60-73 W seen earlier is a ~31-second boot transient on the FlashInfer autotune phase, not a cost of serving. Earlier, 2026-10-02, worklog/dflash2-27b-tp2.md: loaded 61 GiB (box-a) / 56 GiB (box-b) at K=16 against 56/51 at K=0 — +5 GiB a box for the drafter, which is its own 1.92 B checkpoint REPLICATED per rank (mtp_gib), and the BF16 head. The overheads are the dense 27B's, not recalibrated for dflash; the per-seat and per-budget slopes are unmeasured, and a dflash decode step submits 1 + K queries a seat — 48 seats at K=7 is 384 of them, inside the 8,192-token budget, so the budget is not what binds. Seats run to the whole 1..48 this LB allows (MAX_NUM_SEQS_CAP, which mirrors tp-rank's `cmd_up` bound) since 2026-10-02, at the operator's decision; 64 was asked for and is impossible at this pin at ANY context, since 64 seats' fixed_blocks alone are 32.7 GB of a 28 GB pool. READ THIS BEFORE TRUSTING A 48-SEAT ESTIMATE: the estimate charges nothing for seats 9..48, because concurrency_gib_per_seq is 0.0 here, so nothing pre-flight can refuse a 48-seat start that will not fit. The nearest measured slope in this catalog is Flash-Next's 1.2 GiB a seat (16 to 24) — borrowed, and explicitly NOT this model's measurement: it puts the 40 seats above the anchor at +48 GiB a rank on top of the 61 GiB loaded here, 109 GiB of a 121 GiB box, against the ~4.8 GiB a LOADED box really keeps free. What the pin itself admits is the block rule's, not the seat count's: 49 requests at the 1,024-token minimum context and 3 at the 262,144 default, so past a few seats the pool queues the rest. Measured heat, not modelled: at 8 seats the pair drew 60-68 W a box and box-a went unreachable at 21:03Z, back only by a reboot.",
+        "calibrated_batched_tokens": 4096,
+        "calibrated_max_num_seqs": 8,
+        "kv_blocks": {
+          "kv_cache_dtype": "bfloat16",
+          "block_tokens": 832,
+          "block_bytes": 28418000,
+          "fixed_blocks": 18,
+          "source": "the engine's own line at THIS model's own defaults — generation 109, seats 8, 262,144, the 28 GB pin, prefill budget 4,096 (lb/tests/fixtures/qwen38-dflash2-start-2026-10-02-rank0.log:66): 'Setting attention block size to 832 tokens to ensure that attention page size is >= mamba page size'. NOT a constant of the model: the same checkpoint at the same pin and seats paged at 864 with a budget of 8,192 (the 17:29 generation, worklog/dflash2-27b-tp2.md), and the MTP profile pages at 816, so this figure moves with the LAUNCH and is only the pre-start estimate's anchor. The engine's own published pool is what the page says once a pair serves (cluster_defaults.EnginePool, 2026-10-02); block_bytes here is still the MTP profile's, measured at its 48 GB pin, and no start of THIS profile has been read for its own value — treat the seat and context arithmetic below as an approximation until one is"
+        }
+      },
+      "launch": {
+        "cluster": {
+          "tuned": {
+            "max_num_seqs": 6,
+            "max_model_len": 262144,
+            "source": "NOT A BENCH: the figures the LB's former compose defaults gave this row until 2026-10-29 - 6 seats = the default row's (qwen3.8-flash-next-hibrid48) 28 GB pool rule at 262,144 (LB_CLUSTER_MAX_NUM_SEQS unset), 262,144 = LB_CLUSTER_MAX_MODEL_LEN's compose default - written into the row when those settings were retired so the row states what it is offered (a Start of it launched at exactly these before). Replace with a measured sweep."
+          },
+          "overhead_gib": {
+            "head": 14.8,
+            "worker": 11.3
+          }
+        }
+      }
+    },
+    {
+      "model": "qwen3.8-27b-sglang-dflash2",
+      "covers": [
+        {
+          "engine": "sglang",
+          "accelerator": "nvidia-sm121",
+          "tp": 2
+        }
+      ],
+      "covers_source": "the calibration below names the run it was measured on",
+      "memory": {
+        "weights_gib": 10.28,
+        "ple_gib": 0,
+        "mtp_gib": 3.58,
+        "kv_bytes_per_token": 21502,
+        "kv_cache_dtype": "fp8_e4m3",
+        "seq_state_gib": 0.0735,
+        "calibration": "2026-10-02/03, worklog/sglang-27b-tp2-c16.md: a verified 16-seat pair (the engine's own max_running_requests=16, no cap) at mem-fraction 0.80 held 61.5 GB of target KV and 19.2 GB of DRAFT KV — DFlash2 runs a second pool — beside ~14 GiB of weights and drafter, for 106 GiB used a box and 14-15 GiB left. SGLang sizes all of that as a FRACTION of the box, not as the absolute pin every other profile here states, so kv_cache_memory below is the measured KV pool itself — 61.5 + 19.2 GB — and engine_args.mem_fraction_static is what the engine is actually told. The first version of this entry set the pin to the fraction's whole share (86.7 GB) and the start was REFUSED at 117 GiB needed on a 115 GiB box (generation 117, 2026-10-03): the fraction covers weights AND KV, while this estimate adds weights and overhead ON TOP of the pin, so stating the fraction's share as the pin counts the weights twice. CORRECTED 2026-10-03 against generation 123's own lines, because the first figures here were the vLLM profile's and the page printed two different token counts for one pool (worklog/sglang-ui-audit.md C3). The engine allocates TWO pools and says so: 'KV Cache is allocated … #tokens: 3415240, K size: 26.06 GB, V size: 26.06 GB' for the target and 'K size: 8.14 GB, V size: 8.14 GB' for the draft — 68.392 GiB together, 73,435,823,273 B, over 3,415,240 tokens, which is 21,502 B a token and NOT the 36,860 of the vLLM profile (SGLang stores KV in fp8_e4m3 and pages at page_size 1). The pin states those two pools, so pin / kv_bytes_per_token reproduces the engine's own token count instead of a number 36% below it. The overheads are back-figured from the same run: 10.28 + 3.58 + 68.4 + 23.7 = 106.0 GiB against the 106 the box held with 15.05 GB free. Per-seat and per-budget slopes unmeasured, as for the vLLM dflash profile. GDN SLOTS (engine_args.mamba_slots_per_req, 10 since 2026-10-03; tp-rank passes --max-mamba-cache-size seats x slots): SGLang carves them out of the same fraction before the KV pools get the rest, so a slot costs 1,824 KV tokens (39,223,296 B a rank) and never box memory - its two committed starts left 21.74 GiB (80 slots) and 21.83 GiB (160) beside the pools (tests/test_memory_estimate.py). The pin therefore stays the TOTAL's figure; the engine's own token count at 32 seats x 10 slots is ~2.89M, not pin / kv_bytes_per_token. Peak draw 35.7 W a box at 63 C with zero throttle microseconds accumulated over the run — roughly half what the same model and drafter drew through vLLM at 8 seats, which is why this profile exists rather than being a curiosity.",
+        "calibrated_batched_tokens": 8192,
+        "calibrated_max_num_seqs": 16
+      },
+      "launch": {
+        "cluster": {
+          "tuned": {
+            "max_num_seqs": 32,
+            "max_model_len": 262144,
+            "max_num_batched_tokens": 2048,
+            "num_speculative_tokens": 4,
+            "source": "GENERATION 137, 2026-10-03 20:26Z to 2026-10-04 18:51Z - the longest run this pair has had: 98.4 gen tok/s over 13,210 finished requests and 1,346 spans at 32 seats, a 2,048-token prefill budget and DFlash2 K=4 (lb/state/perf/perf-2026-10-03.jsonl, perf-2026-10-04.jsonl; generation 136, the same config, 84.1 over 4,883). THE BUDGET IS THE POINT: engine_args.chunked_prefill_size used to say 8,192, which no generation since 135 had run - this block replaces it as the one place the budget is stated, and at 8,192 generation 132 measured 119.8 tok/s over only 301 requests in 35 spans - a short window whose bottleneck audit shows prefill-first scheduling freezing all 30 streams for the whole of a multi-chunk prompt (131k cold = 16 chunks = ~55 s; worklog/sglang-bottleneck-2026-10-03.md). 2,048 is what ran a day without that, and it is this profile's measured default until a longer A/B says otherwise."
+          },
+          "overhead_gib": {
+            "head": 23.7,
+            "worker": 22.7
+          }
+        }
+      }
+    },
+    {
+      "model": "glm-5.3-flash-nvfp4",
+      "covers": [
+        {
+          "engine": "vllm",
+          "accelerator": "nvidia-sm121",
+          "tp": 2
+        }
+      ],
+      "covers_source": "the calibration below names the run it was measured on",
+      "memory": {
+        "weights_gib": 88.57,
+        "ple_gib": 0,
+        "mtp_gib": 3.55,
+        "kv_bytes_per_token": 6973,
+        "kv_cache_dtype": "fp8_e4m3",
+        "seq_state_gib": 0.0664,
+        "calibration": ""
+      },
+      "launch": {
+        "cluster": {
+          "tuned": {
+            "max_num_seqs": 8,
+            "max_model_len": 262144,
+            "max_num_batched_tokens": 4096,
+            "num_speculative_tokens": 4,
+            "source": "NOT MEASURED ON THIS PAIR — Classmethod's 2x DGX Spark run of this checkpoint (dev.classmethod.jp/en/articles/dgx-spark-2node-glm-5-3-flash-nvfp4-vllm, 2026-09-02; himorishige/glm53-flash-2x-dgx-spark-recipe @9993555 docs/measurements.md): the shared 8-slot profile at 262,144 with MTP 4 drafts, 76.2 gen tok/s at 8 concurrent (57.7 at 4); MTP 3 is the single-stream best (26.5 tok/s at 2 slots). MiaAI-Lab's multimodal launch (README @aed98a1, MTP 4, 8 seats): 23-30 tok/s at 1 stream, 72 tok/s in all at 8. BUDGET 4,096: 8,192 OOMed the GB10 driver (docs/pitfalls.md). Replace with this pair's own minutes after its first start."
+          },
+          "overhead_gib": {
+            "head": 4.3,
+            "worker": 4.3
+          }
+        }
+      }
+    },
+    {
+      "model": "deepseek-v4-flash-nvfp4",
+      "covers": [
+        {
+          "engine": "vllm",
+          "accelerator": "nvidia-sm121",
+          "tp": 2
+        }
+      ],
+      "covers_source": "the calibration below names the run it was measured on",
+      "memory": {
+        "weights_gib": 79.29,
+        "ple_gib": 0,
+        "mtp_gib": 5.06,
+        "kv_bytes_per_token": 55011,
+        "kv_cache_dtype": "fp8",
+        "seq_state_gib": 0.01,
+        "calibration": "MEASURED 2026-10-24, generation 235 (8 seats, 131,072, budget 8,192, DSpark OFF, KV pin 10e9): vLLM 'Model loading took 79.29 GiB' a rank (the 48 shard headers said 76.68); 'GPU KV cache size: 181,777 tokens' for 10e9 B and 290,858 for 16e9 B (generation 234) = 55,011 B/token a rank, 4x the 13,952 read off the published pools, so 10e9 backs 1.39 requests of 131,072. MemAvailable on box-a 117.2 GiB before the start, 15.2 at idle after it: 102.0 GiB held = 79.29 weights + 9.31 KV + 13.4 overhead (b12x workspaces, CUDA graphs to 48). Generation 234 at a 16e9 pin was KILLED by tp-rank's memory guard during b12x warmup (MemAvailable 7.9 GiB, under its 8 GiB minimum). mtp_gib unmeasured: the drafter does not load (tuned source)."
+      },
+      "launch": {
+        "cluster": {
+          "tuned": {
+            "max_num_seqs": 8,
+            "max_model_len": 131072,
+            "max_num_batched_tokens": 8192,
+            "num_speculative_tokens": 0,
+            "source": "DEPTH 0 IS NOT A TUNING RESULT: nvidia's NVFP4 build stores the DSpark drafter's experts as MXFP4 (mtp.*.ffn.experts.*.scale F8_E8M0 [2048, 128], per 32) while this vLLM gives every RoutedExperts layer, mtp included, ModelOptNvFp4FusedMoE (models/deepseek_v4/quant_config.py get_quant_method: NVFP4 scales F8_E4M3 per 16), so the drafter cannot load (generation 233: b12x 'strided dtype conversion: mtp.0.ffn.experts.0.w1.scale'); nvidia's card did not validate speculative decoding on this build. The profile keeps its dspark speculative_config because the drafter is in the checkpoint; restore the depth (eugr's recipe: 5 = dspark_block_size) when it loads. MEASURED 2026-10-24, generation 235: 28.8 gen tok/s at 1 stream with thinking off (1,107 tokens in 38.5 s). Seats 8 and budget 8,192 are eugr/spark-vllm-docker @0bdc9c94 recipes/deepseek-v4-flash-0731.yaml's, not swept here; at a 10e9 pin the pool backs 181,777 tokens, so 8 seats share it. CONTEXT 131,072: the operator's cap (2026-10-13)."
+          },
+          "overhead_gib": {
+            "head": 13.4,
+            "worker": 13.4
+          }
+        }
+      }
+    },
+    {
+      "model": "mai-ui-2b",
+      "covers": [
+        {
+          "engine": "vllm",
+          "accelerator": "amd-gfx1151",
+          "tp": 1
+        }
+      ],
+      "covers_source": "the calibration below names the run it was measured on",
+      "memory": {
+        "weights_gib": 4.45,
+        "ple_gib": 0,
+        "mtp_gib": 0,
+        "kv_bytes_per_token": 114688,
+        "kv_cache_dtype": "bfloat16",
+        "seq_state_gib": 0,
+        "calibration": "2026-10-17, the AMD iGPU node (Radeon 8060S, rocm/vllm@sha256:394194d36edcf9b36bcb563e143b21b80e64e7d04f33a447b448c0c0c00c04a8, vLLM 0.19.1+rocm7.13.0rc2), one boot at gpu_memory_utilization 0.10, max_model_len 32768, max_num_seqs 4, vLLM's default chunk 8192 (boot-a4.log): 'Model loading took 4.45 GiB memory' (:31), 'Available KV cache memory: 5.35 GiB' (:40); kv_bytes_per_token = 28 layers x 8 KV heads x head_dim 128 x 2 (K, V) x 2 B (bf16), which 5.35 GiB / 50,032 tokens agrees with. Measured at 32,768 tokens only (the config's window is 262,144); seats and chunk slopes unmeasured",
+        "calibrated_batched_tokens": 8192,
+        "calibrated_max_num_seqs": 4,
+        "single_card_kv_blocks": {
+          "kv_cache_dtype": "bfloat16",
+          "block_tokens": 16,
+          "block_bytes": 1835008,
+          "fixed_blocks": 0,
+          "source": "the same boot (boot-a4.log:41, its vllm:cache_config_info): num_gpu_blocks 3127 x block_size 16 = 50,032 tokens; 'Maximum concurrency for 32,768 tokens per request: 1.53x' = 3127 / ceil(32768 / 16) = 3127 / 2048, so no fixed blocks; block_bytes = 114,688 B a token x 16"
+        },
+        "single_card_overhead": {
+          "gib": 3.087,
+          "source": "DERIVED from the same boot, not fit-checked against a second one: the 0.10 x 124.0 GiB pool (the radeon8060s's visible_gib) = 12.40 GiB, less this row's 3.963 GiB on disk (size_gib), less the 5.35 GiB KV vLLM sized ('Available KV cache memory', boot-a4.log:40) = 3.087 GiB — the 5090 row's derivation, so the fit at 0.10 reproduces the engine's own KV size (in vLLM's own terms: 12.40 - 4.45 loaded - 5.35 KV = 2.60 for activation, non-torch and its 0.10 GiB of graphs)",
+          "chunk": {
+            "max_num_batched_tokens": 8192,
+            "source": "the boot passed no --max-num-batched-tokens; vLLM chose 8192 ('max_num_batched_tokens=8192', boot-a4.log:10)"
+          }
+        }
+      }
+    },
+    {
+      "model": "whisper-large-v3-turbo",
+      "covers": [
+        {
+          "engine": "vllm",
+          "accelerator": "amd-gfx1151",
+          "tp": 1
+        }
+      ],
+      "covers_source": "the calibration below names the run it was measured on",
+      "memory": {
+        "weights_gib": 1.79,
+        "ple_gib": 0,
+        "mtp_gib": 0,
+        "kv_bytes_per_token": 20480,
+        "kv_cache_dtype": "float16",
+        "seq_state_gib": 0,
+        "calibration": "2026-10-23, a Radeon 8060S (gfx1151), the vllm-audio image built from deploy/standalone/images/vllm-audio.Dockerfile on rocm/vllm@sha256:394194d36edcf9b36bcb563e143b21b80e64e7d04f33a447b448c0c0c00c04a8 (vLLM 0.19.1+rocm7.13.0rc2), one throwaway boot at gpu_memory_utilization 0.05, max_model_len 448, max_num_seqs 4, --enable-mfu-metrics (enforce_eager: 'CUDA graph is not supported for whisper on ROCm yet'; chunked prefill off): 'Model loading took 1.79 GiB memory', 'Available KV cache memory: 3.75 GiB', 'Maximum concurrency for 448 tokens per request: 87.72x'. kv_bytes_per_token = the decoder's self-attention, 4 layers x 20 heads x head_dim 64 x 2 (K, V) x 2 B (fp16) — config.json decoder_layers 4, decoder_attention_heads 20, d_model 1280. Measured at 448 tokens and 4 seats only",
+        "calibrated_max_num_seqs": 4,
+        "single_card_kv_blocks": {
+          "kv_cache_dtype": "float16",
+          "block_tokens": 16,
+          "block_bytes": 327680,
+          "fixed_blocks": 112,
+          "source": "the same boot, its vllm:cache_config_info: num_gpu_blocks 12281 x block_size 16; 'Maximum concurrency for 448 tokens per request: 87.72x' = 12281 / 140 blocks a request = ceil(448 / 16) + 112 fixed (the encoder's cross-attention); block_bytes: 3.75 GiB / 12281 = 327,868 B, the decoder's 20,480 B a token x 16 = 327,680 B"
+        },
+        "single_card_overhead": {
+          "gib": 0.939,
+          "source": "DERIVED from the same boot, as mai-ui-2b's: the 0.05 x 124.0 GiB pool (the radeon8060s's visible_gib) = 6.20 GiB, less this row's 1.511 GiB on disk (size_gib), less the 3.75 GiB KV vLLM sized = 0.939 GiB (GTT used rose 6.29 GB across the boot, 21,052,436,480 B to 27,343,187,968 B: the pool, whole)"
+        }
+      }
+    },
+    {
+      "model": "faster-whisper-large-v3-turbo",
+      "covers": [
+        {
+          "engine": "faster-whisper",
+          "accelerator": "amd-gfx1151",
+          "tp": 1
+        }
+      ],
+      "covers_source": "the calibration below names the run it was measured on",
+      "engine_memory": {
+        "gib": 2.59,
+        "max_num_seqs": 4,
+        "source": "measured 2026-10-23 on this fleet's Radeon 8060S, vexa-stt-rocm sha256:b135dc0591fa (CT2_CUDA_ALLOCATOR=cub_caching), MODEL_SIZE=/models/faster-whisper-large-v3-turbo, COMPUTE_TYPE float16, MAX_ACTIVE_REQUESTS 4, the stt node behind the LB: drm-total-gtt of its process (/proc/1/fdinfo) 2,715,816 KiB = 2.59 GiB after 4 concurrent word-timestamped transcriptions of a 137 s file, all four correct. cub_caching keeps what it allocated, so this held figure is the peak"
+      }
+    },
+    {
+      "model": "faster-whisper-large-v3",
+      "covers": [
+        {
+          "engine": "faster-whisper",
+          "accelerator": "amd-gfx1151",
+          "tp": 1
+        }
+      ],
+      "covers_source": "the calibration below names the run it was measured on",
+      "engine_memory": {
+        "gib": 4.74,
+        "max_num_seqs": 4,
+        "source": "measured 2026-10-24 on this fleet's Radeon 8060S, vexa-stt-rocm sha256:0a7f36742208 (CT2_CUDA_ALLOCATOR=cub_caching), MODEL_SIZE=/models/faster-whisper-large-v3, COMPUTE_TYPE float16, MAX_ACTIVE_REQUESTS 4, the stt node behind the LB: drm-total-gtt of its process (/proc/1/fdinfo) 4,966,568 KiB = 4.74 GiB after 4 concurrent word-timestamped transcriptions of an 84 s file plus a 1200 s whole file. cub_caching keeps what it allocated, so this held figure is the peak"
+      }
+    },
+    {
+      "model": "parakeet-tdt-0.6b-v3",
+      "covers": [
+        {
+          "engine": "nemo",
+          "accelerator": "nvidia-sm121",
+          "tp": 1
+        }
+      ],
+      "covers_source": "the calibration below names the run it was measured on",
+      "engine_memory": {
+        "gib": 8.41,
+        "max_num_seqs": 4,
+        "source": "measured 2026-10-24 on a GB10, a NeMo 3.0.0 transcription server cutting long files into 300 s pieces — nvidia-smi used_memory of its process, sampled each second: 8,609 MiB = 8.41 GiB decoding a 100 min file alone (the higher of two runs), 7,091 MiB with that file and 3 more word-timestamped requests at once (19 requests, all 200). Pieces decode one at a time (the server's lock), so more seats queue rather than add activations"
+      }
+    }
+  ]
+}

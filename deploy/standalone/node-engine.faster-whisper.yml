@@ -1,0 +1,36 @@
+# deploy/standalone/node-engine.faster-whisper.yml -- the node runs faster-whisper (EDGE_NODE_ENGINE=faster-whisper):
+# a transcription server on faster-whisper (CTranslate2) — the image is the fleet file's `launch.image` for this engine,
+# any one honouring the transcription-server contract (docs/design/engines.md: an OpenAI-compatible
+# /v1/audio/transcriptions with word timestamps, /health, /metrics with the `transcription_*` family, GET /v1/models
+# listing its MODEL_SIZE; one ROCm recipe: images/faster-whisper-rocm.Dockerfile). up.sh adds this file when the
+# launch choice's catalog `node_engine` is faster-whisper.
+# Never started on its own.
+#
+# It REPLACES node.yml's vLLM entrypoint and command; the port (8000, the service's own), the checkpoint mount
+# (/models), the limits, the network and the card (node-gpu.<runtime>.yml) are the node's as for vLLM. The service reads
+# its settings from its environment, mapped here from the node's values once:
+#   MODEL_SIZE           the checkpoint's path in the container (a CTranslate2 folder under EDGE_MODELS_DIR) — also the
+#                        id its /v1/models lists, which is why the catalog row's served_name is that path
+#   DEVICE               cuda: the GPU (HIP answers to it under ROCm); the card is the gpu override's
+#   MAX_ACTIVE_REQUESTS  the launch's max_num_seqs — at most what the catalog's engine_memory was measured at
+#   WORKER_ID            its log name: the container's
+# and, each OPTIONAL — set in the service's env only when its variable holds a value (fleet.py FasterWhisperEngine):
+#   EDGE_NODE_MAX_QUEUE     MAX_QUEUE_SIZE with FAIL_FAST_WHEN_BUSY=false: realtime requests queued behind busy seats;
+#                           unset = the service's own (a busy realtime request is answered 503 at once)
+#   EDGE_NODE_COMPUTE_TYPE  COMPUTE_TYPE (CTranslate2's); unset = the image's own (its Dockerfile's ENV)
+# API_TOKEN is not set: the node is reached on its private network and published on loopback only (up.sh refuses
+# anything else), as the vLLM node is. vLLM's variables are node-engine.vllm.yml's: node-env renders none for this node.
+services:
+  node:
+    entrypoint:
+      - /bin/sh
+      - -c
+      - 'exec env $${EDGE_NODE_MAX_QUEUE:+MAX_QUEUE_SIZE=$$EDGE_NODE_MAX_QUEUE FAIL_FAST_WHEN_BUSY=false} $${EDGE_NODE_COMPUTE_TYPE:+COMPUTE_TYPE=$$EDGE_NODE_COMPUTE_TYPE} nice -n "$$EDGE_NODE_NICE" python -m transcription'
+    command: []
+    environment:
+      MODEL_SIZE: "/models/${EDGE_NODE_MODEL:?set in deploy/standalone/.env}"
+      DEVICE: cuda
+      MAX_ACTIVE_REQUESTS: "${EDGE_NODE_MAX_NUM_SEQS:?set in deploy/standalone/.env}"
+      WORKER_ID: "${EDGE_NODE_NAME:?set in deploy/standalone/.env}"
+      EDGE_NODE_MAX_QUEUE:
+      EDGE_NODE_COMPUTE_TYPE:

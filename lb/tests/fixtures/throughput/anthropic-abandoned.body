@@ -1,0 +1,9 @@
+event: message_start
+data: {"type":"message_start","message":{"id":"msg_8b245d35337f5ce8cac2fd68","type":"message","role":"assistant","model":"qwen3.8:latest","content":[],"usage":{"input_tokens":20,"output_tokens":0}}}
+
+event: content_block_start
+data: {"type":"content_block_start","index":0,"content_block":{"type":"thinking","thinking":""}}
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"The"}}
+

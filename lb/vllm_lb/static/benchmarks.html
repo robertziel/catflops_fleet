@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cluster Performance</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>&#128200;</text></svg>">
+  <!-- gateway.css FIRST: it owns the palette, the header, the tiles and the diodes, and this page
+       must not invent a second meaning for any of them. -->
+  <link rel="stylesheet" href="/gateway.css">
+  <link rel="stylesheet" href="/benchmarks.css">
+</head>
+<body class="benchmarks">
+  <header class="top">
+    <div class="brand">
+      <h1>Performance<span class="model-name" id="p-model-name"></span></h1>
+      <span class="crumbs"><a href="/">&larr; Gateway</a> &middot; <a href="/sessions">sessions</a>
+        &middot; the cluster under real traffic, recorded by the gateway one minute at a time</span>
+    </div>
+    <div id="connection-status" class="conn">
+      <span class="dot"></span>
+      <span id="status-text">loading&hellip;</span>
+    </div>
+  </header>
+  <!-- Everything the page shows, in one block: on a wide window it is indented by the width of the
+       configurations panel's gutter (benchmarks.js pmPlace), so nothing is ever under the panel. -->
+  <!-- `?server=<name>`: the page is one server's — the title and this line say its
+       name: the figures below are that server's own (server-scope.js). -->
+  <p id="server-only" class="alert" role="note" hidden></p>
+  <main class="page">
+
+  <!-- ══ REAL TRAFFIC (perflog.py via /lb/perf) — the page's subject since benchmarking stopped ══ -->
+
+  <!-- The recorder's own trouble — a disk error, windows dropped, the recorder switched off — in the
+       LB's own words, above every number it would otherwise leave unexplained. -->
+  <div id="perf-alert" class="alert" role="alert" hidden></div>
+
+  <!-- Until the first answer lands the page is not blank: it says what it is waiting for. -->
+  <p class="loading" id="loading">Reading the performance log&hellip;</p>
+
+  <!-- ONE filter row, above everything it scopes: the time range. The recorder keeps every busy
+       minute; the range only says which of them this page reads. -->
+  <!-- THE FLEET APP'S RANGE PICKER: one segmented row, the chosen range lit. Four native radios drawn as
+       segments, so the arrow keys move between them and Tab reaches the group — a <select> said the same
+       four things behind a click. Each segment's NAME is the range in full ("last 24 hours"): a phone has
+       room only for the short form, so there the full words are read out, not drawn. The radios' `change`
+       bubbles to #p-days, which is where benchmarks.js listens — and reads the same four values.
+       Under it, the app's summary card: what the range holds, a small label over each figure (#p-count). -->
+  <!-- ONE MODEL AT A TIME: a segment per model (its label over its recorded minutes), filled by
+       benchmarks.js renderModels. Everything below shows the chosen model only. -->
+  <div class="models" id="p-models" role="radiogroup" aria-label="model" hidden></div>
+
+  <section class="filters range" id="perf-filters" aria-label="which recorded minutes to read" hidden>
+    <div class="seg" id="p-days" role="radiogroup" aria-label="range">
+      <label class="seg-opt"><input type="radio" name="p-days" value="1" autocomplete="off"><span class="seg-face"><span class="seg-short" aria-hidden="true">24 h</span><span class="seg-long">last 24 hours</span></span></label>
+      <label class="seg-opt"><input type="radio" name="p-days" value="7" autocomplete="off"><span class="seg-face"><span class="seg-short" aria-hidden="true">7 d</span><span class="seg-long">last 7 days</span></span></label>
+      <label class="seg-opt"><input type="radio" name="p-days" value="30" autocomplete="off"><span class="seg-face"><span class="seg-short" aria-hidden="true">30 d</span><span class="seg-long">last 30 days</span></span></label>
+      <label class="seg-opt"><input type="radio" name="p-days" value="all" autocomplete="off" checked><span class="seg-face"><span class="seg-short" aria-hidden="true">All</span><span class="seg-long">everything recorded</span></span></label>
+    </div>
+    <span class="count" id="p-count"></span>
+  </section>
+
+  <!-- Nothing recorded yet, or the recorder cannot record: what the page is waiting for, and why. -->
+  <div class="blank" id="perf-blank" hidden></div>
+
+  <!-- NOT AN EXPERIMENT. Said once, above the comparison, in words: the one thing a reader of these
+       charts must not forget. -->
+  <div class="perf-caveat" id="perf-caveat" hidden><b>Real traffic is not a controlled experiment</b> &mdash; a
+    difference between two configurations can be the traffic they were given.
+    <details class="how" data-keep="how-caveat"><summary>how to read this</summary>
+    <p>Each configuration below served whatever requests arrived while it ran &mdash; different prompt
+    lengths, output lengths and concurrency, on different days &mdash; so a difference between two of them
+    can be the traffic rather than the configuration. Totals like generated tok/s follow demand; per-request
+    measures (time to first token, inter-token latency) say more about the configuration. A configuration
+    with fewer than <span class="min-n">30</span> recorded minutes is shown but not compared.</p></details></div>
+
+  <!-- THE SELECTED CONFIGURATION, READ OUT: every pooled figure of the square selected in the bar at the foot
+       of the window, opened by that bar's "details" button. It lives HERE, in the page's own flow above the
+       charts — not in the bar: a panel that unfolded over the charts covered the very marks the selection had
+       just brought forward. Its own host, so it can open while the charts' section is hidden (boots only). -->
+  <div class="detail-host" id="perf-detail"><div class="pm-detail" id="pm-detail" aria-live="polite" tabindex="-1" hidden></div></div>
+
+  <!-- THE CONFIGURATIONS AS CHARTS: the batch-size curve and the by-max_num_seqs panel. The pooled
+       figures per configuration live in the panel fixed to the bottom-left corner (#perf-matrix). -->
+  <section class="cmp" id="perf-cmp" aria-labelledby="perf-cmp-h" hidden>
+    <div class="charts-head">
+      <h2 id="perf-cmp-h">Configurations compared</h2>
+      <!-- What the section is, folded: the heading and the legend are the data; the sentences open on demand. -->
+      <details class="how" data-keep="how-cmp"><summary>how to read this</summary>
+      <p class="why">Which configuration does better at which load. Every configuration is one colour and fill
+        everywhere on this page (the legend below); click a square in the configurations panel &mdash; the bottom-left
+        corner of the window, or right here on a phone &mdash; to bring one forward in every chart (<i>all</i> puts the
+        others back), and <i>details</i> to read its figures. Each square says what it is, and what its shade means, on hover.</p></details>
+      <!-- THE SECTION'S ONE LEGEND: every configuration charted, its swatch as the bars draw it, then what the
+           charts' conventions mean. Filled by benchmarks.js renderCurve; both panels below read from it. -->
+      <div id="perf-legend"></div>
+      <!-- Where the configurations panel docks on a phone (no room for a gutter there): in the flow, here. -->
+      <div id="perf-matrix-dock"></div>
+    </div>
+    <!-- At each parallel level: every configuration a bar in each band of requests the engine was running
+         in parallel — the dimension real traffic varies most, pooled exactly per level. The four measures that
+         answer the question are open; seven more are one fold away. -->
+    <div id="perf-curve"></div>
+    <div id="perf-cmp-panel"></div>
+  </section>
+
+  <!-- WHAT THE WORKING SET COSTS: the recorded minutes banded by the context the pair was holding.
+       Derived from fields already in the log (KV occupancy x the pin's token count, over the requests in
+       flight) - no extra scrape, no extra load on the engine. -->
+  <section class="cmp" id="perf-context" aria-labelledby="perf-context-h" hidden>
+    <div class="charts-head">
+      <h2 id="perf-context-h">Context, and what it costs</h2>
+      <details class="how" data-keep="how-context"><summary>how to read this</summary>
+      <p class="why">The recorded minutes &mdash; the selected configuration&rsquo;s when a square is picked above,
+        otherwise the whole model&rsquo;s &mdash; banded by how much context the pair was holding per request
+        &mdash; <code>KV occupancy &times; the pin&rsquo;s tokens &divide; requests in flight</code>, from figures already in
+        the log. <i>Seats</i> is how many requests of that size the KV pin can hold at once. A
+        <b>lower bound</b>: a prefix shared by two requests is held once, and a hybrid model&rsquo;s
+        linear-attention state shares the same pool. A minute whose engine reported no KV pool is in no band:
+        its context is unknown, and the count of such minutes is printed under the table.</p></details>
+    </div>
+    <div id="perf-context-panel"></div>
+  </section>
+
+  <!-- EVERY RECORDED MINUTE, over time: one chart per measure, a break wherever the cluster was idle
+       (an idle minute is not recorded) and a rule wherever the configuration changed. -->
+  <section class="perf-time" id="perf-time" aria-labelledby="perf-time-h" hidden>
+    <div class="charts-head">
+      <h2 id="perf-time-h">Every recorded minute</h2>
+      <span class="scope-tag" hidden></span>
+      <details class="how" data-keep="how-time"><summary>how to read this</summary>
+      <p class="why">One point per busy minute, in its configuration&rsquo;s colour and dashes (the key below). A
+        line only joins minutes that follow each other; a gap is time the cluster was idle or the gateway
+        was not reading it, never a zero. A vertical rule marks a configuration change.</p></details>
+      <!-- The key the colour needs: every configuration the minutes ran under, in its style. Filled by benchmarks.js. -->
+      <div id="perf-time-key"></div>
+    </div>
+    <div class="charts two" id="perf-time-grid"></div>
+  </section>
+
+  <!-- Lines of the log that are not a recorded minute (a write cut short by a crash, a hand edit):
+       named, with the parser's own words, so nothing looks silently dropped. -->
+  <section class="skipped" id="perf-malformed" hidden></section>
+
+  <!-- ══ THE ARCHIVE: saved benchmark runs (bench.py via /lb/bench), shown only while any exist ══ -->
+  <div id="archive" hidden>
+  <div class="archive-head">
+    <h2>Saved benchmark runs</h2>
+    <details class="how" data-keep="how-archive"><summary>how to read this</summary>
+    <p class="why">Controlled benchmark results saved before real-traffic recording replaced them. Nothing
+      writes here any more; this section disappears when the directory is empty.</p></details>
+  </div>
+
+  <!-- Why there is nothing to show, when the reason is the results directory itself rather than
+       its contents — in the LB's own words. -->
+  <div id="bench-alert" class="alert" role="alert" hidden></div>
+
+  <!-- Filters in ONE row above the charts. Static markup: the options are filled from the runs
+       that actually exist (/lb/bench `facets`), so a filter can never select an empty set and a new
+       model appears the moment its first run is saved. -->
+  <section class="filters" id="filters" aria-label="filter the saved runs" hidden>
+    <label>model
+      <select id="f-model"><option value="">all</option></select>
+    </label>
+    <label>workload
+      <select id="f-workload"><option value="">all</option></select>
+    </label>
+    <span class="chips" id="f-seqs" role="group" aria-label="max_num_seqs"></span>
+    <label>offered
+      <select id="f-conc"><option value="">all</option></select>
+    </label>
+    <label>prompt
+      <select id="f-prompt"><option value="">all</option></select>
+    </label>
+    <label>output
+      <select id="f-out"><option value="">all</option></select>
+    </label>
+    <button type="button" class="reset" id="f-reset">reset</button>
+    <span class="count" id="f-count"></span>
+  </section>
+
+  <!-- BATCH SIZE COMPARISON: how each max_num_seqs setting did, ONE PANEL PER WORKLOAD. A workload
+       is what the result's own config stamp says it ran, and two workloads are never drawn on one
+       chart: decode-bound real prompts, the cold and the warm pass of the long mixed prompts, the
+       prefill probe and the older synthetic series measure different work. Inside a panel each chart
+       holds ONE measure against one axis (small multiples, never two y-scales), max_num_seqs along
+       the bottom, one series per (spec, batched) pair. Filled by benchmarks.js. -->
+  <section class="cmp" id="batch" aria-labelledby="batch-h" hidden>
+    <div class="charts-head">
+      <h2 id="batch-h">Batch size comparison</h2>
+      <details class="how" data-keep="how-batch"><summary>how to read this</summary>
+      <p class="why">How each <code>max_num_seqs</code> setting did on every saved run, one panel per
+        workload. The bar is the mean of the runs at that setting and every run is its own mark on it
+        &mdash; run-to-run spread is part of the answer: repetitions on one cluster generation agree
+        within a few percent, two generations have differed by 5&ndash;10%. Colour is the speculative
+        token count, shape is <code>max_num_batched_tokens</code>; a hollow mark&rsquo;s settings were
+        read from its label rather than off the engine. &#9650;/&#9660; beside a chart says which way is
+        better. Open a run below to see where it sits.</p></details>
+    </div>
+    <div id="cmp-panels"></div>
+    <p class="cmp-unplaced" id="cmp-unplaced" hidden></p>
+  </section>
+
+  <!-- The spread INSIDE each run, one chart per comparable group (the groups the table's value wash
+       is scaled in) for the same reason: a decode run's curve is never drawn on a synthetic run's axis. -->
+  <section class="spread" id="compare2" hidden>
+    <div class="charts-head">
+      <h2>Throughput spread inside each run</h2>
+      <details class="how" data-keep="how-spread"><summary>how to read this</summary>
+      <p class="why">Not an average: the range each run's throughput actually moved through, sampled
+        every 2&ndash;3&nbsp;s. The bar spans the bottom 10% to the top 10% of the samples with the mean
+        and median marked, so a run whose worst decile collapses cannot hide behind its average. One
+        chart per workload.</p></details>
+    </div>
+    <div class="charts two" id="spread-grid"></div>
+  </section>
+
+  <section class="runs" id="runs" hidden>
+    <h2>Saved runs</h2>
+    <!-- What the cell colours mean, ON the page rather than left to be guessed: which way each
+         column counts as better, and — the part that would otherwise mislead — what the scale is
+         relative to. Filled by benchmarks.js, which knows how many comparable groups the saved
+         runs actually form. -->
+    <p class="heat-key" id="heat-key" hidden></p>
+    <div class="tablewrap">
+      <table class="runs-t">
+        <thead>
+          <tr>
+            <th scope="col">run</th>
+            <th scope="col">workload</th>
+            <th scope="col">seqs</th>
+            <!-- The two settings the batch-size comparison draws as its series, as the result's config
+                 stamp gives them; marked "*" when the stamp read them off a label. -->
+            <th scope="col" class="num">spec</th>
+            <th scope="col" class="num">batched</th>
+            <th scope="col">offered</th>
+            <th scope="col">prompt</th>
+            <th scope="col">out</th>
+            <!-- `data-m` names the MEASURE each column carries. benchmarks.js `MEASURES` holds the one
+                 declaration of which way that measure is better and stamps the ▲/▼ from it, so the
+                 direction the colour scale uses and the direction the heading claims cannot drift
+                 apart. A column with no `data-m` is a SETTING, not a measurement, and is never
+                 coloured: there is no better or worse prompt size. -->
+            <th scope="col" class="num" data-m="agg_tok_s">agg tok/s</th>
+            <th scope="col" class="num" data-m="wall_s">wall s</th>
+            <th scope="col" class="num" data-m="curve_p10">min&nbsp;10%</th>
+            <th scope="col" class="num" data-m="curve_mean">mean</th>
+            <th scope="col" class="num" data-m="curve_p90">top&nbsp;10%</th>
+            <th scope="col" class="num" data-m="ttft_mean">ttft mean</th>
+            <th scope="col" class="num" data-m="errors">errors</th>
+            <th scope="col">saved</th>
+          </tr>
+        </thead>
+        <tbody id="runs-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- One run, opened: its own tiles and its throughput over time. Filled by benchmarks.js. -->
+  <section class="detail" id="detail" hidden></section>
+
+  <!-- Nothing saved yet, or the directory is missing: say where results go and how they get there.
+       A blank page that does not say what it is waiting for is the failure mode here. -->
+  <div class="blank" id="blank" hidden></div>
+
+  <!-- What was in the directory and is NOT a run (the harness's corpus inputs, another tool's
+       table). Named rather than silently dropped. -->
+  <section class="skipped" id="skipped" hidden></section>
+  </div>
+
+  <!-- CONFIGURATIONS COMPARED, in a small panel FIXED to the bottom-LEFT corner of the viewport — inside a
+       LEFT GUTTER the page reserves for it on a wide window, so no chart is ever under it; docked in the
+       flow at the section head on a phone (benchmarks.js pmPlace). It is sized to its own content: one small square per
+       configuration the cluster ran (rows max_num_seqs, columns prefill budget · speculative tokens),
+       coloured by where its generated tok/s sits. Clicking a square selects that configuration wherever
+       the reader is on the page: every chart above (the batch-size curve, the by-max_num_seqs panel, the
+       "Every recorded minute" charts) recedes every other configuration so the selected one is read among
+       them. Its pooled figures are one more, deliberate, step — the "details" button opens the read-out
+       card above the charts (#pm-detail); a click never does, because a click is almost always made to
+       point the charts, and the card would cover them.
+       NO KEY ROW, and no "N configurations — click a square" line: the operator asked for the panel's
+       legend gone, so it is gone. Nothing it said was lost — every square carries the whole sentence
+       (its tok/s, the ramp step its shade is or why it has none, "fewer than 30 recorded minutes: shown,
+       never compared", the boot-only ↻ count, "never ran") in its own title and aria-label, built in
+       benchmarks.js renderPerfMatrix; and "click a square" is said in the charts' own heading below. -->
+  </main>
+
+  <footer class="perf-bar" id="perf-matrix" aria-label="Configurations compared" hidden>
+    <!-- Folds the panel to a one-word strip: fixed to the corner, it covered the y axis of whichever chart was at
+         the foot of the window. Nothing is removed — one click brings the squares back (benchmarks.js pmFold). -->
+    <button type="button" class="pb-fold" id="pm-fold" aria-expanded="true" title="fold this panel to a strip, so it covers no chart">&#x25BE;</button>
+    <div class="pm-grids" id="pm-grids"></div>
+    <!-- The selected configuration's one line and its two buttons, BESIDE the matrix rather than under it:
+         beside, and the panel keeps the matrix's own height, so selecting a square never grows the panel
+         upward and slides the squares out from under the cursor that has just clicked one. -->
+    <div class="pb-head">
+      <p class="pb-sel" id="pm-sel"></p>
+      <button type="button" class="pb-all" id="pm-all" hidden title="select no configuration: every chart shows all of them alike again">all</button>
+      <button type="button" class="pb-toggle" id="pm-toggle" aria-expanded="false" aria-controls="pm-detail" title="open or close the selected configuration's figures, above the charts">details</button>
+    </div>
+  </footer>
+
+  <div class="tip" id="tip" role="tooltip" hidden></div>
+
+  <script src="/server-scope.js"></script>
+  <script src="/benchmarks.js"></script>
+</body>
+</html>

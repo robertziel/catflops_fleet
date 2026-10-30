@@ -1,0 +1,1 @@
+{"id":"msg_4e0360cf0f06f0f06570570d","type":"message","role":"assistant","model":"qwen3.8:latest","content":[{"type":"thinking","thinking":"The user wants me to count from 1 to 20, separated by single spaces, with numbers only.\n\nLet me write that out: 1"}],"stop_reason":"max_tokens","usage":{"input_tokens":30,"output_tokens":32}}

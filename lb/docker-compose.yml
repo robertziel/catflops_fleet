@@ -1,0 +1,225 @@
+# vllm-lb — the always-on LB on box-c that leases vLLM from broker_parrot.
+#
+# BROKER_PARROT IS OPT-IN. This file alone runs the LB WITHOUT it (`docker compose up` needs no
+# broker checkout, no broker DB and no other project's network): every live backend configured
+# below is routable as it stands. With the broker, set BOTH in lb/.env:
+#   LB_BROKER_ENABLED=1
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.broker.yml
+# The override (docker-compose.broker.yml) adds what only the broker needs: the read-only engine
+# mount, the DB settings and the broker's network, where the broker DB is `postgres:5432` (the
+# same DSN shape the broker's own workers use — copy PG_USER/PG_PW/PG_DB into lb/.env, never into
+# git) and where a client on that network reaches this service as `vllm-lb`.
+# There is NO ollama fallback (operator, 2026-09-25: "we don't need model zapasowy"): with no
+# vLLM live a request waits/503s and a client sees "not available". broker-ollama and its
+# qwen3.8 stay — they are broker_parrot's own, not this service's. The fallback tier is RETIRED (operator,
+# 2026-10-17: "If can't run then can't run, no fallback box"): every LB_FALLBACK_* is refused at boot.
+# the GB10 boxes are dialled over the direct links. With the broker on, broker_parrot is mounted
+# READ-ONLY from the NFS checkout the fleet itself runs — the LB always speaks the fleet's schema.
+services:
+  vllm-lb:
+    build: .
+    image: vllm-lb:latest
+    container_name: vllm-lb
+    restart: unless-stopped
+    # A stop DRAINS (vllm_lb/proxy.py `drain`): turns in flight stream to their end for up to LB_DRAIN_S, while
+    # a turn arriving meanwhile is held and answered 503 `draining` once it is over. Docker SIGKILLs this long
+    # after the SIGTERM (default 10 s), so it must outlast the drain plus the control loop's last tick — or a
+    # redeploy still cuts every stream (tests/test_drain.py). `docker compose up -d` waits for it: a redeploy
+    # now takes as long as the longest turn in flight, at most ~15 min.
+    stop_grace_period: 960s
+    ports:
+      # LOOPBACK. Since the LB serves the gateway UI and the API, publishing on 0.0.0.0 put
+      # them on the LAN and the tailnet with no authentication — the retired dashboard bound
+      # 127.0.0.1 and this pass must not widen that. frpc is network_mode: host, so the tunnel
+      # still reaches it, and the authenticated vhost on the edge stays the only way in.
+      - "127.0.0.1:8010:8010"
+      # HARDWARE INTAKE (UDP). Each box's sender (lb/hw_sender: fleet_telemetry) sends one sample per box every 5 s
+      # to the LAN broadcast address, and a bridge-network container never sees those — the
+      # datagram is addressed to the LAN's broadcast address, not to us. Publishing the port
+      # puts docker-proxy on 0.0.0.0:48291/udp, which does receive subnet broadcast and hands it
+      # to the container.
+      #
+      # This is the ONE place the LB listens on something other than loopback, and it is
+      # deliberate: the payload is display-only telemetry that already crosses this LAN
+      # unauthenticated (anyone who can reach this port can already spoof the same packets to
+      # the cluster-panel), it can only change numbers on a private page, and the listener is
+      # bounded — fixed-size rings, malformed datagrams counted and dropped. No TCP surface is
+      # added. Set LB_HW_PORT=0 to turn the listener off entirely.
+      - "48291:48291/udp"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # THE BROKER SWITCH (vllm_lb/config.py `broker_enabled`): 1/true/yes = lease from broker_parrot;
+      # anything else = no broker at all. ON also needs docker-compose.broker.yml (COMPOSE_FILE above).
+      - LB_BROKER_ENABLED=${LB_BROKER_ENABLED:-0}
+      # THE NAMES THE GATEWAY ANSWERS TO (vllm_lb/host_guard.py, the DNS-rebinding guard): beyond its loopback names
+      # (127.0.0.1:8010 — the healthcheck below — localhost:8010, [::1]:8010), the Host your proxy / tunnel presents and
+      # the docker names containers dial (vllm-lb:8010). No default: `loopback` states "nothing else" (lb/.env.example).
+      - LB_ALLOWED_HOSTS=${LB_ALLOWED_HOSTS:?set LB_ALLOWED_HOSTS in lb/.env — the names the gateway answers to, or loopback (lb/.env.example)}
+      # THE FLEET FILE (vllm_lb/fleet.py): what this deployment IS — its boxes and their hostnames, every card and
+      # which serve, the cluster (its ranks, URL, control) and the classic servers. lb/fleet.yml, gitignored like
+      # lb/.env (lb/fleet.example.yml and lb/fleet.one-host.example.yml document every key), mounted read-only below.
+      # It REPLACES LB_VLLM_BOXES, LB_HW_HOSTS, LB_CLUSTER_HOSTS and LB_CLUSTER_URL: any of those still in lb/.env
+      # refuses the start, naming where its value lives now (config.py RETIRED_KEYS).
+      - LB_FLEET=/etc/vllm-lb/fleet.yml
+      # Timeouts measure PROGRESS: a generous budget for the FIRST byte (queueing behind a
+      # broker_parrot job on the shared ollama, an 18 GB model load, a 200k-token prefill are
+      # all legitimate waiting), and a short one for SILENCE once bytes flow.
+      - LB_FIRST_BYTE_TIMEOUT_S=${LB_FIRST_BYTE_TIMEOUT_S:-3600}
+      - LB_STALL_TIMEOUT_S=${LB_STALL_TIMEOUT_S:-1800}
+      # Silence on a live /v1/messages stream is filled with `: keepalive` every this many seconds (at an event
+      # boundary): Claude Code shows "Waiting for API response" after 20 s with no byte. 0 = off.
+      - LB_SSE_KEEPALIVE_S=${LB_SSE_KEEPALIVE_S:-15}
+      # THE DRAIN (a redeploy): how long turns in flight may finish — p99 of real local-model turns is 852 s
+      # (vllm_lb/config.py `drain_s`). stop_grace_period above must outlast it.
+      - LB_DRAIN_S=${LB_DRAIN_S:-900}
+      # THE HOLD (a restart or model switch of the pair): how long a turn waits for the cluster, no byte
+      # sent, before a 503 — 41 of 43 measured starts were under 900 s — and how many may wait at once.
+      - LB_CLUSTER_HOLD_S=${LB_CLUSTER_HOLD_S:-900}
+      - LB_HOLD_MAX=${LB_HOLD_MAX:-64}
+      # The Retry-After on a 503 no_backend. Sent capped at 60: past that Claude Code gives up at once.
+      - LB_RETRY_AFTER_S=${LB_RETRY_AFTER_S:-30}
+      - LB_IDLE_RELEASE_S=${LB_IDLE_RELEASE_S:-600}
+      # The window a leased vLLM must serve (broker_parrot migration 0028) is the LEASE MODEL's catalog context
+      # (its row's limits.max_model_len; vllm_lb/config.py lease_context_length) — LB_CONTEXT_LENGTH is RETIRED
+      # and refuses the boot naming that field.
+      - LB_MAX_LEASES=${LB_MAX_LEASES:-2}
+      - LB_LOG_LEVEL=${LB_LOG_LEVEL:-INFO}
+      # SAVED BENCHMARK RUNS (vllm_lb/bench.py), browsed at /benchmarks. Inside the SAME state
+      # volume, so results survive a rebuild and a redeploy and the harness on the host writes
+      # them straight in (lb/state/bench -> /data/bench). Read-only to the LB.
+      - LB_BENCH_DIR=/data/bench
+      # THE SWARM (vllm_lb/benchswarm.py), the cluster card's one benchmark control: where a REQUEST
+      # for ONE deep-research session is left for lb/bench_queue_runner.py on box-c, and where that
+      # runner reports back. The LB's OWN state volume and nothing else — since 2026-10-01 the
+      # gateway is NOT mounted into the harness's directory, because the thirty-run matrix is not
+      # reachable from the page at all (it is started at the keyboard with --start-matrix). This
+      # container cannot run a process on the host, so a start is a request, and the runner's report
+      # is the only thing the page is allowed to call a running swarm. Blank = the control is off.
+      - LB_SWARM_STATE=${LB_SWARM_STATE:-/data/benchq}
+      # Anthropic's SERVER-side web_search tool, performed by the LB against the sidecar
+      # below — Claude Code's WebSearch delegates it to the endpoint and no LLM backend
+      # can do it. Blank disables the interception (the request then forwards and ollama
+      # answers `web_search_tool_result_error: unavailable`, which is the old behaviour).
+      - LB_SEARCH_URL=${LB_SEARCH_URL-http://searxng:8080/search}
+      - LB_SEARCH_MAX_RESULTS=${LB_SEARCH_MAX_RESULTS:-10}
+      - LB_SEARCH_SNIPPET_CHARS=${LB_SEARCH_SNIPPET_CHARS:-180}
+      # THE CLUSTER (worklog/vllm-cluster-control-plane.md) is the fleet file's `clusters:` — its ranks head first,
+      # the head's URL, and how it is controlled (ssh = tp-rank over SSH, the key below; none = observed only). None
+      # declared = no cluster: the panel stays hidden and routing is exactly the classic LB's.
+      - LB_CLUSTER_STATE=/data/cluster.json
+      - LB_CLUSTER_SSH_KEY=/run/cluster-ssh/id_ed25519
+      - LB_CLUSTER_KNOWN_HOSTS=/run/cluster-ssh/known_hosts
+      # A selection is gated on its own measured need per rank role (vllm_lb/memory_estimate.py: the catalog's memory
+      # footprint at the chosen context, concurrency and budget); one the LB cannot size is REFUSED naming why.
+      # LB_CLUSTER_MIN_MEM_GIB (the old flat requirement for such a selection) is RETIRED and refuses the boot.
+      # How many consecutive observations must clear that need before a rank launches, and how long
+      # `freeing` may wait before it fails naming what still holds the RAM. MemAvailable swings by the
+      # size of the ollama model while a hold and a chat client fight over the box, and one lucky 5 s
+      # sample once launched 99 GB of weights onto a box at 77 GiB (§3, L3).
+      - LB_CLUSTER_MEM_SAMPLES=${LB_CLUSTER_MEM_SAMPLES:-3}
+      - LB_CLUSTER_FREEING_DEADLINE_S=${LB_CLUSTER_FREEING_DEADLINE_S:-600}
+      # A start that says nothing new for its step's own limit is HUNG — 4 x that step's slowest healthy
+      # start in the boot log, never under 180 s; this is the ceiling, and the limit of every step with no
+      # measured basis. A hung start's logs and stacks are saved to state/start-hangs/, it is torn down and
+      # relaunched (same generation, same settings) up to LB_CLUSTER_START_RETRIES times, and only then
+      # FAILS with both ranks halted (kept, with their logs). And a rank is stopped before the box under it
+      # runs out of memory. On 2026-09-18 a start sat 53 minutes in one phase and box-b sat at 0.1 GB until
+      # it died (worklog/vllm-cluster-start-robustness.md); on 2026-10-02/03 the SGLang pair deadlocked in
+      # graph capture on 2 of 7 starts and came up when relaunched (generations 122, 131).
+      - LB_CLUSTER_START_STALL_S=${LB_CLUSTER_START_STALL_S:-600}
+      - LB_CLUSTER_START_RETRIES=${LB_CLUSTER_START_RETRIES:-2}
+      - LB_CLUSTER_KILL_FLOOR_GIB=${LB_CLUSTER_KILL_FLOOR_GIB:-0.5}
+      # THE ORIGINAL CONFIGURATION is what the cluster panel offers where nothing is stored (operator,
+      # 2026-09-30: "Set as default variables that were set at the beginning before benchmarks"):
+      # concurrency 8 at the full 262,144 window, the 8192 prefill budget below and the catalog's 4
+      # speculative tokens — generation 52's. The operator's own choice on the panel wins over all of
+      # them. 8 is past what the ranks' KV pool holds at the FULL window (6, measured —
+      # worklog/vllm-cluster-ram-headroom.md §5.2): vLLM then admits fewer at once and queues the rest,
+      # and the page says so. Blank = offer that measured maximum instead.
+      #
+      # THE SEATS AND CONTEXT A MODEL IS OFFERED ARE ITS CATALOG ROW'S (`launch.cluster.tuned`, every cluster row
+      # states them: `catalog.TunedSetup`, `cluster.DesiredStore.defaults_for`) — a number from the environment cannot
+      # know which model is being launched. LB_CLUSTER_MAX_NUM_SEQS / LB_CLUSTER_MAX_MODEL_LEN are RETIRED and refuse
+      # the boot naming the row field.
+      # SATURATION (vllm_lb/saturation.py): the gateway's answer to "is there headroom, or is it flat
+      # out". Each GB10 box's GPU comes back on every `tp-rank status` (one nvidia-smi dmon, ~0.1 s, no new
+      # SSH call), and the FLOP/s and GB/s come off the SAME /metrics scrape the router already takes.
+      # THE CEILINGS are each SERVING CARD's, per box (operator, 2026-10-11): its hardware type
+      # (vllm_lb/hardware/types/<type>.yml, every figure with its source), named by lb/fleet.yml. The
+      # LB-wide LB_GPU_PEAK_GBPS / LB_GPU_PEAK_TFLOPS / LB_GPU_PEAK_TFLOPS_PRECISION are RETIRED: present
+      # in lb/.env, they refuse the start. The GB10's compute peaks there were MEASURED on ONE idle GB10 of
+      # this pair, 2026-09-30 (the pair must be stopped: with vLLM holding 99 of 128 GB unified, a second
+      # CUDA context cannot even call cudaMemGetInfo), one per precision because a GPU has a different
+      # ceiling for each:
+      #     bf16  torch.matmul        96.5 TFLOP/s
+      #     fp8   torch._scaled_mm   188.3 TFLOP/s
+      #     nvfp4 flashinfer.mm_fp4  323.2 TFLOP/s  <- the MoE's own path
+      # A model's precision is its own (vllm_lb/cores.py): these checkpoints' GEMMs run nvfp4.
+      #   CLUSTER_GPU_TELEMETRY=0  stops the GB10 boxes being asked about their GPUs at all.
+      #
+      # THE FLOP/s AND GB/s ARE NULL UNTIL THE ENGINE IS RESTARTED WITH `--enable-mfu-metrics`. vLLM
+      # registers the three `vllm:estimated_*_per_gpu_total` counters whatever it was started with and
+      # feeds them only under that flag, so the panel reports the missing switch instead of a 0. The
+      # flag belongs on the engine argv in lb/cluster/tp-rank (`cmd_up`, beside
+      # --max-num-batched-tokens) and costs a full cold start of the pair.
+      - CLUSTER_GPU_TELEMETRY=${CLUSTER_GPU_TELEMETRY:-1}
+      # The prefill budget (vLLM --max-num-batched-tokens) a launch uses when neither the operator's knob (the cluster
+      # panel) nor the model's own says is the FLEET's: lb/fleet.yml clusters.<name>.max_num_batched_tokens, sent to
+      # tp-rank on every call. CLUSTER_MAX_NUM_BATCHED_TOKENS is RETIRED here and refuses the boot naming that key.
+    depends_on:
+      - searxng
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      # The operator's switches (each cluster's): small files written atomically, so a restart or a redeploy resumes what the operator last chose
+      # instead of inventing a state.
+      - ./state:/data
+      # The cluster executor's key and the GB10 boxes' pinned host keys (gitignored; README).
+      - ./cluster-ssh:/run/cluster-ssh:ro
+      # THE FLEET FILE (LB_FLEET above), read-only. `create_host_path: false`: a missing lb/fleet.yml fails
+      # `docker compose up` instead of becoming an empty directory the LB would refuse anyway.
+      - type: bind
+        source: ./fleet.yml
+        target: /etc/vllm-lb/fleet.yml
+        read_only: true
+        bind:
+          create_host_path: false
+    # No `networks:` here: both services share this project's default network, so `searxng` resolves.
+    # The broker override moves them onto the broker's (docker-compose.broker.yml).
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8010/healthz', timeout=3).status == 200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # The LB's search engine. A metasearch aggregator, not a scraper: it rotates across
+  # google/brave/wikipedia/… and drops the ones that block it, which is why raw
+  # DuckDuckGo/Bing scraping (CAPTCHA) does not work and this does. No account, no key.
+  searxng:
+    # Pinned: searxng publishes only rolling tags, so the digest IS the version
+    # (2026.9.11+61d660276). Bump deliberately, never by a silent `latest` pull.
+    image: searxng/searxng@sha256:e084201aa606fafce2151c8dc2844c9c3309025e90fbe7163b4f5e5183e474f0
+    container_name: searxng
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8811:8080"
+    environment:
+      - SEARXNG_BASE_URL=http://searxng:8080/
+      # The secret SearXNG signs its cookies with. Required: a committed default is a committed secret.
+      - SEARXNG_SECRET=${SEARXNG_SECRET:?set SEARXNG_SECRET in lb/.env (e.g. openssl rand -hex 32)}
+      - UWSGI_WORKERS=${SEARXNG_WORKERS:-4}
+      - UWSGI_THREADS=${SEARXNG_THREADS:-4}
+    volumes:
+      - ./searxng/settings.yml:/etc/searxng/settings.yml:ro
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

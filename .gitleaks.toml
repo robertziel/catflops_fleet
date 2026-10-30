@@ -1,0 +1,10 @@
+# gitleaks: the default rules, plus the test canaries this repository plants on purpose. The tests
+# that check secrets never leak (a session collector's tests and their fixtures, on the private branch)
+# put these fake credential-shaped values in a fake process environment and assert they never reach a
+# page. They are not credentials.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "fake credential-shaped canaries used by the leak tests"
+regexes = ['''sk-SECRET-KEY-123''', '''tok-SECRET-456''', '''ghp_SECRET789''']

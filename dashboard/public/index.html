@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CatFlops Fleet</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>&#9889;</text></svg>">
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/gateway.css">
+</head>
+<body>
+  <header>
+    <h1>CatFlops Fleet</h1>
+    <div id="connection-status">
+      <span class="dot"></span>
+      <span id="status-text">Connecting&hellip;</span>
+    </div>
+  </header>
+
+  <section id="lb-summary" class="lb-summary"></section>
+  <section id="lb-backends" class="lb-backends"></section>
+  <h2 class="section-h">Node jobs holding a server</h2>
+  <section id="lb-leases" class="lb-backends"></section>
+
+  <section class="chat">
+    <h2>Chat <small id="chat-route"></small></h2>
+    <div id="chat-log" class="chat-log" aria-live="polite"></div>
+    <form id="chat-form" class="chat-form">
+      <textarea id="chat-input" rows="2" placeholder="Ask the fleet&hellip;"></textarea>
+      <div class="chat-controls">
+        <label>effort
+          <select id="chat-effort">
+            <option value="low" selected>low</option>
+            <option value="medium">medium</option>
+            <option value="xhigh">xhigh</option>
+          </select>
+        </label>
+        <button id="chat-send" type="submit">Send</button>
+      </div>
+    </form>
+  </section>
+
+  <script src="/gateway.js"></script>
+</body>
+</html>

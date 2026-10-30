@@ -1,0 +1,25 @@
+# vllm-lb ON ONE MORE NETWORK, to a one-host node it requests on its OWN box (fleet control `local`, e.g. a node on
+# this host's iGPU beside a pair the LB drives over SSH — worklog/parallel-clusters.md, "The gui node").
+#
+# The node publishes on loopback only (deploy/standalone/up.sh refuses anything else: it serves without sign-in), and a
+# bridge container cannot dial its host's loopback. So the LB dials the node by its container name on the node's own
+# network: the fleet file's `clusters.<name>.url` is http://<EDGE_NODE_NAME>:8000, and LB_NODE_NETWORK is the node's
+# EDGE_NODE_NETWORK (its server file, deploy/standalone/.env; up.sh creates it when missing).
+#
+# Select it AFTER an override that names the LB's networks — a service that names networks loses compose's implicit
+# default, so alone this file would take the LB off the network its searxng sidecar is on:
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.broker.yml:docker-compose.node.yml
+#   LB_NODE_NETWORK=<the node's EDGE_NODE_NETWORK>
+# EXTERNAL: two compose projects share it (this one and the node's), so neither owns it. Until it exists,
+# `docker compose up` stops naming it — create it first (docker network create <name>, or one `up.sh node`).
+# A standalone server (deploy/standalone) does not use this file: lb.override.yml joins the same network from its
+# one server file.
+services:
+  vllm-lb:
+    networks:
+      - node
+
+networks:
+  node:
+    external: true
+    name: "${LB_NODE_NETWORK:?set in lb/.env when docker-compose.node.yml is in COMPOSE_FILE}"

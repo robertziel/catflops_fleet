@@ -1,0 +1,91 @@
+/* THE FLIGHT RECORDER (recorder.js): a narrow strip under each machine card, the box's last hour behind it.
+
+   THE SLOT. gateway.js `renderMachines` puts each card and its recorder in one `.machine-slot`, a grid item of
+   `.machines` spanning two of its rows as a SUBGRID: every card in a row of the grid shares row one, every strip row
+   two. So a closed strip adds nothing to its card's height, and an open recorder grows only the strip row — the
+   cards beside it keep theirs. The slot's own gap is the strip's 3px; the grid's row gap still parts the slots. */
+.machine-slot { display: grid; grid-row: span 2; grid-template-rows: subgrid; row-gap: 3px; min-width: 0; }
+.machine-slot > .card { min-width: 0; }
+.rec { min-width: 0; align-self: start; }
+.rec:empty { display: none; }
+
+/* THE STRIP: one line of figures, cut with an ellipsis when the card is narrow — never wrapped, never wider than
+   the card. A button: it opens and closes the recorder (aria-expanded). */
+.rec-strip {
+  display: block; width: 100%; min-width: 0; margin: 0; padding: .15rem .55rem;
+  font: inherit; font-size: var(--small); line-height: 1.5; text-align: left; font-variant-numeric: tabular-nums;
+  color: var(--ink-dim); background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer;
+}
+.rec-strip:hover, .rec-strip:focus-visible { color: var(--ink); border-color: var(--ink-faint); }
+.rec-strip[aria-expanded="true"] { border-bottom-left-radius: 0; border-bottom-right-radius: 0; color: var(--ink); }
+.rec-dot { color: var(--bad); font-size: .8em; }
+.rec-na { color: var(--ink-faint); }
+
+/* OPEN: under the strip, the same width, the card's ground. */
+.rec-body {
+  display: grid; gap: .4rem; min-width: 0; padding: .45rem .6rem .55rem;
+  background: var(--panel); border: 1px solid var(--line); border-top: 0; border-radius: 0 0 10px 10px;
+  font-size: .76rem;
+}
+.rec-top { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.rec-h { font-size: var(--small); font-weight: 700; letter-spacing: .08em; color: var(--ink-faint); }
+.rec-expand, .rec-more {
+  font: inherit; font-size: var(--small); color: var(--accent); background: transparent;
+  border: 1px solid var(--line); border-radius: 999px; padding: .05rem .5rem; cursor: pointer;
+}
+.rec-more { justify-self: start; border: 0; padding: 0; }
+.rec-expand:hover, .rec-expand:focus-visible, .rec-more:hover, .rec-more:focus-visible { color: var(--ink); }
+.rec-power { color: var(--ink-dim); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+
+.rec-charts > summary { cursor: pointer; font-size: var(--small); color: var(--ink-dim); }
+.rec-charts[open] > summary { margin-bottom: .3rem; }
+.rec-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 7.5rem), 1fr)); gap: .3rem .55rem; min-width: 0; }
+.rec-tiles .t-graph { height: 30px; }
+/* Label OVER value (the panel's `.ceils` head): beside a "4752 MHz" headline a 7.5rem tile cut its label to "CPU C…". */
+.rec-tiles .t-head { flex-direction: column; align-items: flex-start; flex-wrap: nowrap; --t-head-h: 2.3rem; }
+.rec-tiles .t-label { max-width: 100%; }
+.rec-tiles .t-val { font-size: 1rem; }
+
+/* The figures: label over value, a grid that wraps to the card's width. */
+.rec-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 6.2rem), 1fr)); gap: .25rem .55rem; }
+.rec-fig { display: flex; flex-direction: column; min-width: 0; }
+.rec-fig > span { font-size: var(--small); color: var(--ink-faint); text-transform: uppercase; letter-spacing: .03em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rec-fig > b { font-variant-numeric: tabular-nums; font-weight: 600; }
+
+/* CONTAINERS: a table — name · RAM · image. One grid for the list and a SUBGRID per row, so the columns align down
+   the list: the name column as wide as the longest name up to 45% (`fit-content`), RAM right-aligned next to it (the
+   name never pushes it to the far edge), the image taking the rest, cut with an ellipsis (its whole ref is the
+   title). Where the recorder is narrow (a phone, a narrow card: a CONTAINER query, not the viewport) a row is two
+   lines — name and RAM, then the image under them. */
+.rec-cont { display: grid; gap: .2rem; min-width: 0; container-type: inline-size; }
+.rec-list { list-style: none; margin: 0; padding: 0; }
+.rec-ctab { display: grid; grid-template-columns: fit-content(45%) max-content minmax(0, 1fr); gap: .1rem .7rem; }
+.rec-ctab li { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; align-items: baseline;
+  font-variant-numeric: tabular-nums; min-width: 0; }
+.rec-cram { text-align: right; font-weight: 600; }
+.rec-name, .rec-img { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.rec-name { font-family: var(--mono); font-size: .72rem; }
+.rec-img { color: var(--ink-faint); font-size: var(--small); }
+@container (max-width: 30rem) {
+  .rec-ctab { grid-template-columns: minmax(0, 1fr) max-content; row-gap: .3rem; }
+  .rec-ctab .rec-img { grid-column: 1 / -1; }
+}
+
+/* A chart block that does not yet hold its window (recorder.js `recFilling`). */
+.rec-fill { font-weight: 500; letter-spacing: 0; color: var(--ink-dim); }
+.rec-plab { color: var(--ink-faint); font-size: var(--small); letter-spacing: .03em; }
+
+/* EXPAND: the connect dialog's frame (gateway.css `.cn`), wider for the tiles. */
+.rec-dlg .cn-box { max-width: 1040px; }
+.rec-dlg .rec-tiles { grid-template-columns: repeat(auto-fill, minmax(min(100%, 11rem), 1fr)); }
+.rec-dlg .rec-tiles .t-graph { height: 44px; }
+.rec-dlg .rec-list { max-width: 60rem; }
+
+/* A figure with no known ceiling (recorder.js `recTilesHtml`): no colour judgement — one quiet ink for the figure,
+   the line and its fill. CSS outranks the sparkline's presentation attributes; the figure's inline colour needs
+   !important. */
+.rec-plain-tile .t-val { color: var(--ink) !important; text-shadow: none !important; }
+.sparkline.rec-plain path[stroke] { stroke: var(--accent); }
+.sparkline.rec-plain path[fill-opacity] { fill: var(--accent); }

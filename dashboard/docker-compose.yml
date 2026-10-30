@@ -1,0 +1,50 @@
+services:
+  dashboard:
+    build: .
+    container_name: vllm-dashboard
+    restart: unless-stopped
+    # Cap the container log — docker's json-file driver is unbounded by default.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    # Bound to LOOPBACK: the only way in from outside is the frpc tunnel + the authenticated
+    # nginx vhost on the edge. Publishing on 0.0.0.0 would put an LLM chat on the LAN unauthenticated.
+    ports:
+      - "127.0.0.1:3000:3000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      # The vLLM sidecars to poll, comma-separated URLs (dashboard/config.js): the operator's, from the
+      # environment (the repo-root .env). Unset = the dashboard refuses to start and says so.
+      # "Down" is normal: the broker only runs vLLM on queue demand.
+      - VLLM_SERVERS=${VLLM_SERVERS:-}
+      # The LB is the source of truth: it knows leases, capacity, queue depth and the ollama
+      # fallback, none of which is visible by polling the boxes. Reached over the host gateway
+      # because the LB publishes on 127.0.0.1:8010 of the host, not on this bridge network.
+      # Both from the repo-root .env, required (no default address or model name); the .env.example says what each is.
+      - LB_URL=${LB_URL:?set LB_URL in the repo-root .env -- the gateway this dashboard shows}
+      - CHAT_MODEL=${CHAT_MODEL:?set CHAT_MODEL in the repo-root .env -- the model name the chat panel labels and sends}
+      - POLL_INTERVAL=10000
+      - PORT=3000
+
+  # The tunnel that publishes the gateway as vllm.example.com. Host networking so
+  # 127.0.0.1:3000 above is reachable; the gateway itself never binds a public interface.
+  frpc:
+    image: snowdreamtech/frpc:0.65.0
+    container_name: vllm-frpc
+    restart: unless-stopped
+    network_mode: host
+    depends_on:
+      - dashboard
+    environment:
+      - FRP_TOKEN=${FRP_TOKEN:-}     # ../.env; empty = this client cannot log in to frps (the dashboard is unaffected)
+      - FRP_SERVER=${FRP_SERVER:-}   # ../.env; empty = this client cannot reach frps (the dashboard is unaffected)
+    volumes:
+      - ../frpc/frpc.toml:/etc/frp/frpc.toml:ro
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

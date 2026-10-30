@@ -1,0 +1,41 @@
+{
+ "now": 1790989307.8480906,
+ "dir": "/data/perf",
+ "days": 7.0,
+ "files": [
+  {
+   "file": "perf-2026-09-30.jsonl",
+   "windows": 69,
+   "malformed": 0,
+   "error": ""
+  },
+  {
+   "file": "perf-2026-10-01.jsonl",
+   "windows": 746,
+   "malformed": 0,
+   "error": ""
+  },
+  {
+   "file": "perf-2026-10-02.jsonl",
+   "windows": 596,
+   "malformed": 1,
+   "error": ""
+  },
+  {
+   "file": "perf-2026-10-03.jsonl",
+   "windows": 43,
+   "malformed": 0,
+   "error": ""
+  }
+ ],
+ "malformed_total": 1,
+ "malformed": [
+  {
+   "file": "perf-2026-10-02.jsonl",
+   "line": 470,
+   "error": "not JSON: Expecting value: line 1 column 1 (char 0)"
+  }
+ ],
+ "boots": 47,
+ "windows": 1454
+}

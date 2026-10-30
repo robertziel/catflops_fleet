@@ -1,0 +1,417 @@
+2026-09-18T22:28:52.894684892Z WARNING 09-18 22:28:52 [argparse_utils.py:276] With `vllm serve`, you should provide the model as a positional argument or in a config file instead of via the `--model` option. The `--model` option will be removed in a future version.
+2026-09-18T22:28:52.934043472Z INFO 09-18 22:28:52 [model.py:684] Resolved architecture: Qwen4ExpForConditionalGeneration
+2026-09-18T22:28:52.934064524Z INFO 09-18 22:28:52 [model.py:2021] Using max model len 262144
+2026-09-18T22:28:52.919516133Z [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'mrope_interleaved', 'mrope_section'}
+2026-09-18T22:28:52.919713475Z [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'mrope_interleaved', 'mrope_section'}
+2026-09-18T22:28:52.926244438Z [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'mrope_interleaved', 'mrope_section'}
+2026-09-18T22:28:52.926268130Z [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'mrope_interleaved', 'mrope_section'}
+2026-09-18T22:28:52.926273249Z [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'mrope_interleaved', 'mrope_section'}
+2026-09-18T22:28:53.920215603Z [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'mrope_interleaved', 'mrope_section'}
+2026-09-18T22:28:53.920391046Z [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'mrope_interleaved', 'mrope_section'}
+2026-09-18T22:28:53.927212409Z [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'mrope_interleaved', 'mrope_section'}
+2026-09-18T22:28:53.927235925Z [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'mrope_interleaved', 'mrope_section'}
+2026-09-18T22:28:54.732454893Z INFO 09-18 22:28:54 [arg_utils.py:2276] Inferred data_parallel_rank 0 from node_rank 1
+2026-09-18T22:28:54.751477337Z INFO 09-18 22:28:54 [model.py:684] Resolved architecture: Qwen4ExpMTP
+2026-09-18T22:28:54.751516963Z INFO 09-18 22:28:54 [model.py:2021] Using max model len 262144
+2026-09-18T22:28:54.751751788Z WARNING 09-18 22:28:54 [speculative.py:1318] Enabling num_speculative_tokens > 1 will run multiple times of forward on same MTP layer,which may result in lower acceptance rate
+2026-09-18T22:28:54.751856698Z INFO 09-18 22:28:54 [arg_utils.py:2404] Hybrid model with EAGLE speculative decoding: defaulting prefix_cache_retention_interval to dense checkpointing.
+2026-09-18T22:28:54.752003762Z INFO 09-18 22:28:54 [scheduler.py:277] Chunked prefill is enabled with max_num_batched_tokens=8192.
+2026-09-18T22:28:54.752259159Z INFO 09-18 22:28:54 [config.py:625] Mamba cache mode is set to 'align' for Qwen4ExpForConditionalGeneration by default when prefix caching is enabled
+2026-09-18T22:28:54.752306288Z WARNING 09-18 22:28:54 [modelopt.py:379] Detected ModelOpt fp8 checkpoint (quant_algo=FP8). Please note that the format is experimental and could change.
+2026-09-18T22:28:54.752319182Z WARNING 09-18 22:28:54 [modelopt.py:1029] Detected ModelOpt NVFP4 checkpoint (quant_algo=NVFP4). Please note that the format is experimental and could change in future.
+2026-09-18T22:28:54.752330572Z WARNING 09-18 22:28:54 [modelopt.py:1029] Detected ModelOpt NVFP4 checkpoint (quant_algo=W4A16_NVFP4). Please note that the format is experimental and could change in future.
+2026-09-18T22:28:54.752340826Z WARNING 09-18 22:28:54 [modelopt.py:1711] Detected ModelOpt MXFP8 checkpoint. Please note that the format is experimental and could change in future.
+2026-09-18T22:28:54.752601951Z INFO 09-18 22:28:54 [kernel.py:369] Final IR op priority after setting platform defaults: IrOpPriorityConfig(rms_norm=['native'], fused_add_rms_norm=['native'])
+2026-09-18T22:28:54.797847756Z INFO 09-18 22:28:54 [serve.py:217] Launching vLLM (v0.29.0) headless multiproc executor, with head node address 192.0.2.201:25000 for torch.distributed process group.
+2026-09-18T22:28:53.927237669Z [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'mrope_interleaved', 'mrope_section'}
+2026-09-18T22:28:54.740890102Z [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'mrope_interleaved', 'mrope_section'}
+2026-09-18T22:28:54.741073303Z [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'mrope_interleaved', 'mrope_section'}
+2026-09-18T22:28:54.747772592Z [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'mrope_interleaved', 'mrope_section'}
+2026-09-18T22:28:54.747799723Z [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'mrope_interleaved', 'mrope_section'}
+2026-09-18T22:28:54.747826455Z [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'mrope_interleaved', 'mrope_section'}
+2026-09-18T22:29:00.350661554Z (Worker pid=148) INFO 09-18 22:29:00 [parallel_state.py:1775] world_size=2 rank=1 local_rank=0 distributed_init_method=tcp://192.0.2.201:25000 backend=nccl
+2026-09-18T22:29:24.447993685Z (Worker pid=148) WARNING 09-18 22:29:24 [symm_mem.py:67] SymmMemCommunicator: Device capability 12.1 not supported, communicator is not available.
+2026-09-18T22:29:24.464747728Z (Worker pid=148) WARNING 09-18 22:29:24 [flashinfer_all_reduce.py:383] FlashInfer All Reduce is disabled because it is not supported for world_size=2.
+2026-09-18T22:29:24.480791566Z (Worker pid=148) WARNING 09-18 22:29:24 [custom_all_reduce.py:201] Custom collectives are disabled because this multi-node group does not have MNNVL-capable GPUs on every rank.
+2026-09-18T22:29:26.300155495Z (Worker pid=148) INFO 09-18 22:29:26 [parallel_state.py:2119] rank 1 in world size 2 is assigned as DP rank 0, PP rank 0, PCP rank 0, TP rank 1, EP rank 1, EPLB rank N/A
+2026-09-18T22:28:59.912950652Z [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'mrope_interleaved', 'mrope_section'}
+2026-09-18T22:28:59.913015314Z [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'mrope_interleaved', 'mrope_section'}
+2026-09-18T22:28:59.919877038Z [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'mrope_interleaved', 'mrope_section'}
+2026-09-18T22:28:59.919900491Z [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'mrope_interleaved', 'mrope_section'}
+2026-09-18T22:28:59.919903610Z [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'mrope_interleaved', 'mrope_section'}
+2026-09-18T22:29:26.300313700Z (Worker pid=148) INFO 09-18 22:29:26 [gpu_worker.py:429] Using V2 Model Runner
+2026-09-18T22:29:26.696512571Z (Worker_TP1 pid=148) INFO 09-18 22:29:26 [model_runner.py:382] Loading model from scratch...
+2026-09-18T22:29:26.779449261Z (Worker_TP1 pid=148) INFO 09-18 22:29:26 [cuda.py:551] Using backend AttentionBackendEnum.FLASH_ATTN for vit attention
+2026-09-18T22:29:26.781526108Z (Worker_TP1 pid=148) INFO 09-18 22:29:26 [mm_encoder_attention.py:372] Using AttentionBackendEnum.FLASH_ATTN for MMEncoderAttention.
+2026-09-18T22:29:26.884303361Z (Worker_TP1 pid=148) INFO 09-18 22:29:26 [__init__.py:1066] Using MarlinNvFp4LinearKernel for NVFP4 GEMM
+2026-09-18T22:29:26.886757077Z (Worker_TP1 pid=148) INFO 09-18 22:29:26 [qwen_gdn_linear_attn.py:167] Using Triton/FLA GDN prefill kernel (requested=auto, head_k_dim=128).
+2026-09-18T22:29:26.886802352Z (Worker_TP1 pid=148) INFO 09-18 22:29:26 [qwen_gdn_linear_attn.py:519] GDN decode kernel: cuda
+2026-09-18T22:29:26.903496768Z (Worker_TP1 pid=148) INFO 09-18 22:29:26 [nvfp4.py:304] Using 'FLASHINFER_CUTLASS' NvFp4 MoE backend out of potential backends: ['FLASHINFER_TRTLLM', 'FLASHINFER_CUTEDSL', 'FLASHINFER_CUTEDSL_BATCHED', 'FLASHINFER_CUTLASS', 'VLLM_CUTLASS', 'MARLIN', 'HUMMING', 'EMULATION'].
+2026-09-18T22:29:27.800454970Z (Worker_TP1 pid=148) MBX NVFP4 PLE: GPU-resident partition 320001536 rows x 160
+2026-09-18T22:29:27.896175638Z (Worker_TP1 pid=148) INFO 09-18 22:29:27 [flash_attn.py:897] Using FlashAttention version 2
+2026-09-18T22:29:29.622814871Z (Worker_TP1 pid=148) INFO 09-18 22:29:29 [weight_utils.py:863] Filesystem type for checkpoints: NFS4. Checkpoint size: 98.05 GiB. Available RAM: 43.87 GiB.
+2026-09-18T22:29:29.622830918Z (Worker_TP1 pid=148) WARNING 09-18 22:29:29 [weight_utils.py:876] Network filesystem (NFS4) detected but checkpoint total size (98.05 GiB) exceeds 90% of available RAM (43.87 GiB). Skipping auto-prefetch.
+2026-09-18T22:36:41.651334031Z (Worker_TP1 pid=148) INFO 09-18 22:36:41 [default_loader.py:430] Loading weights took 432.01 seconds
+2026-09-18T22:36:41.753134494Z (Worker_TP1 pid=148) WARNING 09-18 22:36:41 [marlin.py:34] Your GPU does not have native support for FP4 computation but FP4 quantization is being used. Weight-only FP4 compression will be used leveraging the Marlin kernel. This may degrade performance for compute-heavy workloads.
+2026-09-18T22:36:42.087356695Z (Worker_TP1 pid=148) INFO 09-18 22:36:42 [nvfp4.py:613] Using MoEPrepareAndFinalizeNoDPEPModular
+2026-09-18T22:36:42.103975182Z (Worker_TP1 pid=148) PLE: NVFP4 table resident on GPU (320001536 rows this rank, REPLICATED (full table, no all-reduce), global scale 3.3242e-05)
+2026-09-18T22:36:43.919732066Z (Worker_TP1 pid=148) WARNING 09-18 22:36:43 [modelopt.py:379] Detected ModelOpt fp8 checkpoint (quant_algo=FP8). Please note that the format is experimental and could change.
+2026-09-18T22:36:43.919799301Z (Worker_TP1 pid=148) WARNING 09-18 22:36:43 [modelopt.py:1029] Detected ModelOpt NVFP4 checkpoint (quant_algo=NVFP4). Please note that the format is experimental and could change in future.
+2026-09-18T22:36:43.919805813Z (Worker_TP1 pid=148) WARNING 09-18 22:36:43 [modelopt.py:1029] Detected ModelOpt NVFP4 checkpoint (quant_algo=W4A16_NVFP4). Please note that the format is experimental and could change in future.
+2026-09-18T22:36:43.919843175Z (Worker_TP1 pid=148) WARNING 09-18 22:36:43 [modelopt.py:1711] Detected ModelOpt MXFP8 checkpoint. Please note that the format is experimental and could change in future.
+2026-09-18T22:36:43.932317340Z (Worker_TP1 pid=148) INFO 09-18 22:36:43 [kernel.py:369] Final IR op priority after setting platform defaults: IrOpPriorityConfig(rms_norm=['native'], fused_add_rms_norm=['native'])
+2026-09-18T22:36:44.147491714Z (Worker_TP1 pid=148) INFO 09-18 22:36:44 [weight_utils.py:863] Filesystem type for checkpoints: NFS4. Checkpoint size: 7.20 GiB. Available RAM: 44.48 GiB.
+2026-09-18T22:36:44.148414750Z (Worker_TP1 pid=148) INFO 09-18 22:36:44 [weight_utils.py:825] Prefetching checkpoint files into page cache started (in background, num_threads=8, block_size=16777216 bytes)
+2026-09-18T22:36:45.922925413Z (Worker_TP1 pid=148) INFO 09-18 22:36:45 [weight_utils.py:797] Prefetching checkpoint files: 10% (1/2)
+2026-09-18T22:36:48.040980011Z (Worker_TP1 pid=148) INFO 09-18 22:36:48 [weight_utils.py:797] Prefetching checkpoint files: 20% (2/2)
+2026-09-18T22:36:48.046187041Z (Worker_TP1 pid=148) INFO 09-18 22:36:48 [weight_utils.py:820] Prefetching checkpoint files into page cache finished in 3.90s
+2026-09-18T22:36:51.398480213Z (Worker_TP1 pid=148) INFO 09-18 22:36:51 [default_loader.py:430] Loading weights took 7.25 seconds
+2026-09-18T22:36:51.491834008Z (Worker_TP1 pid=148) WARNING 09-18 22:36:51 [speculator.py:202] Draft model Qwen4ExpMTP does not support external multimodal embeddings. Embeddings from the target model will not be passed to the drafter; using text-only draft inputs instead.
+2026-09-18T22:36:54.330056490Z (Worker_TP1 pid=148) INFO 09-18 22:36:54 [model_runner.py:404] Model loading took 64.46 GiB memory and 447.809496 seconds
+2026-09-18T22:36:54.434283309Z (Worker_TP1 pid=148) INFO 09-18 22:36:54 [interface.py:938] Setting attention block size to 1616 tokens to ensure that attention page size is >= mamba page size.
+2026-09-18T22:36:54.434309359Z (Worker_TP1 pid=148) INFO 09-18 22:36:54 [interface.py:962] Padding mamba page size by 0.62% to ensure that mamba page size and attention page size are exactly equal.
+2026-09-18T22:36:54.484349773Z INFO 09-18 22:36:54 [torch_utils.py:277] Reducing Torch threads from 20 to 1 for serving. Set OMP_NUM_THREADS in the external environment to override.
+2026-09-18T22:36:54.469374439Z (Worker_TP1 pid=148) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'mrope_interleaved', 'mrope_section'}
+2026-09-18T22:36:54.469747382Z (Worker_TP1 pid=148) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'mrope_interleaved', 'mrope_section'}
+2026-09-18T22:36:58.962461011Z (Worker_TP1 pid=148) INFO 09-18 22:36:58 [encoder_runner.py:131] Encoder cache will be initialized with a budget of 16384 tokens, and profiled with 1 image items of the maximum feature size.
+2026-09-18T22:37:11.753022936Z (Worker_TP1 pid=148) INFO 09-18 22:37:11 [caching.py:343] reconstructed serializable fn from standalone compile artifacts. num_artifacts=19 num_submods=51
+2026-09-18T22:36:56.297469393Z (Worker_TP1 pid=148) [transformers] The `use_fast` parameter is deprecated and will be removed in a future version. Use `backend="torchvision"` instead of `use_fast=True`, or `backend="pil"` instead of `use_fast=False`.
+2026-09-18T22:36:57.326672079Z (Worker_TP1 pid=148) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'mrope_interleaved', 'mrope_section'}
+2026-09-18T22:36:57.326719393Z (Worker_TP1 pid=148) [transformers] Unrecognized keys in `rope_parameters` for 'rope_type'='default': {'mrope_interleaved', 'mrope_section'}
+2026-09-18T22:37:11.775367472Z (Worker_TP1 pid=148) INFO 09-18 22:37:11 [decorators.py:313] Directly load AOT compilation from path /cache/vllm/torch_compile_cache/torch_aot_compile/21084fd5d39ad0e9ef0606dd89b579e381fc0146d074d62eebbbe4623d5c6827/rank_1_0/model
+2026-09-18T22:37:11.775395777Z (Worker_TP1 pid=148) INFO 09-18 22:37:11 [monitor.py:53] torch.compile took 0.46 s in total
+2026-09-18T22:37:16.653865253Z (Worker_TP1 pid=148) INFO 09-18 22:37:16 [monitor.py:81] Initial profiling/warmup run took 4.88 s
+2026-09-18T22:37:16.751415283Z (Worker_TP1 pid=148) INFO 09-18 22:37:16 [caching.py:343] reconstructed serializable fn from standalone compile artifacts. num_artifacts=2 num_submods=2
+2026-09-18T22:37:16.758049520Z (Worker_TP1 pid=148) INFO 09-18 22:37:16 [decorators.py:313] Directly load AOT compilation from path /cache/vllm/torch_compile_cache/torch_aot_compile/064dc1b6c9595daadb133c06327e20bc54e16691b2214451d67708d9f5b27008/rank_1_0/model
+2026-09-18T22:37:16.758067393Z (Worker_TP1 pid=148) INFO 09-18 22:37:16 [monitor.py:53] torch.compile took 0.05 s in total
+2026-09-18T22:37:16.782942441Z (Worker_TP1 pid=148) INFO 09-18 22:37:16 [monitor.py:81] Initial profiling/warmup run took 0.02 s
+2026-09-18T22:37:17.091118918Z (Worker_TP1 pid=148) INFO 09-18 22:37:17 [gpu_worker.py:544] Initial free memory 109.46 GiB, reserved 26.08 GiB memory for KV Cache as specified by kv_cache_memory_bytes config and skipped memory profiling. This does not respect the gpu_memory_utilization config. Only use kv_cache_memory_bytes config when you want manual control of KV cache memory size. If OOM'ed, check the difference of initial free memory between the current run and the previous run where kv_cache_memory_bytes is suggested and update it correspondingly.
+2026-09-18T22:37:25.144345293Z (Worker_TP1 pid=148) INFO 09-18 22:37:25 [kernel_warmup.py:124] JIT kernel warmup starting.
+2026-09-18T22:37:25.144362317Z (Worker_TP1 pid=148) INFO 09-18 22:37:25 [kernel_warmup.py:134] JIT kernel warmup finished in 0.00s.
+2026-09-18T22:37:25.441703790Z (Worker_TP1 pid=148) 2026-09-18 22:37:25,441 - INFO - autotuner.py:2789 - flashinfer.jit: [Autotuner]: Loaded 42 configs from /cache/vllm/flashinfer_autotune_cache/0.6.18/121a/4d49d99f6c4897ef4cf0bc88cfc370d6e90c6ff1d4554b371ee9b866865c6e43/autotune_configs.json
+2026-09-18T22:37:25.441928259Z (Worker_TP1 pid=148) INFO 09-18 22:37:25 [kernel_warmup.py:266] Running FlashInfer autotune with 8192 tokens.
+2026-09-18T22:37:25.441894658Z (Worker_TP1 pid=148) 2026-09-18 22:37:25,441 - INFO - autotuner.py:972 - flashinfer.jit: [Autotuner]: Autotuning process starts ...
+2026-09-18T23:07:25.612139284Z (Worker_TP1 pid=148) 
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1:   0%|          | 0/21 [00:00<?, ?profile/s]2026-09-18 23:07:25,611 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 20 unsupported tactic(s) for trtllm::fused_moe::gemm1 (enable debug logs to see details)
+2026-09-18T23:07:25.712320066Z (Worker_TP1 pid=148) 
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1:   5%|▍         | 1/21 [30:00<10:00:03, 1800.15s/profile]2026-09-18 23:07:25,712 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 20 unsupported tactic(s) for trtllm::fused_moe::gemm1 (enable debug logs to see details)
+2026-09-18T23:07:25.814395104Z (Worker_TP1 pid=148) 
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1:  10%|▉         | 2/21 [30:00<3:54:44, 741.30s/profile]  2026-09-18 23:07:25,814 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 20 unsupported tactic(s) for trtllm::fused_moe::gemm1 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1:  14%|█▍        | 3/21 [30:00<2:00:51, 402.85s/profile]2026-09-18 23:07:25,927 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 20 unsupported tactic(s) for trtllm::fused_moe::gemm1 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1:  19%|█▉        | 4/21 [30:00<1:09:05, 243.86s/profile]2026-09-18 23:07:26,095 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 20 unsupported tactic(s) for trtllm::fused_moe::gemm1 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1:  24%|██▍       | 5/21 [30:00<41:35, 155.98s/profile]  2026-09-18 23:07:26,353 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 20 unsupported tactic(s) for trtllm::fused_moe::gemm1 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1:  29%|██▊       | 6/21 [30:00<25:45, 103.03s/profile]2026-09-18 23:07:26,727 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 20 unsupported tactic(s) for trtllm::fused_moe::gemm1 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1:  33%|███▎      | 7/21 [30:01<16:12, 69.47s/profile] 2026-09-18 23:07:27,199 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 20 unsupported tactic(s) for trtllm::fused_moe::gemm1 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1:  38%|███▊      | 8/21 [30:01<10:17, 47.51s/profile]2026-09-18 23:07:27,698 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 20 unsupported tactic(s) for trtllm::fused_moe::gemm1 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1:  43%|████▎     | 9/21 [30:02<06:33, 32.81s/profile]2026-09-18 23:07:28,223 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 20 unsupported tactic(s) for trtllm::fused_moe::gemm1 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1:  48%|████▊     | 10/21 [30:02<04:11, 22.84s/profile]2026-09-18 23:07:28,772 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 20 unsupported tactic(s) for trtllm::fused_moe::gemm1 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1:  52%|█████▏    | 11/21 [30:03<02:40, 16.02s/profile]2026-09-18 23:07:29,322 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 20 unsupported tactic(s) for trtllm::fused_moe::gemm1 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1:  57%|█████▋    | 12/21 [30:03<01:41, 11.31s/profile]2026-09-18 23:07:29,878 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 20 unsupported tactic(s) for trtllm::fused_moe::gemm1 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1:  62%|██████▏   | 13/21 [30:04<01:04,  8.05s/profile]2026-09-18 23:07:30,448 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 20 unsupported tactic(s) for trtllm::fused_moe::gemm1 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1:  67%|██████▋   | 14/21 [30:04<00:40,  5.79s/profile]2026-09-18 23:07:31,033 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 20 unsupported tactic(s) for trtllm::fused_moe::gemm1 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1:  71%|███████▏  | 15/21 [30:05<00:25,  4.22s/profile]2026-09-18 23:07:31,628 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 20 unsupported tactic(s) for trtllm::fused_moe::gemm1 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1:  76%|███████▌  | 16/21 [30:06<00:15,  3.13s/profile]2026-09-18 23:07:32,225 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 20 unsupported tactic(s) for trtllm::fused_moe::gemm1 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1:  81%|████████  | 17/21 [30:06<00:09,  2.37s/profile]2026-09-18 23:07:32,845 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 20 unsupported tactic(s) for trtllm::fused_moe::gemm1 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1:  86%|████████▌ | 18/21 [30:07<00:05,  1.84s/profile]2026-09-18 23:07:33,478 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 20 unsupported tactic(s) for trtllm::fused_moe::gemm1 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1:  90%|█████████ | 19/21 [30:08<00:02,  1.48s/profile]2026-09-18 23:07:34,141 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 20 unsupported tactic(s) for trtllm::fused_moe::gemm1 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1:  95%|█████████▌| 20/21 [30:08<00:01,  1.23s/profile]2026-09-18 23:07:35,025 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 20 unsupported tactic(s) for trtllm::fused_moe::gemm1 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1: 100%|██████████| 21/21 [30:09<00:00,  1.13s/profile]
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1: 100%|██████████| 21/21 [30:09<00:00, 86.17s/profile]
+[AutoTuner]: Tuning trtllm::fused_moe::gemm2:   0%|          | 0/21 [00:00<?, ?profile/s]2026-09-18 23:07:35,223 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 40 unsupported tactic(s) for trtllm::fused_moe::gemm2 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm2:  76%|███████▌  | 16/21 [00:09<00:04,  1.17profile/s]2026-09-18 23:07:45,454 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 40 unsupported tactic(s) for trtllm::fused_moe::gemm2 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm2:  48%|████▊     | 10/21 [00:04<00:06,  1.60profile/s]2026-09-18 23:08:06,222 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 40 unsupported tactic(s) for trtllm::fused_moe::gemm2 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm2:  19%|█▉        | 4/21 [00:00<00:03,  4.80profile/s]2026-09-18 23:08:28,163 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 40 unsupported tactic(s) for trtllm::fused_moe::gemm2 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1: 100%|██████████| 21/21 [00:09<00:00,  1.41profile/s]
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1:  71%|███████▏  | 15/21 [00:05<00:03,  1.85profile/s]2026-09-18 23:09:15,449 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 20 unsupported tactic(s) for trtllm::fused_moe::gemm1 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1:  43%|████▎     | 9/21 [00:02<00:04,  2.59profile/s]2026-09-18 23:09:37,918 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 20 unsupported tactic(s) for trtllm::fused_moe::gemm1 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1:  14%|█▍        | 3/21 [00:00<00:01,  9.15profile/s]2026-09-18 23:10:01,771 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 20 unsupported tactic(s) for trtllm::fused_moe::gemm1 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm2:  95%|█████████▌| 20/21 [00:14<00:01,  1.12s/profile]2026-09-18 23:10:27,362 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 40 unsupported tactic(s) for trtllm::fused_moe::gemm2 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm2:  67%|██████▋   | 14/21 [00:07<00:05,  1.26profile/s]2026-09-18 23:10:45,831 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 40 unsupported tactic(s) for trtllm::fused_moe::gemm2 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm2:  38%|███▊      | 8/21 [00:02<00:06,  2.00profile/s]2026-09-18 23:11:07,412 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 40 unsupported tactic(s) for trtllm::fused_moe::gemm2 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm2:  10%|▉         | 2/21 [00:00<00:03,  5.29profile/s]2026-09-18 23:11:30,856 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 40 unsupported tactic(s) for trtllm::fused_moe::gemm2 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1:  90%|█████████ | 19/21 [00:08<00:01,  1.57profile/s]2026-09-18 23:11:56,095 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 20 unsupported tactic(s) for trtllm::fused_moe::gemm1 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1:  62%|██████▏   | 13/21 [00:04<00:04,  1.89profile/s]2026-09-18 23:12:18,614 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 20 unsupported tactic(s) for trtllm::fused_moe::gemm1 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1:  33%|███▎      | 7/21 [00:01<00:03,  3.77profile/s]2026-09-18 23:12:41,634 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 20 unsupported tactic(s) for trtllm::fused_moe::gemm1 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1:   5%|▍         | 1/21 [00:00<00:02,  8.27profile/s]2026-09-18 23:13:06,156 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 20 unsupported tactic(s) for trtllm::fused_moe::gemm1 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm2:  86%|████████▌ | 18/21 [00:11<00:02,  1.03profile/s]2026-09-18 23:13:28,737 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 40 unsupported tactic(s) for trtllm::fused_moe::gemm2 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm2:  57%|█████▋    | 12/21 [00:05<00:06,  1.40profile/s]2026-09-18 23:13:49,067 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 40 unsupported tactic(s) for trtllm::fused_moe::gemm2 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm2:  29%|██▊       | 6/21 [00:01<00:04,  3.25profile/s]2026-09-18 23:14:10,693 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 40 unsupported tactic(s) for trtllm::fused_moe::gemm2 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm2:   0%|          | 0/21 [00:00<?, ?profile/s]2026-09-18 23:14:34,892 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 40 unsupported tactic(s) for trtllm::fused_moe::gemm2 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1:  81%|████████  | 17/21 [00:07<00:02,  1.70profile/s]2026-09-18 23:14:59,042 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 20 unsupported tactic(s) for trtllm::fused_moe::gemm1 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1:  52%|█████▏    | 11/21 [00:03<00:04,  2.09profile/s]2026-09-18 23:15:21,863 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 20 unsupported tactic(s) for trtllm::fused_moe::gemm1 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1:  24%|██▍       | 5/21 [00:00<00:02,  7.57profile/s]2026-09-18 23:15:44,910 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 20 unsupported tactic(s) for trtllm::fused_moe::gemm1 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm2: 100%|██████████| 21/21 [00:16<00:00,  1.29profile/s]
+[AutoTuner]: Tuning trtllm::fused_moe::gemm2:  76%|███████▌  | 16/21 [00:09<00:04,  1.18profile/s]2026-09-18 23:16:29,896 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 40 unsupported tactic(s) for trtllm::fused_moe::gemm2 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm2:  48%|████▊     | 10/21 [00:04<00:06,  1.60profile/s]2026-09-18 23:16:50,735 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 40 unsupported tactic(s) for trtllm::fused_moe::gemm2 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm2:  19%|█▉        | 4/21 [00:00<00:03,  4.66profile/s]2026-09-18 23:17:12,920 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 40 unsupported tactic(s) for trtllm::fused_moe::gemm2 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1: 100%|██████████| 21/21 [00:09<00:00,  1.41profile/s]
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1:  71%|███████▏  | 15/21 [00:05<00:03,  1.85profile/s]2026-09-18 23:18:00,657 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 20 unsupported tactic(s) for trtllm::fused_moe::gemm1 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1:  43%|████▎     | 9/21 [00:02<00:04,  2.59profile/s]2026-09-18 23:18:23,513 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 20 unsupported tactic(s) for trtllm::fused_moe::gemm1 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1:  14%|█▍        | 3/21 [00:00<00:01,  9.38profile/s]2026-09-18 23:18:47,291 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 20 unsupported tactic(s) for trtllm::fused_moe::gemm1 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm2:  95%|█████████▌| 20/21 [00:14<00:01,  1.12s/profile]2026-09-18 23:19:12,977 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 40 unsupported tactic(s) for trtllm::fused_moe::gemm2 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm2:  67%|██████▋   | 14/21 [00:07<00:05,  1.28profile/s]2026-09-18 23:19:31,113 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 40 unsupported tactic(s) for trtllm::fused_moe::gemm2 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm2:  38%|███▊      | 8/21 [00:02<00:06,  2.01profile/s]2026-09-18 23:19:52,552 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 40 unsupported tactic(s) for trtllm::fused_moe::gemm2 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm2:  10%|▉         | 2/21 [00:00<00:03,  5.25profile/s]2026-09-18 23:20:15,775 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 40 unsupported tactic(s) for trtllm::fused_moe::gemm2 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1:  90%|█████████ | 19/21 [00:08<00:01,  1.64profile/s]2026-09-18 23:20:40,410 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 20 unsupported tactic(s) for trtllm::fused_moe::gemm1 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1:  62%|██████▏   | 13/21 [00:04<00:04,  1.95profile/s]2026-09-18 23:21:02,505 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 20 unsupported tactic(s) for trtllm::fused_moe::gemm1 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1:  33%|███▎      | 7/21 [00:01<00:03,  4.09profile/s]2026-09-18 23:21:25,125 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 20 unsupported tactic(s) for trtllm::fused_moe::gemm1 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1:   5%|▍         | 1/21 [00:00<00:02,  8.25profile/s]2026-09-18 23:21:49,557 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 20 unsupported tactic(s) for trtllm::fused_moe::gemm1 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm2:  86%|████████▌ | 18/21 [00:11<00:02,  1.04profile/s]2026-09-18 23:22:11,590 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 40 unsupported tactic(s) for trtllm::fused_moe::gemm2 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm2:  57%|█████▋    | 12/21 [00:05<00:06,  1.40profile/s]2026-09-18 23:22:31,493 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 40 unsupported tactic(s) for trtllm::fused_moe::gemm2 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm2:  29%|██▊       | 6/21 [00:01<00:04,  3.21profile/s]2026-09-18 23:22:52,625 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 40 unsupported tactic(s) for trtllm::fused_moe::gemm2 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm2:   0%|          | 0/21 [00:00<?, ?profile/s]2026-09-18 23:23:16,430 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 40 unsupported tactic(s) for trtllm::fused_moe::gemm2 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1:  81%|████████  | 17/21 [00:06<00:02,  1.76profile/s]2026-09-18 23:23:41,452 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 20 unsupported tactic(s) for trtllm::fused_moe::gemm1 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1:  52%|█████▏    | 11/21 [00:03<00:04,  2.03profile/s]2026-09-18 23:24:04,227 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 20 unsupported tactic(s) for trtllm::fused_moe::gemm1 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1:  24%|██▍       | 5/21 [00:00<00:02,  7.66profile/s]2026-09-18 23:24:27,097 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 20 unsupported tactic(s) for trtllm::fused_moe::gemm1 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm2: 100%|██████████| 21/21 [00:16<00:00,  1.30profile/s]
+[AutoTuner]: Tuning trtllm::fused_moe::gemm2:  76%|███████▌  | 16/21 [00:09<00:04,  1.19profile/s]2026-09-18 23:25:12,464 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 40 unsupported tactic(s) for trtllm::fused_moe::gemm2 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm2:  48%|████▊     | 10/21 [00:04<00:06,  1.63profile/s]2026-09-18 23:25:33,002 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 40 unsupported tactic(s) for trtllm::fused_moe::gemm2 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm2:  19%|█▉        | 4/21 [00:00<00:03,  4.62profile/s]2026-09-18 23:25:57,532 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 40 unsupported tactic(s) for trtllm::fused_moe::gemm2 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1: 100%|██████████| 21/21 [00:09<00:00,  1.39profile/s]
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1:  71%|███████▏  | 15/21 [00:05<00:03,  1.84profile/s]2026-09-18 23:26:45,450 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 20 unsupported tactic(s) for trtllm::fused_moe::gemm1 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1:  43%|████▎     | 9/21 [00:02<00:05,  2.18profile/s]2026-09-18 23:27:10,173 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 20 unsupported tactic(s) for trtllm::fused_moe::gemm1 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1:  14%|█▍        | 3/21 [00:00<00:01,  9.37profile/s]2026-09-18 23:27:34,129 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 20 unsupported tactic(s) for trtllm::fused_moe::gemm1 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm2:  95%|█████████▌| 20/21 [00:14<00:01,  1.12s/profile]2026-09-18 23:27:59,932 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 40 unsupported tactic(s) for trtllm::fused_moe::gemm2 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm2:  67%|██████▋   | 14/21 [00:08<00:06,  1.10profile/s]2026-09-18 23:28:18,801 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 40 unsupported tactic(s) for trtllm::fused_moe::gemm2 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm2:  38%|███▊      | 8/21 [00:02<00:06,  2.00profile/s]2026-09-18 23:28:40,408 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 40 unsupported tactic(s) for trtllm::fused_moe::gemm2 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm2:  10%|▉         | 2/21 [00:00<00:03,  5.15profile/s]2026-09-18 23:29:14,778 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 40 unsupported tactic(s) for trtllm::fused_moe::gemm2 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1:  90%|█████████ | 19/21 [00:09<00:01,  1.49profile/s]2026-09-18 23:29:41,985 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 20 unsupported tactic(s) for trtllm::fused_moe::gemm1 (enable debug logs to see details)
+[AutoTuner]: Tuning trtllm::fused_moe::gemm1:  62%|██████▏   | 13/21 [00:05<00:04,  1.71profile/s]2026-09-18 23:30:06,849 - INFO - autotuner.py:1869 - flashinfer.jit: [Autotuner]: Skipped 20 unsupported tactic(s) for trtllm::fused_moe::gemm1 (enable debug logs to see details)
+2026-09-18T23:30:30.654546169Z (Worker_TP1 pid=148) ERROR 09-18 23:30:30 [multiproc_executor.py:1055] WorkerProc hit an exception.
+2026-09-18T23:30:30.654567992Z (Worker_TP1 pid=148) ERROR 09-18 23:30:30 [multiproc_executor.py:1055] Traceback (most recent call last):
+2026-09-18T23:30:30.654571384Z (Worker_TP1 pid=148) ERROR 09-18 23:30:30 [multiproc_executor.py:1055]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/executor/multiproc_executor.py", line 1047, in _execute_worker_rpc
+2026-09-18T23:30:30.654573096Z (Worker_TP1 pid=148) ERROR 09-18 23:30:30 [multiproc_executor.py:1055]     output = func(*args, **kwargs)
+2026-09-18T23:30:30.654574488Z (Worker_TP1 pid=148) ERROR 09-18 23:30:30 [multiproc_executor.py:1055]              ^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T23:30:30.583793617Z (Worker_TP1 pid=148) 2026-09-18 23:30:30,583 - INFO - autotuner.py:995 - flashinfer.jit: [Autotuner]: Autotuning process ends
+2026-09-18T23:30:30.654575768Z (Worker_TP1 pid=148) ERROR 09-18 23:30:30 [multiproc_executor.py:1055]   File "/usr/local/lib/python3.12/dist-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+2026-09-18T23:30:30.654577224Z (Worker_TP1 pid=148) ERROR 09-18 23:30:30 [multiproc_executor.py:1055]     return func(*args, **kwargs)
+2026-09-18T23:30:30.654578600Z (Worker_TP1 pid=148) ERROR 09-18 23:30:30 [multiproc_executor.py:1055]            ^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T23:30:30.654580152Z (Worker_TP1 pid=148) ERROR 09-18 23:30:30 [multiproc_executor.py:1055]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/gpu_worker.py", line 784, in compile_or_warm_up_model
+2026-09-18T23:30:30.654581528Z (Worker_TP1 pid=148) ERROR 09-18 23:30:30 [multiproc_executor.py:1055]     kernel_warmup(self)
+2026-09-18T23:30:30.654582744Z (Worker_TP1 pid=148) ERROR 09-18 23:30:30 [multiproc_executor.py:1055]   File "/usr/local/lib/python3.12/dist-packages/vllm/model_executor/warmup/kernel_warmup.py", line 196, in kernel_warmup
+2026-09-18T23:30:30.654584072Z (Worker_TP1 pid=148) ERROR 09-18 23:30:30 [multiproc_executor.py:1055]     flashinfer_autotune(worker.model_runner)
+2026-09-18T23:30:30.654585368Z (Worker_TP1 pid=148) ERROR 09-18 23:30:30 [multiproc_executor.py:1055]   File "/usr/local/lib/python3.12/dist-packages/vllm/model_executor/warmup/kernel_warmup.py", line 339, in flashinfer_autotune
+2026-09-18T23:30:30.654586648Z (Worker_TP1 pid=148) ERROR 09-18 23:30:30 [multiproc_executor.py:1055]     world.barrier()
+2026-09-18T23:30:30.654588296Z (Worker_TP1 pid=148) ERROR 09-18 23:30:30 [multiproc_executor.py:1055]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/parallel_state.py", line 1344, in barrier
+2026-09-18T23:30:30.654589560Z (Worker_TP1 pid=148) ERROR 09-18 23:30:30 [multiproc_executor.py:1055]     torch.distributed.barrier(group=self.cpu_group)
+2026-09-18T23:30:30.654590808Z (Worker_TP1 pid=148) ERROR 09-18 23:30:30 [multiproc_executor.py:1055]   File "/usr/local/lib/python3.12/dist-packages/torch/distributed/c10d_logger.py", line 83, in wrapper
+2026-09-18T23:30:30.654592071Z (Worker_TP1 pid=148) ERROR 09-18 23:30:30 [multiproc_executor.py:1055]     return func(*args, **kwargs)
+2026-09-18T23:30:30.654593287Z (Worker_TP1 pid=148) ERROR 09-18 23:30:30 [multiproc_executor.py:1055]            ^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T23:30:30.654600199Z (Worker_TP1 pid=148) ERROR 09-18 23:30:30 [multiproc_executor.py:1055]   File "/usr/local/lib/python3.12/dist-packages/torch/distributed/distributed_c10d.py", line 5356, in barrier
+2026-09-18T23:30:30.654601207Z (Worker_TP1 pid=148) ERROR 09-18 23:30:30 [multiproc_executor.py:1055]     work.wait()
+2026-09-18T23:30:30.654602119Z (Worker_TP1 pid=148) ERROR 09-18 23:30:30 [multiproc_executor.py:1055] RuntimeError: Application timeout caused pair closure
+2026-09-18T23:30:30.654602983Z (Worker_TP1 pid=148) ERROR 09-18 23:30:30 [multiproc_executor.py:1055] Traceback (most recent call last):
+2026-09-18T23:30:30.654603863Z (Worker_TP1 pid=148) ERROR 09-18 23:30:30 [multiproc_executor.py:1055]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/executor/multiproc_executor.py", line 1047, in _execute_worker_rpc
+2026-09-18T23:30:30.654616775Z (Worker_TP1 pid=148) ERROR 09-18 23:30:30 [multiproc_executor.py:1055]     output = func(*args, **kwargs)
+2026-09-18T23:30:30.654618247Z (Worker_TP1 pid=148) ERROR 09-18 23:30:30 [multiproc_executor.py:1055]              ^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T23:30:30.654619527Z (Worker_TP1 pid=148) ERROR 09-18 23:30:30 [multiproc_executor.py:1055]   File "/usr/local/lib/python3.12/dist-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+2026-09-18T23:30:30.654620487Z (Worker_TP1 pid=148) ERROR 09-18 23:30:30 [multiproc_executor.py:1055]     return func(*args, **kwargs)
+2026-09-18T23:30:30.654621559Z (Worker_TP1 pid=148) ERROR 09-18 23:30:30 [multiproc_executor.py:1055]            ^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T23:30:30.654622423Z (Worker_TP1 pid=148) ERROR 09-18 23:30:30 [multiproc_executor.py:1055]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/gpu_worker.py", line 784, in compile_or_warm_up_model
+2026-09-18T23:30:30.654623639Z (Worker_TP1 pid=148) ERROR 09-18 23:30:30 [multiproc_executor.py:1055]     kernel_warmup(self)
+2026-09-18T23:30:30.654624535Z (Worker_TP1 pid=148) ERROR 09-18 23:30:30 [multiproc_executor.py:1055]   File "/usr/local/lib/python3.12/dist-packages/vllm/model_executor/warmup/kernel_warmup.py", line 196, in kernel_warmup
+2026-09-18T23:30:30.654625607Z (Worker_TP1 pid=148) ERROR 09-18 23:30:30 [multiproc_executor.py:1055]     flashinfer_autotune(worker.model_runner)
+2026-09-18T23:30:30.654626503Z (Worker_TP1 pid=148) ERROR 09-18 23:30:30 [multiproc_executor.py:1055]   File "/usr/local/lib/python3.12/dist-packages/vllm/model_executor/warmup/kernel_warmup.py", line 339, in flashinfer_autotune
+2026-09-18T23:30:30.654627607Z (Worker_TP1 pid=148) ERROR 09-18 23:30:30 [multiproc_executor.py:1055]     world.barrier()
+2026-09-18T23:30:30.654628519Z (Worker_TP1 pid=148) ERROR 09-18 23:30:30 [multiproc_executor.py:1055]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/parallel_state.py", line 1344, in barrier
+2026-09-18T23:30:30.654629590Z (Worker_TP1 pid=148) ERROR 09-18 23:30:30 [multiproc_executor.py:1055]     torch.distributed.barrier(group=self.cpu_group)
+2026-09-18T23:30:30.654630470Z (Worker_TP1 pid=148) ERROR 09-18 23:30:30 [multiproc_executor.py:1055]   File "/usr/local/lib/python3.12/dist-packages/torch/distributed/c10d_logger.py", line 83, in wrapper
+2026-09-18T23:30:30.654633046Z (Worker_TP1 pid=148) ERROR 09-18 23:30:30 [multiproc_executor.py:1055]     return func(*args, **kwargs)
+2026-09-18T23:30:30.654633958Z (Worker_TP1 pid=148) ERROR 09-18 23:30:30 [multiproc_executor.py:1055]            ^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T23:30:30.654635078Z (Worker_TP1 pid=148) ERROR 09-18 23:30:30 [multiproc_executor.py:1055]   File "/usr/local/lib/python3.12/dist-packages/torch/distributed/distributed_c10d.py", line 5356, in barrier
+2026-09-18T23:30:30.654636038Z (Worker_TP1 pid=148) ERROR 09-18 23:30:30 [multiproc_executor.py:1055]     work.wait()
+2026-09-18T23:30:30.654637014Z (Worker_TP1 pid=148) ERROR 09-18 23:30:30 [multiproc_executor.py:1055] RuntimeError: Application timeout caused pair closure
+2026-09-18T23:30:30.654637926Z (Worker_TP1 pid=148) ERROR 09-18 23:30:30 [multiproc_executor.py:1055] 
+2026-09-18T23:30:40.353454990Z [rank1]:[W918 23:30:40.717668970 TCPStore.cpp:125] [c10d] recvValue failed on SocketImpl(fd=46, addr=[box-b-host]:47740, remote=[pair-link]:25000): Failed to recv, got 0 bytes. Connection was likely closed. Did the remote server shutdown or crash?
+2026-09-18T23:30:40.353815733Z Exception raised from recvBytes at /__w/pytorch/pytorch/torch/csrc/distributed/c10d/Utils.hpp:787 (most recent call first):
+2026-09-18T23:30:40.353827540Z frame #0: c10::Error::Error(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0xc8 (0xf2acc50de158 in /usr/local/lib/python3.12/dist-packages/torch/lib/libc10.so)
+2026-09-18T23:30:40.353829924Z frame #1: c10::DistError::DistError(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0x78 (0xf2acc50ded48 in /usr/local/lib/python3.12/dist-packages/torch/lib/libc10.so)
+2026-09-18T23:30:40.353831684Z frame #2: c10::DistNetworkError::DistNetworkError(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0x78 (0xf2acc50df0c8 in /usr/local/lib/python3.12/dist-packages/torch/lib/libc10.so)
+2026-09-18T23:30:40.353833508Z frame #3: <unknown function> + 0x70b84d4 (0xf2ace2a484d4 in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:40.353835604Z frame #4: c10d::TCPStore::check(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > > const&) + 0x258 (0xf2ace2a4ab38 in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:40.353837476Z frame #5: c10d::ProcessGroupNCCL::HeartbeatMonitor::runLoop() + 0x330 (0xf2acc6027350 in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cuda.so)
+2026-09-18T23:30:40.353838836Z frame #6: <unknown function> + 0xe1ae0 (0xf2ad764b1ae0 in /usr/lib/aarch64-linux-gnu/libstdc++.so.6)
+2026-09-18T23:30:40.353840308Z frame #7: <unknown function> + 0x8582c (0xf2ad7717582c in /usr/lib/aarch64-linux-gnu/libc.so.6)
+2026-09-18T23:30:40.353841636Z frame #8: <unknown function> + 0xeb79c (0xf2ad771db79c in /usr/lib/aarch64-linux-gnu/libc.so.6)
+2026-09-18T23:30:40.353853796Z 
+2026-09-18T23:30:40.353857236Z [rank1]:[W918 23:30:40.738778153 ProcessGroupNCCL.cpp:1876] [PG ID 0 PG GUID 0 Rank 1] Failed to check the "should dump" flag on TCPStore, (maybe TCPStore server has shut down too early), with error: Failed to recv, got 0 bytes. Connection was likely closed. Did the remote server shutdown or crash?
+2026-09-18T23:30:41.360569272Z [rank1]:[W918 23:30:41.739870051 TCPStore.cpp:106] [c10d] sendBytes failed on SocketImpl(fd=46, addr=[box-b-host]:47740, remote=[pair-link]:25000): Broken pipe
+2026-09-18T23:30:41.360749044Z Exception raised from sendBytes at /__w/pytorch/pytorch/torch/csrc/distributed/c10d/Utils.hpp:758 (most recent call first):
+2026-09-18T23:30:41.360761363Z frame #0: c10::Error::Error(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0xc8 (0xf2acc50de158 in /usr/local/lib/python3.12/dist-packages/torch/lib/libc10.so)
+2026-09-18T23:30:41.360764515Z frame #1: c10::DistError::DistError(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0x78 (0xf2acc50ded48 in /usr/local/lib/python3.12/dist-packages/torch/lib/libc10.so)
+2026-09-18T23:30:41.360766211Z frame #2: c10::DistNetworkError::DistNetworkError(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0x78 (0xf2acc50df0c8 in /usr/local/lib/python3.12/dist-packages/torch/lib/libc10.so)
+2026-09-18T23:30:41.360768115Z frame #3: <unknown function> + 0x70b77ec (0xf2ace2a477ec in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:41.360769571Z frame #4: <unknown function> + 0x70b9aa4 (0xf2ace2a49aa4 in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:41.360770915Z frame #5: <unknown function> + 0x70b9c18 (0xf2ace2a49c18 in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:41.360772403Z frame #6: c10d::TCPStore::check(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > > const&) + 0x23c (0xf2ace2a4ab1c in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:41.360774163Z frame #7: c10d::ProcessGroupNCCL::HeartbeatMonitor::runLoop() + 0x330 (0xf2acc6027350 in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cuda.so)
+2026-09-18T23:30:41.360775651Z frame #8: <unknown function> + 0xe1ae0 (0xf2ad764b1ae0 in /usr/lib/aarch64-linux-gnu/libstdc++.so.6)
+2026-09-18T23:30:41.360777027Z frame #9: <unknown function> + 0x8582c (0xf2ad7717582c in /usr/lib/aarch64-linux-gnu/libc.so.6)
+2026-09-18T23:30:41.360780643Z frame #10: <unknown function> + 0xeb79c (0xf2ad771db79c in /usr/lib/aarch64-linux-gnu/libc.so.6)
+2026-09-18T23:30:41.360782115Z 
+2026-09-18T23:30:41.360783347Z [rank1]:[W918 23:30:41.746559073 ProcessGroupNCCL.cpp:1876] [PG ID 0 PG GUID 0 Rank 1] Failed to check the "should dump" flag on TCPStore, (maybe TCPStore server has shut down too early), with error: Broken pipe
+2026-09-18T23:30:42.389151029Z [rank1]:[W918 23:30:42.756951346 TCPStore.cpp:106] [c10d] sendBytes failed on SocketImpl(fd=46, addr=[box-b-host]:47740, remote=[pair-link]:25000): Broken pipe
+2026-09-18T23:30:42.389315137Z Exception raised from sendBytes at /__w/pytorch/pytorch/torch/csrc/distributed/c10d/Utils.hpp:758 (most recent call first):
+2026-09-18T23:30:42.389316945Z frame #0: c10::Error::Error(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0xc8 (0xf2acc50de158 in /usr/local/lib/python3.12/dist-packages/torch/lib/libc10.so)
+2026-09-18T23:30:42.389404526Z frame #1: c10::DistError::DistError(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0x78 (0xf2acc50ded48 in /usr/local/lib/python3.12/dist-packages/torch/lib/libc10.so)
+2026-09-18T23:30:42.389405966Z frame #2: c10::DistNetworkError::DistNetworkError(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0x78 (0xf2acc50df0c8 in /usr/local/lib/python3.12/dist-packages/torch/lib/libc10.so)
+2026-09-18T23:30:42.389408110Z frame #3: <unknown function> + 0x70b77ec (0xf2ace2a477ec in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:42.389409278Z frame #4: <unknown function> + 0x70b9aa4 (0xf2ace2a49aa4 in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:42.389410382Z frame #5: <unknown function> + 0x70b9c18 (0xf2ace2a49c18 in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:42.389411550Z frame #6: c10d::TCPStore::check(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > > const&) + 0x23c (0xf2ace2a4ab1c in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:42.389413070Z frame #7: c10d::ProcessGroupNCCL::HeartbeatMonitor::runLoop() + 0x330 (0xf2acc6027350 in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cuda.so)
+2026-09-18T23:30:42.389414126Z frame #8: <unknown function> + 0xe1ae0 (0xf2ad764b1ae0 in /usr/lib/aarch64-linux-gnu/libstdc++.so.6)
+2026-09-18T23:30:42.389415134Z frame #9: <unknown function> + 0x8582c (0xf2ad7717582c in /usr/lib/aarch64-linux-gnu/libc.so.6)
+2026-09-18T23:30:42.389417086Z frame #10: <unknown function> + 0xeb79c (0xf2ad771db79c in /usr/lib/aarch64-linux-gnu/libc.so.6)
+2026-09-18T23:30:42.389418238Z 
+2026-09-18T23:30:42.389419182Z [rank1]:[W918 23:30:42.772800188 ProcessGroupNCCL.cpp:1876] [PG ID 0 PG GUID 0 Rank 1] Failed to check the "should dump" flag on TCPStore, (maybe TCPStore server has shut down too early), with error: Broken pipe
+2026-09-18T23:30:43.393850378Z [rank1]:[W918 23:30:43.773326112 TCPStore.cpp:106] [c10d] sendBytes failed on SocketImpl(fd=46, addr=[box-b-host]:47740, remote=[pair-link]:25000): Broken pipe
+2026-09-18T23:30:43.393928712Z Exception raised from sendBytes at /__w/pytorch/pytorch/torch/csrc/distributed/c10d/Utils.hpp:758 (most recent call first):
+2026-09-18T23:30:43.393930792Z frame #0: c10::Error::Error(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0xc8 (0xf2acc50de158 in /usr/local/lib/python3.12/dist-packages/torch/lib/libc10.so)
+2026-09-18T23:30:43.393942648Z frame #1: c10::DistError::DistError(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0x78 (0xf2acc50ded48 in /usr/local/lib/python3.12/dist-packages/torch/lib/libc10.so)
+2026-09-18T23:30:43.393943992Z frame #2: c10::DistNetworkError::DistNetworkError(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0x78 (0xf2acc50df0c8 in /usr/local/lib/python3.12/dist-packages/torch/lib/libc10.so)
+2026-09-18T23:30:43.393945448Z frame #3: <unknown function> + 0x70b77ec (0xf2ace2a477ec in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:43.393946552Z frame #4: <unknown function> + 0x70b9aa4 (0xf2ace2a49aa4 in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:43.393947576Z frame #5: <unknown function> + 0x70b9c18 (0xf2ace2a49c18 in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:43.393948824Z frame #6: c10d::TCPStore::check(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > > const&) + 0x23c (0xf2ace2a4ab1c in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:43.393950264Z frame #7: c10d::ProcessGroupNCCL::HeartbeatMonitor::runLoop() + 0x330 (0xf2acc6027350 in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cuda.so)
+2026-09-18T23:30:43.393951399Z frame #8: <unknown function> + 0xe1ae0 (0xf2ad764b1ae0 in /usr/lib/aarch64-linux-gnu/libstdc++.so.6)
+2026-09-18T23:30:43.393952455Z frame #9: <unknown function> + 0x8582c (0xf2ad7717582c in /usr/lib/aarch64-linux-gnu/libc.so.6)
+2026-09-18T23:30:43.393956311Z frame #10: <unknown function> + 0xeb79c (0xf2ad771db79c in /usr/lib/aarch64-linux-gnu/libc.so.6)
+2026-09-18T23:30:43.393957383Z 
+2026-09-18T23:30:43.393958455Z [rank1]:[W918 23:30:43.778993145 ProcessGroupNCCL.cpp:1876] [PG ID 0 PG GUID 0 Rank 1] Failed to check the "should dump" flag on TCPStore, (maybe TCPStore server has shut down too early), with error: Broken pipe
+2026-09-18T23:30:44.400798097Z [rank1]:[W918 23:30:44.779138485 TCPStore.cpp:106] [c10d] sendBytes failed on SocketImpl(fd=46, addr=[box-b-host]:47740, remote=[pair-link]:25000): Broken pipe
+2026-09-18T23:30:44.400824224Z Exception raised from sendBytes at /__w/pytorch/pytorch/torch/csrc/distributed/c10d/Utils.hpp:758 (most recent call first):
+2026-09-18T23:30:44.400825856Z frame #0: c10::Error::Error(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0xc8 (0xf2acc50de158 in /usr/local/lib/python3.12/dist-packages/torch/lib/libc10.so)
+2026-09-18T23:30:44.400827712Z frame #1: c10::DistError::DistError(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0x78 (0xf2acc50ded48 in /usr/local/lib/python3.12/dist-packages/torch/lib/libc10.so)
+2026-09-18T23:30:44.400841552Z frame #2: c10::DistNetworkError::DistNetworkError(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0x78 (0xf2acc50df0c8 in /usr/local/lib/python3.12/dist-packages/torch/lib/libc10.so)
+2026-09-18T23:30:44.400843408Z frame #3: <unknown function> + 0x70b77ec (0xf2ace2a477ec in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:44.400844432Z frame #4: <unknown function> + 0x70b9aa4 (0xf2ace2a49aa4 in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:44.400845504Z frame #5: <unknown function> + 0x70b9c18 (0xf2ace2a49c18 in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:44.400846448Z frame #6: c10d::TCPStore::check(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > > const&) + 0x23c (0xf2ace2a4ab1c in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:44.400847888Z frame #7: c10d::ProcessGroupNCCL::HeartbeatMonitor::runLoop() + 0x330 (0xf2acc6027350 in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cuda.so)
+2026-09-18T23:30:44.400848928Z frame #8: <unknown function> + 0xe1ae0 (0xf2ad764b1ae0 in /usr/lib/aarch64-linux-gnu/libstdc++.so.6)
+2026-09-18T23:30:44.400849824Z frame #9: <unknown function> + 0x8582c (0xf2ad7717582c in /usr/lib/aarch64-linux-gnu/libc.so.6)
+2026-09-18T23:30:44.400851344Z frame #10: <unknown function> + 0xeb79c (0xf2ad771db79c in /usr/lib/aarch64-linux-gnu/libc.so.6)
+2026-09-18T23:30:44.400852272Z 
+2026-09-18T23:30:44.400853183Z [rank1]:[W918 23:30:44.787045331 ProcessGroupNCCL.cpp:1876] [PG ID 0 PG GUID 0 Rank 1] Failed to check the "should dump" flag on TCPStore, (maybe TCPStore server has shut down too early), with error: Broken pipe
+2026-09-18T23:30:45.419138966Z [rank1]:[W918 23:30:45.792448657 TCPStore.cpp:106] [c10d] sendBytes failed on SocketImpl(fd=46, addr=[box-b-host]:47740, remote=[pair-link]:25000): Broken pipe
+2026-09-18T23:30:45.419205061Z Exception raised from sendBytes at /__w/pytorch/pytorch/torch/csrc/distributed/c10d/Utils.hpp:758 (most recent call first):
+2026-09-18T23:30:45.419207333Z frame #0: c10::Error::Error(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0xc8 (0xf2acc50de158 in /usr/local/lib/python3.12/dist-packages/torch/lib/libc10.so)
+2026-09-18T23:30:45.419624042Z frame #1: c10::DistError::DistError(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0x78 (0xf2acc50ded48 in /usr/local/lib/python3.12/dist-packages/torch/lib/libc10.so)
+2026-09-18T23:30:45.419625962Z frame #2: c10::DistNetworkError::DistNetworkError(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0x78 (0xf2acc50df0c8 in /usr/local/lib/python3.12/dist-packages/torch/lib/libc10.so)
+2026-09-18T23:30:45.419627689Z frame #3: <unknown function> + 0x70b77ec (0xf2ace2a477ec in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:45.419632697Z frame #4: <unknown function> + 0x70b9aa4 (0xf2ace2a49aa4 in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:45.419633833Z frame #5: <unknown function> + 0x70b9c18 (0xf2ace2a49c18 in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:45.419634985Z frame #6: c10d::TCPStore::check(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > > const&) + 0x23c (0xf2ace2a4ab1c in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:45.419636329Z frame #7: c10d::ProcessGroupNCCL::HeartbeatMonitor::runLoop() + 0x330 (0xf2acc6027350 in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cuda.so)
+2026-09-18T23:30:45.419637369Z frame #8: <unknown function> + 0xe1ae0 (0xf2ad764b1ae0 in /usr/lib/aarch64-linux-gnu/libstdc++.so.6)
+2026-09-18T23:30:45.419638345Z frame #9: <unknown function> + 0x8582c (0xf2ad7717582c in /usr/lib/aarch64-linux-gnu/libc.so.6)
+2026-09-18T23:30:45.419639673Z frame #10: <unknown function> + 0xeb79c (0xf2ad771db79c in /usr/lib/aarch64-linux-gnu/libc.so.6)
+2026-09-18T23:30:45.419640713Z 
+2026-09-18T23:30:45.419641641Z [rank1]:[W918 23:30:45.804372979 ProcessGroupNCCL.cpp:1876] [PG ID 0 PG GUID 0 Rank 1] Failed to check the "should dump" flag on TCPStore, (maybe TCPStore server has shut down too early), with error: Broken pipe
+2026-09-18T23:30:46.455381517Z [rank1]:[W918 23:30:46.815839229 TCPStore.cpp:106] [c10d] sendBytes failed on SocketImpl(fd=46, addr=[box-b-host]:47740, remote=[pair-link]:25000): Broken pipe
+2026-09-18T23:30:46.456081802Z Exception raised from sendBytes at /__w/pytorch/pytorch/torch/csrc/distributed/c10d/Utils.hpp:758 (most recent call first):
+2026-09-18T23:30:46.456090186Z frame #0: c10::Error::Error(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0xc8 (0xf2acc50de158 in /usr/local/lib/python3.12/dist-packages/torch/lib/libc10.so)
+2026-09-18T23:30:46.456094618Z frame #1: c10::DistError::DistError(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0x78 (0xf2acc50ded48 in /usr/local/lib/python3.12/dist-packages/torch/lib/libc10.so)
+2026-09-18T23:30:46.456097930Z frame #2: c10::DistNetworkError::DistNetworkError(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0x78 (0xf2acc50df0c8 in /usr/local/lib/python3.12/dist-packages/torch/lib/libc10.so)
+2026-09-18T23:30:46.456101050Z frame #3: <unknown function> + 0x70b77ec (0xf2ace2a477ec in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:46.456103482Z frame #4: <unknown function> + 0x70b9aa4 (0xf2ace2a49aa4 in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:46.456105754Z frame #5: <unknown function> + 0x70b9c18 (0xf2ace2a49c18 in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:46.456266325Z frame #6: c10d::TCPStore::check(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > > const&) + 0x23c (0xf2ace2a4ab1c in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:46.456271957Z frame #7: c10d::ProcessGroupNCCL::HeartbeatMonitor::runLoop() + 0x330 (0xf2acc6027350 in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cuda.so)
+2026-09-18T23:30:46.456274213Z frame #8: <unknown function> + 0xe1ae0 (0xf2ad764b1ae0 in /usr/lib/aarch64-linux-gnu/libstdc++.so.6)
+2026-09-18T23:30:46.456276117Z frame #9: <unknown function> + 0x8582c (0xf2ad7717582c in /usr/lib/aarch64-linux-gnu/libc.so.6)
+2026-09-18T23:30:46.456279909Z frame #10: <unknown function> + 0xeb79c (0xf2ad771db79c in /usr/lib/aarch64-linux-gnu/libc.so.6)
+2026-09-18T23:30:46.456281813Z 
+2026-09-18T23:30:46.456283557Z [rank1]:[W918 23:30:46.837845124 ProcessGroupNCCL.cpp:1876] [PG ID 0 PG GUID 0 Rank 1] Failed to check the "should dump" flag on TCPStore, (maybe TCPStore server has shut down too early), with error: Broken pipe
+2026-09-18T23:30:47.492401068Z [rank1]:[W918 23:30:47.850592505 TCPStore.cpp:106] [c10d] sendBytes failed on SocketImpl(fd=46, addr=[box-b-host]:47740, remote=[pair-link]:25000): Broken pipe
+2026-09-18T23:30:47.492421404Z Exception raised from sendBytes at /__w/pytorch/pytorch/torch/csrc/distributed/c10d/Utils.hpp:758 (most recent call first):
+2026-09-18T23:30:47.492423500Z frame #0: c10::Error::Error(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0xc8 (0xf2acc50de158 in /usr/local/lib/python3.12/dist-packages/torch/lib/libc10.so)
+2026-09-18T23:30:47.492425915Z frame #1: c10::DistError::DistError(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0x78 (0xf2acc50ded48 in /usr/local/lib/python3.12/dist-packages/torch/lib/libc10.so)
+2026-09-18T23:30:47.492427611Z frame #2: c10::DistNetworkError::DistNetworkError(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0x78 (0xf2acc50df0c8 in /usr/local/lib/python3.12/dist-packages/torch/lib/libc10.so)
+2026-09-18T23:30:47.492429659Z frame #3: <unknown function> + 0x70b77ec (0xf2ace2a477ec in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:47.492431291Z frame #4: <unknown function> + 0x70b9aa4 (0xf2ace2a49aa4 in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:47.492432603Z frame #5: <unknown function> + 0x70b9c18 (0xf2ace2a49c18 in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:47.492433979Z frame #6: c10d::TCPStore::check(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > > const&) + 0x23c (0xf2ace2a4ab1c in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:47.492442011Z frame #7: c10d::ProcessGroupNCCL::HeartbeatMonitor::runLoop() + 0x330 (0xf2acc6027350 in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cuda.so)
+2026-09-18T23:30:47.492443051Z frame #8: <unknown function> + 0xe1ae0 (0xf2ad764b1ae0 in /usr/lib/aarch64-linux-gnu/libstdc++.so.6)
+2026-09-18T23:30:47.492443947Z frame #9: <unknown function> + 0x8582c (0xf2ad7717582c in /usr/lib/aarch64-linux-gnu/libc.so.6)
+2026-09-18T23:30:47.492445435Z frame #10: <unknown function> + 0xeb79c (0xf2ad771db79c in /usr/lib/aarch64-linux-gnu/libc.so.6)
+2026-09-18T23:30:47.492446363Z 
+2026-09-18T23:30:47.492447179Z [rank1]:[W918 23:30:47.876579541 ProcessGroupNCCL.cpp:1876] [PG ID 0 PG GUID 0 Rank 1] Failed to check the "should dump" flag on TCPStore, (maybe TCPStore server has shut down too early), with error: Broken pipe
+2026-09-18T23:30:48.496258796Z [rank1]:[W918 23:30:48.876918322 TCPStore.cpp:106] [c10d] sendBytes failed on SocketImpl(fd=46, addr=[box-b-host]:47740, remote=[pair-link]:25000): Broken pipe
+2026-09-18T23:30:48.496285035Z Exception raised from sendBytes at /__w/pytorch/pytorch/torch/csrc/distributed/c10d/Utils.hpp:758 (most recent call first):
+2026-09-18T23:30:48.496286651Z frame #0: c10::Error::Error(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0xc8 (0xf2acc50de158 in /usr/local/lib/python3.12/dist-packages/torch/lib/libc10.so)
+2026-09-18T23:30:48.496288955Z frame #1: c10::DistError::DistError(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0x78 (0xf2acc50ded48 in /usr/local/lib/python3.12/dist-packages/torch/lib/libc10.so)
+2026-09-18T23:30:48.496290395Z frame #2: c10::DistNetworkError::DistNetworkError(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0x78 (0xf2acc50df0c8 in /usr/local/lib/python3.12/dist-packages/torch/lib/libc10.so)
+2026-09-18T23:30:48.496292011Z frame #3: <unknown function> + 0x70b77ec (0xf2ace2a477ec in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:48.496293243Z frame #4: <unknown function> + 0x70b9aa4 (0xf2ace2a49aa4 in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:48.496294587Z frame #5: <unknown function> + 0x70b9c18 (0xf2ace2a49c18 in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:48.496295915Z frame #6: c10d::TCPStore::check(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > > const&) + 0x23c (0xf2ace2a4ab1c in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:48.496297659Z frame #7: c10d::ProcessGroupNCCL::HeartbeatMonitor::runLoop() + 0x330 (0xf2acc6027350 in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cuda.so)
+2026-09-18T23:30:48.496298922Z frame #8: <unknown function> + 0xe1ae0 (0xf2ad764b1ae0 in /usr/lib/aarch64-linux-gnu/libstdc++.so.6)
+2026-09-18T23:30:48.496312890Z frame #9: <unknown function> + 0x8582c (0xf2ad7717582c in /usr/lib/aarch64-linux-gnu/libc.so.6)
+2026-09-18T23:30:48.496314858Z frame #10: <unknown function> + 0xeb79c (0xf2ad771db79c in /usr/lib/aarch64-linux-gnu/libc.so.6)
+2026-09-18T23:30:48.496315946Z 
+2026-09-18T23:30:48.496316746Z [rank1]:[W918 23:30:48.882127112 ProcessGroupNCCL.cpp:1876] [PG ID 0 PG GUID 0 Rank 1] Failed to check the "should dump" flag on TCPStore, (maybe TCPStore server has shut down too early), with error: Broken pipe
+2026-09-18T23:30:49.535881456Z [rank1]:[W918 23:30:49.883879260 TCPStore.cpp:106] [c10d] sendBytes failed on SocketImpl(fd=46, addr=[box-b-host]:47740, remote=[pair-link]:25000): Broken pipe
+2026-09-18T23:30:49.536039675Z Exception raised from sendBytes at /__w/pytorch/pytorch/torch/csrc/distributed/c10d/Utils.hpp:758 (most recent call first):
+2026-09-18T23:30:49.536042923Z frame #0: c10::Error::Error(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0xc8 (0xf2acc50de158 in /usr/local/lib/python3.12/dist-packages/torch/lib/libc10.so)
+2026-09-18T23:30:49.536045307Z frame #1: c10::DistError::DistError(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0x78 (0xf2acc50ded48 in /usr/local/lib/python3.12/dist-packages/torch/lib/libc10.so)
+2026-09-18T23:30:49.536088090Z frame #2: c10::DistNetworkError::DistNetworkError(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0x78 (0xf2acc50df0c8 in /usr/local/lib/python3.12/dist-packages/torch/lib/libc10.so)
+2026-09-18T23:30:49.536090170Z frame #3: <unknown function> + 0x70b77ec (0xf2ace2a477ec in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:49.536091722Z frame #4: <unknown function> + 0x70b9aa4 (0xf2ace2a49aa4 in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:49.536093370Z frame #5: <unknown function> + 0x70b9c18 (0xf2ace2a49c18 in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:49.536094698Z frame #6: c10d::TCPStore::check(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > > const&) + 0x23c (0xf2ace2a4ab1c in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:49.536139849Z frame #7: c10d::ProcessGroupNCCL::HeartbeatMonitor::runLoop() + 0x330 (0xf2acc6027350 in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cuda.so)
+2026-09-18T23:30:49.536141193Z frame #8: <unknown function> + 0xe1ae0 (0xf2ad764b1ae0 in /usr/lib/aarch64-linux-gnu/libstdc++.so.6)
+2026-09-18T23:30:49.536142537Z frame #9: <unknown function> + 0x8582c (0xf2ad7717582c in /usr/lib/aarch64-linux-gnu/libc.so.6)
+2026-09-18T23:30:49.536144473Z frame #10: <unknown function> + 0xeb79c (0xf2ad771db79c in /usr/lib/aarch64-linux-gnu/libc.so.6)
+2026-09-18T23:30:49.536146009Z 
+2026-09-18T23:30:49.536147273Z [rank1]:[W918 23:30:49.920389936 ProcessGroupNCCL.cpp:1876] [PG ID 0 PG GUID 0 Rank 1] Failed to check the "should dump" flag on TCPStore, (maybe TCPStore server has shut down too early), with error: Broken pipe
+2026-09-18T23:30:50.539621741Z [rank1]:[W918 23:30:50.920977618 TCPStore.cpp:106] [c10d] sendBytes failed on SocketImpl(fd=46, addr=[box-b-host]:47740, remote=[pair-link]:25000): Broken pipe
+2026-09-18T23:30:50.539649741Z Exception raised from sendBytes at /__w/pytorch/pytorch/torch/csrc/distributed/c10d/Utils.hpp:758 (most recent call first):
+2026-09-18T23:30:50.539651437Z frame #0: c10::Error::Error(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0xc8 (0xf2acc50de158 in /usr/local/lib/python3.12/dist-packages/torch/lib/libc10.so)
+2026-09-18T23:30:50.539653276Z frame #1: c10::DistError::DistError(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0x78 (0xf2acc50ded48 in /usr/local/lib/python3.12/dist-packages/torch/lib/libc10.so)
+2026-09-18T23:30:50.539654876Z frame #2: c10::DistNetworkError::DistNetworkError(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0x78 (0xf2acc50df0c8 in /usr/local/lib/python3.12/dist-packages/torch/lib/libc10.so)
+2026-09-18T23:30:50.539656508Z frame #3: <unknown function> + 0x70b77ec (0xf2ace2a477ec in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:50.539657852Z frame #4: <unknown function> + 0x70b9aa4 (0xf2ace2a49aa4 in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:50.539659100Z frame #5: <unknown function> + 0x70b9c18 (0xf2ace2a49c18 in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:50.539660572Z frame #6: c10d::TCPStore::check(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > > const&) + 0x23c (0xf2ace2a4ab1c in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:50.539662332Z frame #7: c10d::ProcessGroupNCCL::HeartbeatMonitor::runLoop() + 0x330 (0xf2acc6027350 in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cuda.so)
+2026-09-18T23:30:50.539663660Z frame #8: <unknown function> + 0xe1ae0 (0xf2ad764b1ae0 in /usr/lib/aarch64-linux-gnu/libstdc++.so.6)
+2026-09-18T23:30:50.539664876Z frame #9: <unknown function> + 0x8582c (0xf2ad7717582c in /usr/lib/aarch64-linux-gnu/libc.so.6)
+2026-09-18T23:30:50.539666828Z frame #10: <unknown function> + 0xeb79c (0xf2ad771db79c in /usr/lib/aarch64-linux-gnu/libc.so.6)
+2026-09-18T23:30:50.539668060Z 
+2026-09-18T23:30:50.539669196Z [rank1]:[W918 23:30:50.925774882 ProcessGroupNCCL.cpp:1876] [PG ID 0 PG GUID 0 Rank 1] Failed to check the "should dump" flag on TCPStore, (maybe TCPStore server has shut down too early), with error: Broken pipe
+2026-09-18T23:30:51.544486971Z [rank1]:[W918 23:30:51.925911725 TCPStore.cpp:106] [c10d] sendBytes failed on SocketImpl(fd=46, addr=[box-b-host]:47740, remote=[pair-link]:25000): Broken pipe
+2026-09-18T23:30:51.544522538Z Exception raised from sendBytes at /__w/pytorch/pytorch/torch/csrc/distributed/c10d/Utils.hpp:758 (most recent call first):
+2026-09-18T23:30:51.544523834Z frame #0: c10::Error::Error(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0xc8 (0xf2acc50de158 in /usr/local/lib/python3.12/dist-packages/torch/lib/libc10.so)
+2026-09-18T23:30:51.544525450Z frame #1: c10::DistError::DistError(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0x78 (0xf2acc50ded48 in /usr/local/lib/python3.12/dist-packages/torch/lib/libc10.so)
+2026-09-18T23:30:51.544526746Z frame #2: c10::DistNetworkError::DistNetworkError(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0x78 (0xf2acc50df0c8 in /usr/local/lib/python3.12/dist-packages/torch/lib/libc10.so)
+2026-09-18T23:30:51.544528074Z frame #3: <unknown function> + 0x70b77ec (0xf2ace2a477ec in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:51.544529034Z frame #4: <unknown function> + 0x70b9aa4 (0xf2ace2a49aa4 in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:51.544530058Z frame #5: <unknown function> + 0x70b9c18 (0xf2ace2a49c18 in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:51.544530986Z frame #6: c10d::TCPStore::check(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > > const&) + 0x23c (0xf2ace2a4ab1c in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:51.544532426Z frame #7: c10d::ProcessGroupNCCL::HeartbeatMonitor::runLoop() + 0x330 (0xf2acc6027350 in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cuda.so)
+2026-09-18T23:30:51.544533466Z frame #8: <unknown function> + 0xe1ae0 (0xf2ad764b1ae0 in /usr/lib/aarch64-linux-gnu/libstdc++.so.6)
+2026-09-18T23:30:51.544534474Z frame #9: <unknown function> + 0x8582c (0xf2ad7717582c in /usr/lib/aarch64-linux-gnu/libc.so.6)
+2026-09-18T23:30:51.544536169Z frame #10: <unknown function> + 0xeb79c (0xf2ad771db79c in /usr/lib/aarch64-linux-gnu/libc.so.6)
+2026-09-18T23:30:51.544537161Z 
+2026-09-18T23:30:51.544537993Z [rank1]:[W918 23:30:51.930800091 ProcessGroupNCCL.cpp:1876] [PG ID 0 PG GUID 0 Rank 1] Failed to check the "should dump" flag on TCPStore, (maybe TCPStore server has shut down too early), with error: Broken pipe
+2026-09-18T23:30:52.579183931Z [rank1]:[W918 23:30:52.941138868 TCPStore.cpp:106] [c10d] sendBytes failed on SocketImpl(fd=46, addr=[box-b-host]:47740, remote=[pair-link]:25000): Broken pipe
+2026-09-18T23:30:52.579907880Z Exception raised from sendBytes at /__w/pytorch/pytorch/torch/csrc/distributed/c10d/Utils.hpp:758 (most recent call first):
+2026-09-18T23:30:52.579910168Z frame #0: c10::Error::Error(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0xc8 (0xf2acc50de158 in /usr/local/lib/python3.12/dist-packages/torch/lib/libc10.so)
+2026-09-18T23:30:52.580079475Z frame #1: c10::DistError::DistError(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0x78 (0xf2acc50ded48 in /usr/local/lib/python3.12/dist-packages/torch/lib/libc10.so)
+2026-09-18T23:30:52.580080915Z frame #2: c10::DistNetworkError::DistNetworkError(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0x78 (0xf2acc50df0c8 in /usr/local/lib/python3.12/dist-packages/torch/lib/libc10.so)
+2026-09-18T23:30:52.580082467Z frame #3: <unknown function> + 0x70b77ec (0xf2ace2a477ec in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:52.580083491Z frame #4: <unknown function> + 0x70b9aa4 (0xf2ace2a49aa4 in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:52.580084451Z frame #5: <unknown function> + 0x70b9c18 (0xf2ace2a49c18 in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:52.580085539Z frame #6: c10d::TCPStore::check(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > > const&) + 0x23c (0xf2ace2a4ab1c in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so)
+2026-09-18T23:30:52.580086883Z frame #7: c10d::ProcessGroupNCCL::HeartbeatMonitor::runLoop() + 0x330 (0xf2acc6027350 in /usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cuda.so)
+2026-09-18T23:30:52.580087843Z frame #8: <unknown function> + 0xe1ae0 (0xf2ad764b1ae0 in /usr/lib/aarch64-linux-gnu/libstdc++.so.6)
+2026-09-18T23:30:52.580088803Z frame #9: <unknown function> + 0x8582c (0xf2ad7717582c in /usr/lib/aarch64-linux-gnu/libc.so.6)
+2026-09-18T23:30:52.580090419Z frame #10: <unknown function> + 0xeb79c (0xf2ad771db79c in /usr/lib/aarch64-linux-gnu/libc.so.6)
+2026-09-18T23:30:52.580092867Z 
+2026-09-18T23:30:52.580093731Z [rank1]:[W918 23:30:52.962716469 ProcessGroupNCCL.cpp:1876] [PG ID 0 PG GUID 0 Rank 1] Failed to check the "should dump" flag on TCPStore, (maybe TCPStore server has shut down too early), with error: Broken pipe

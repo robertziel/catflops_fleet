@@ -1,0 +1,19 @@
+# Rendered by deploy/standalone/install-node-applier.sh, ONE SET PER CLUSTER (vllm-node-applier-<cluster>.*), with this
+# checkout's absolute paths, the cluster's server file and its node dir (the applier's own --node-dir answer).
+# One PASS of the node applier (vllm_lb/node_applier.py) for cluster @CLUSTER@: apply the LB's intent for that node, if
+# it is new (render it with the fleet's own validator into @NODE_DIR@/node.env, then up.sh node / node-stop), and
+# report back into @NODE_DIR@/report.json — the heartbeat the LB's panel judges by. Started by the .path unit when the
+# LB writes an intent and by the .timer for the heartbeat. Runs as this user, who is in the docker group: the LB
+# container itself has no socket, no key and no shell here.
+[Unit]
+Description=vLLM node applier for cluster @CLUSTER@ (the LB's intent -> deploy/standalone/up.sh node)
+Documentation=file://@REPO@/worklog/standalone-cluster-panel.md
+
+[Service]
+Type=oneshot
+Environment=PYTHONPATH=@REPO@/lb
+ExecStart=@PY@ -m vllm_lb.node_applier --repo @REPO@ --env @ENV@ --cluster @CLUSTER@
+# A first pull of a vLLM image is minutes (vllm_lb/node_control.py UP_TIMEOUT_S is the command's own limit).
+TimeoutStartSec=1900
+NoNewPrivileges=yes
+Nice=5

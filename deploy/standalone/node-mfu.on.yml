@@ -1,0 +1,12 @@
+# deploy/standalone/node-mfu.on.yml -- tp-rank's MFU byte-size patch, byte for byte (deploy/tests pins it): vLLM's MFU
+# model has no byte size for 'modelopt_mixed' and would DROP the FFN from the FLOP/s and GB/s counters without it.
+# up.sh adds this file when the node's EDGE_NODE_MFU_PATCH is `on` -- node-env renders it from the served checkpoint's
+# catalog `quant_method` (lb/vllm_lb/fleet.py MFU_PATCHED_QUANTS) -- and node-mfu.off.yml otherwise. Never always on:
+# PYTHONPATH replaces the image's own, and under ROCm this sitecustomize recursed through the platform probe until the
+# container was OOM-killed (2,380 offload-arch processes, 2026-10-17) on a BF16 model that needed nothing of it.
+services:
+  node:
+    volumes:
+      - ./vllm-mfu:/opt/vllm-mfu:ro
+    environment:
+      PYTHONPATH: /opt/vllm-mfu

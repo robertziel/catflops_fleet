@@ -1,0 +1,28 @@
+# BRIDGED: the LB runs on THIS server, and the LAN must not hear the broadcast (for example a
+# network that belongs to someone else). The sender leaves host networking and joins the docker
+# network the vllm-lb container is on. Its broadcasts then go out on that bridge only: the
+# bridge's own broadcast address and 255.255.255.255, both from inside the container. vllm-lb's
+# listener (bound to every interface of its own container) hears them. Linux does not forward a
+# broadcast, so nothing reaches the LAN, and nothing is published: no UDP port on the host. That is
+# why the LB on such a server publishes no 48291/udp either.
+#
+# A bridged container has no host hostname to inherit, so the name on the wire is set here and must be
+# this server's box `hostname` in the LB's fleet file (lb/fleet.yml: boxes.<box>.hostname).
+# GPU access still comes from the gpu-*.yml it is combined with:
+#   COMPOSE_FILE=docker-compose.yml:gpu-nvidia.yml:bridged.yml
+# `!reset` (compose >= 2.24) removes the base file's `network_mode: host`. Compose refuses
+# network_mode beside networks.
+# In the container's network namespace /proc/net/dev is its own veth, not the box: the recorder sends no network
+# counters (HW_SENDER_NETWORK=bridged), and the LB shows NET IN/OUT n/a with that reason.
+services:
+  hw-sender:
+    environment:
+      HW_SENDER_NETWORK: bridged
+    network_mode: !reset null
+    hostname: "${HW_SENDER_HOSTNAME:?set in lb/hw_sender/.env}"
+    networks: [lb]
+
+networks:
+  lb:
+    name: "${HW_SENDER_LB_NETWORK:?set in lb/hw_sender/.env}"
+    external: true

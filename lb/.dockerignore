@@ -1,0 +1,31 @@
+# The build context is lb/, and lb/ is where the operator keeps the secrets. They are MOUNTED at run
+# time (docker-compose.yml) and must never be baked into a layer — `COPY . /app` did exactly that
+# with all three until 2026-09-15 (tests/test_image_hygiene.py).
+.env
+cluster-ssh/
+state/
+# This deployment's fleet file (vllm_lb/fleet.py): hostnames, SSH targets and addresses. Mounted read-only
+# at LB_FLEET (docker-compose.yml), like .env is read; the committed *.example.yml files are generic.
+fleet.yml
+.pytest_cache/
+# What the running LB never imports: the suite (the README runs it from a mount) and host-side bytecode,
+# which once shipped .pyc files for tests that no longer existed.
+tests/
+# The HOST half of the swarm button: both run on box-c under the operator's own account
+# (deploy/vllm-bench-queue-runner.service.in), never in this image, and neither imports vllm_lb.
+bench_queue_runner.py
+bench_session.py
+# The SEALED swarm runner is its own image too (lb/bench_runner/Dockerfile, built from lb/ with its own
+# Dockerfile.dockerignore). The LB never imports it, and its compose file and .env are that runner's.
+bench_runner/
+# The hardware SENDER's image files (lb/hw_sender/Dockerfile, built from lb/ with its own Dockerfile.dockerignore).
+# Its package, lb/fleet_telemetry, IS in this image: the recorder imports its figure table. A server's
+# lb/hw_sender/.env is that server's configuration, not a layer of this image.
+hw_sender/
+__pycache__/
+**/__pycache__/
+
+# Secrets never enter a layer (the rule every service's .dockerignore keeps): version-control metadata and key material (.env is above).
+.git
+*.pem
+*.key

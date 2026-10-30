@@ -1,0 +1,21 @@
+# vllm.example.com/power/ → vllm-power on box-c 127.0.0.1:8016.
+#
+# Its OWN frp client (container vllm-power-frpc), so the gateway's client (vllm-frpc,
+# frpc/frpc.toml) is never restarted or edited. frps routes by Host + longest location prefix:
+# this proxy takes ONLY /power/ on the `vllm` subdomain; every other path stays with
+# "vllm-gateway" (verified 2026-09-23: /power/x → this side; /x, /powerx, /POWER/x → the other).
+# the edge's nginx `location /power/` (deploy/nginx-edge-power.example.conf) is the only public door and adds
+# basic auth, the user name and the gate secret; the service refuses anything without them.
+serverAddr = "{{ .Envs.FRP_SERVER }}"
+serverPort = 7000
+auth.token = "{{ .Envs.FRP_TOKEN }}"
+loginFailExit = false
+
+# The Host passes through unchanged: the panel answers only to names in POWER_ALLOWED_HOSTS (power/.env).
+[[proxies]]
+name = "vllm-power"
+type = "http"
+localIP = "127.0.0.1"
+localPort = 8016
+subdomain = "vllm"
+locations = ["/power/"]

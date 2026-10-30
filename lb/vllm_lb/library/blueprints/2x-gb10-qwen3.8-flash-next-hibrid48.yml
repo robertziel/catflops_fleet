@@ -1,0 +1,20 @@
+# A REFERENCE SETUP (a blueprint: vllm_lb/blueprints.py; docs/design/engines.md "Blueprints") — the project's own
+# production setup on two GB10 boxes (TP=2), which the setup wizard (SETUP.md; deploy/setup/render.py --prefill)
+# proposes as a deployment's answers; never read by the LB. Not a measurement and not a library default: every knob the
+# target's Start takes is written out; a knob the engine does not take is null.
+label: "2× GB10 (DGX Spark) · Qwen3.8 Flash-Next hibrid48 · TP=2"
+source: "running in production on 2× DGX Spark: generation 285, 2026-10-30 (12 seats the operator's choice 2026-10-26; 131,072 context 2026-10-13); measurement vllm × nvidia-sm121 × TP=2 (library/measurements.json qwen3.8-flash-next-hibrid48). The engine knobs generation 285 left at null are written as what they resolved to (cluster_exec.resolved_launch): the row's tuned prefill budget 4,096 and drafter depth 4, its recipe's PLE split (false), 28 GB pool and fp8_e4m3 KV; disk tier and long-prefill threshold off (0)"
+target: {accelerator: nvidia-sm121, tp: 2, control: ssh}
+model: qwen3.8-flash-next-hibrid48
+uncensored: true
+estimated: false
+knobs:
+  max_num_seqs: 12
+  max_model_len: 131072
+  max_num_batched_tokens: 4096
+  num_speculative_tokens: 4
+  kv_cache_dtype: fp8_e4m3
+  kv_cache_memory: 28000000000
+  ple_replicate: false
+  kv_offload_gib: 0
+  long_prefill_token_threshold: 0

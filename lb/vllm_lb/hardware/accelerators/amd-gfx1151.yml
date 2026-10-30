@@ -1,0 +1,10 @@
+# AMD RDNA 3.5 at gfx1151 — the Radeon 8060S iGPU of the Ryzen AI Max+ 395. An ACCELERATOR
+# (vllm_lb/hardware/accelerators.py): what an engine's KERNELS are compiled for and can run, shared by every card type
+# that names it. Every figure is {value, source}; value null = no source states it, and the source says why.
+name: AMD RDNA 3.5 (gfx1151)
+facts:
+  arch: {value: gfx1151, source: "AMD ROCm documentation, GPU hardware specifications, AMD Ryzen APUs table (rocm.docs.amd.com/en/latest/reference/gpu-arch-specs.html): 'Ryzen AI Max+ 395 | Radeon 8060S | RDNA3.5 | gfx1151'"}
+  gpu_runtime: {value: rocm, source: "AMD ROCm documentation, Running ROCm Docker containers (rocm.docs.amd.com/projects/install-on-linux/en/latest/how-to/docker.html, read 2026-10-17): a container gets AMD GPUs with --device /dev/kfd (the compute interface shared by all GPUs) and --device /dev/dri (the DRI render nodes, one per GPU), --security-opt seccomp=unconfined — deploy/standalone/node-gpu.rocm.yml"}
+  platforms: {value: [linux/amd64], source: "the Radeon 8060S is the iGPU of the Ryzen AI Max+ 395 APU, an x86-64 CPU: read on a Ryzen AI Max+ 395 box 2026-10-11 — /proc/cpuinfo 'AMD RYZEN AI MAX+ 395 w/ Radeon 8060S', uname -m 'x86_64'"}
+  precisions: {value: [bf16, fp16], source: "AMD ROCm documentation, Data types and precision support (rocm.docs.amd.com/en/latest/reference/precision-support.html): RDNA 3 WMMA takes FP16 and BF16 inputs; FP8 matrix inputs are CDNA 3 and RDNA 4 only. No peak is measured here (types/radeon8060s.yml peak_tflops is empty)"}
+  quant_formats: {value: [none], source: "unquantised: MAI-UI-2B served on rocm/vllm@sha256:394194d3 (vLLM 0.19.1+rocm7.13.0rc2, AMD's gfx1151 build) on this fleet's box, 2026-10-17 (lb/fleet.amd-node.example.yml, worklog/parallel-clusters.md). No quantised format is established on this iGPU"}

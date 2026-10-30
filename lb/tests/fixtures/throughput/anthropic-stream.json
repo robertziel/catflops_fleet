@@ -1,0 +1,175 @@
+{
+  "captured_at": "2026-09-15T21:23:18+00:00",
+  "via": "http://127.0.0.1:8010",
+  "request": {
+    "method": "POST",
+    "path": "/v1/messages?beta=true",
+    "headers": {
+      "Content-Type": "application/json",
+      "anthropic-version": "2023-06-01"
+    },
+    "body": {
+      "model": "qwen3.8:latest",
+      "max_tokens": 64,
+      "stream": true,
+      "messages": [
+        {
+          "role": "user",
+          "content": "Count from 1 to 20, separated by single spaces. Reply with the numbers only."
+        }
+      ]
+    }
+  },
+  "status": 200,
+  "reason": "OK",
+  "headers": [
+    [
+      "Server",
+      "vllm-lb/1.0 Python/3.12.14"
+    ],
+    [
+      "Date",
+      "Tue, 15 Sep 2026 21:23:13 GMT"
+    ],
+    [
+      "Cache-Control",
+      "no-cache"
+    ],
+    [
+      "Content-Type",
+      "text/event-stream"
+    ],
+    [
+      "Date",
+      "Tue, 15 Sep 2026 21:23:13 GMT"
+    ],
+    [
+      "Connection",
+      "close"
+    ],
+    [
+      "X-LB-Backend",
+      "http://host.docker.internal:11434"
+    ],
+    [
+      "X-LB-Kind",
+      "ollama"
+    ],
+    [
+      "X-LB-Box",
+      "box-c"
+    ]
+  ],
+  "served_by": {
+    "X-LB-Backend": "http://host.docker.internal:11434",
+    "X-LB-Kind": "ollama",
+    "X-LB-Box": "box-c"
+  },
+  "head_s": 21.50513,
+  "reads": [
+    [
+      21.505147,
+      472
+    ],
+    [
+      21.732309,
+      257
+    ],
+    [
+      21.732383,
+      381
+    ],
+    [
+      22.338241,
+      128
+    ],
+    [
+      22.338324,
+      251
+    ],
+    [
+      23.025928,
+      125
+    ],
+    [
+      23.026002,
+      507
+    ],
+    [
+      23.2364,
+      384
+    ],
+    [
+      23.236455,
+      127
+    ],
+    [
+      23.995155,
+      129
+    ],
+    [
+      23.995206,
+      255
+    ],
+    [
+      24.713244,
+      383
+    ],
+    [
+      24.713311,
+      126
+    ],
+    [
+      24.927617,
+      129
+    ],
+    [
+      25.613993,
+      252
+    ],
+    [
+      25.821959,
+      190
+    ],
+    [
+      25.822019,
+      116
+    ],
+    [
+      26.035069,
+      351
+    ],
+    [
+      26.248656,
+      234
+    ],
+    [
+      26.463033,
+      351
+    ],
+    [
+      26.677923,
+      233
+    ],
+    [
+      26.67798,
+      117
+    ],
+    [
+      26.893182,
+      349
+    ],
+    [
+      27.087895,
+      117
+    ],
+    [
+      27.087946,
+      494
+    ]
+  ],
+  "bytes": 6458,
+  "abandoned": false,
+  "refused_before": [],
+  "posts_so_far": 1
+}

@@ -1,0 +1,37 @@
+# deploy/standalone: the gateway LB, unchanged, on a server outside box-c's edge. Started by
+# deploy/standalone/up.sh, which hands this server's deploy/standalone/.env to compose: every
+# server-specific value below is ${VAR:?} from there (.env.example documents each; unset = compose
+# stops and names it). Differences from box-c, all about the box, none about the LB:
+#   - published on loopback only (EDGE_LB_PUBLISH), and no hw-broadcast UDP port: a server that runs
+#     the hardware sender puts it on this project's own network (lb/hw_sender), so nothing reaches
+#     the LAN
+#   - searxng's container name (EDGE_SEARXNG_CONTAINER): a shared box may already run a `searxng`;
+#     the service name, which LB_SEARCH_URL resolves, is unchanged
+#   - the LB joins EDGE_NODE_NETWORK, the network the model container (EDGE_NODE_NAME) is on, so it
+#     dials the node by name while the node's own port stays on loopback
+#   - WHAT this server is -- its box, cards and which one serves, and its one-host cluster -- is the
+#     LB's fleet file (lb/fleet.yml, LB_FLEET, mounted by the base compose; lb/fleet.one-host.example.yml
+#     is its shape). The env settings that used to say it (LB_VLLM_BOXES, LB_HW_HOSTS, ...) are RETIRED:
+#     the LB refuses to boot on them, so none is set here (deploy/tests pin it against config.py)
+#   - the lease window is the lease model's catalog context (config.py lease_context_length), never an env number:
+#     LB_CONTEXT_LENGTH is retired and refuses the boot
+services:
+  vllm-lb:
+    ports: !override
+      - "${EDGE_LB_PUBLISH:?set in deploy/standalone/.env}:8010"
+    environment:
+      # the catalog refuses to load without the folders checkpoints live under; the fleet's cluster names
+      # a catalog model, so the LB cannot boot without it. The node's own mount, written once.
+      - MODELS_SEARCH_DIRS=${EDGE_MODELS_DIR:?set in deploy/standalone/.env}
+      # the panel's Connect dialog offers an SSH forward to the LB: the address it is published at above, written once
+      - LB_CONNECT_TUNNEL=${EDGE_LB_PUBLISH:?set in deploy/standalone/.env}
+    networks: [default, node]
+  searxng:
+    container_name: "${EDGE_SEARXNG_CONTAINER:?set in deploy/standalone/.env}"
+    ports: !override
+      - "${EDGE_SEARXNG_PUBLISH:?set in deploy/standalone/.env}:8080"
+
+networks:
+  node:
+    name: "${EDGE_NODE_NETWORK:?set in deploy/standalone/.env}"
+    external: true

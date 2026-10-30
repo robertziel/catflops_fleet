@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Model sessions</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>&#128338;</text></svg>">
+  <!-- gateway.css FIRST: it owns the palette, the header, the cards and the type scale. benchmarks.css
+       second, for the chart furniture (--grid, --axis, --seq-*) this page draws with — one meaning for
+       a grid line across both pages, never a second set of tokens that drift apart. -->
+  <link rel="stylesheet" href="/gateway.css">
+  <link rel="stylesheet" href="/benchmarks.css">
+  <link rel="stylesheet" href="/sessions.css">
+</head>
+<body class="benchmarks sessions">
+  <header class="top">
+    <div class="brand">
+      <h1>Model sessions</h1>
+      <span class="crumbs"><a href="/">&larr; Gateway</a> &middot; <a href="/benchmarks">performance</a>
+        &middot; every model loaded here, what it served and what it cost</span>
+    </div>
+    <div id="connection-status" class="conn">
+      <span class="dot"></span>
+      <span id="status-text">loading&hellip;</span>
+    </div>
+  </header>
+
+  <!-- `?server=<name>`: the page is one server's — the title and this line say its
+       name: the figures below are that server's own (server-scope.js). -->
+  <p id="server-only" class="alert" role="note" hidden></p>
+  <main class="page">
+    <!-- The recorder's own trouble, in the LB's words, above every number it would leave unexplained. -->
+    <div id="s-alert" class="alert" role="alert" hidden></div>
+    <p class="loading" id="s-loading">Reading the session history&hellip;</p>
+
+    <!-- ONE filter row, above everything it scopes: how far back this page reads. `all` is the default —
+         the history is the subject, not the last day of it. -->
+    <div class="s-filters" id="s-filters" hidden>
+      <div class="seg" id="s-range" role="radiogroup" aria-label="how far back"></div>
+      <span class="s-span" id="s-span"></span>
+    </div>
+
+    <!-- THE TOTALS: the whole history in one row of figures. A tile is a number and its unit, never a
+         sentence — the operator reads these first and the charts second. -->
+    <section class="s-tiles" id="s-tiles" hidden aria-label="totals"></section>
+
+    <!-- THE PRICES behind the dollars above, with their dates: a price list ages, and the reader has to
+         see how old this one is rather than find it in a tooltip. Filled from /lb/sessions
+         `price_lists` (pricing.py); empty — and hidden — on a server that publishes none. -->
+    <div class="s-prices" id="s-prices" hidden></div>
+
+    <!-- PER MODEL, small multiples: one strip per model, its sessions over time on a SHARED token scale,
+         so two models are compared by bar height across rows. The facet's title carries identity, which
+         is why nothing here is told apart by hue: four models need four categorical hues, and on this
+         surface no fourth survives beside the page's blue (scripts/validate_palette.js: the three
+         candidates measured 1.9, 3.9 and 6.3 ΔE against --cmp-3 under protanopia, against a floor of 8).
+         Facets were the alternative the rule itself names. -->
+    <section class="card s-card" id="s-models" hidden>
+      <div class="card-head"><h2>Per model</h2><span class="s-sub" id="s-models-sub"></span></div>
+      <div class="s-facets" id="s-facets"></div>
+    </section>
+
+    <!-- EVERY TOKEN THIS FLEET HAS EVER GENERATED, as it accumulated: one line, so there is one scale and
+         no second series to misread. A model change is a tick on the axis, not a colour. -->
+    <section class="card s-card" id="s-cumulative" hidden>
+      <div class="card-head"><h2>Tokens generated, cumulative</h2><span class="s-sub" id="s-cum-sub"></span></div>
+      <div class="s-chart" id="s-cum-chart"></div>
+    </section>
+
+    <!-- THE SESSIONS THEMSELVES, newest first. Every column is a measured sum or a rate over it; a
+         figure nobody measured is a dash, never a zero. -->
+    <section class="card s-card" id="s-table-card" hidden>
+      <div class="card-head"><h2>Sessions</h2><span class="s-sub" id="s-table-sub"></span></div>
+      <div class="s-scroll"><table class="s-table" id="s-table"></table></div>
+    </section>
+  </main>
+  <script src="/server-scope.js"></script>
+  <script src="/sessions.js"></script>
+</body>
+</html>

@@ -1,0 +1,96 @@
+# AN ANSWER SHEET — the standalone shape: ONE box (box-s) running the gateway and one GPU node on its RTX 5090, the node
+# requested by the gateway and applied by the box's own applier (control local; deploy/standalone). It renders
+# lb/.env, lb/fleet.yml, the node's server file deploy/standalone/.env (its EDGE_NODE_* lines from
+# `python -m vllm_lb.fleet node-env`, so render it in the vllm-lb image) and the box's telemetry sender.
+#
+#   cp deploy/setup/answers.standalone.example.yml deploy/setup/answers.yml
+#   docker run --rm -v "$PWD":/repo -w /repo vllm-lb:dev python deploy/setup/render.py deploy/setup/answers.yml --out .
+#
+# The image digest is a placeholder (pin the one you pull); names are placeholders; the secret is a placeholder.
+
+shape.kind: standalone
+shape.gateway_host: this
+
+machines.boxes: [box-s]
+box.roles: {box-s: [node-local]}
+box.hostname: {box-s: box-s-host}
+box.label: {box-s: box-s-gpu}
+box.platform: {box-s: linux/amd64}
+box.address: {box-s: 127.0.0.1}
+box.node_memory_gib: {box-s: 24}
+box.node_cpus: {box-s: 16}
+box.node_pids: {box-s: 4096}
+box.node_nice: {box-s: 10}
+
+box.cards:
+  box-s:
+    - {index: 0, type: rtx5090, serves: true}
+
+box.gpu_runtime: {box-s: nvidia}
+box.docker: {box-s: ready}
+box.container_toolkit: {box-s: present}
+
+broker.enabled: false
+
+models.task: [chat]
+models.engine: vllm
+models.quantisation: modelopt_mixed
+models.speculative: any
+models.staged: [qwen3.8-27b-nvidia-nvfp4]
+
+clusters.names: [node]
+cluster.control: {node: local}
+cluster.ranks:
+  node:
+    - {box: box-s}
+cluster.url: {node: "http://vllm-node:8000"}
+cluster.model: {node: qwen3.8-27b-nvidia-nvfp4}
+
+cluster.image: {node: "vllm/vllm-openai@sha256:0000000000000000000000000000000000000000000000000000000000000000"}
+cluster.launch_choices: {node: [qwen3.8-27b-nvidia-nvfp4]}
+cluster.max_model_len: {node: 131072}
+cluster.max_num_seqs: {node: 8}
+cluster.gpu_memory_utilization: {node: 0.9}
+cluster.reasoning_parser: {node: qwen3}
+cluster.tool_call_parser: {node: qwen3_coder}
+cluster.server_file: {node: .env}
+cluster.node_project: {node: vllm-standalone}
+cluster.node_name: {node: vllm-node}
+cluster.node_publish: {node: "127.0.0.1:8000"}
+cluster.node_network: {node: vllm-node-net}
+cluster.node_models_dir: {node: /srv/models}
+standalone.box: box-s
+standalone.lb_publish: "127.0.0.1:8010"
+standalone.lb_proxy_hosts: [none]
+standalone.searxng_publish: "127.0.0.1:8811"
+standalone.searxng_container: searxng
+
+box.models_dir: {box-s: /srv/models}
+box.models_free_gib: {box-s: 500}
+box.models_owner: {box-s: "root:root 755"}
+checkpoint.path: {qwen3.8-27b-nvidia-nvfp4: Qwen3.8-27B-NVFP4}
+checkpoint.uncensored: {qwen3.8-27b-nvidia-nvfp4: Qwen3.8-27B-NVFP4_uncensored}
+
+download.mode: staged
+
+exposure.scope: localhost
+
+search.searxng_secret: "placeholder-run-openssl-rand-hex-32"
+search.enabled: true
+
+power.enabled: false
+
+telemetry.enabled: true
+telemetry.port: 48291
+telemetry.boxes: [box-s]
+sender.gpu_kind: {box-s: nvidia}
+sender.bridged: {box-s: true}
+sender.docker_root: {box-s: /var/lib/docker}
+sender.lb_network: {box-s: lb_default}
+
+extras.usage_mcp: skip
+extras.crawl: false
+extras.dashboard: false
+
+clients.kinds: [claude-code]
+clients.where: other-machines-via-tunnel

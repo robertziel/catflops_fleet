@@ -1,0 +1,59 @@
+(APIServer pid=1) INFO 10-11 23:20:37 [api_utils.py:286] non-default args: {'model_tag': '/models/Qwen3.8-27B-NVFP4_uncensored', 'enable_auto_tool_choice': True, 'tool_call_parser': 'qwen3_coder', 'model': '/models/Qwen3.8-27B-NVFP4_uncensored', 'max_model_len': 131072, 'served_model_name': ['Qwen/Qwen3.8-27B'], 'reasoning_parser': 'qwen3', 'gpu_memory_utilization': 0.99, 'enable_mfu_metrics': True, 'max_num_seqs': 16}
+(APIServer pid=1) INFO 10-11 23:20:45 [model.py:574] Resolved architecture: Qwen3_5ForConditionalGeneration
+(APIServer pid=1) INFO 10-11 23:20:45 [model.py:1779] Using max model len 131072
+(EngineCore pid=295) INFO 10-11 23:20:58 [core.py:107] Initializing a V1 LLM engine (v0.31.1rc1.dev273+g2eb491e) with config: model='/models/Qwen3.8-27B-NVFP4_uncensored', served_model_name=Qwen/Qwen3.8-27B, max_seq_len=131072, tensor_parallel_size=1
+(EngineCore pid=295) ERROR 10-11 23:21:02 [core.py:1505] EngineCore failed to start.
+(EngineCore pid=295) ERROR 10-11 23:21:02 [core.py:1505] Traceback (most recent call last):
+(EngineCore pid=295) ERROR 10-11 23:21:02 [core.py:1505]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core.py", line 1477, in run_engine_core
+(EngineCore pid=295) ERROR 10-11 23:21:02 [core.py:1505]     engine_core = EngineCoreProc(*args, engine_index=dp_rank, **kwargs)
+(EngineCore pid=295) ERROR 10-11 23:21:02 [core.py:1505]                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=295) ERROR 10-11 23:21:02 [core.py:1505]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core.py", line 1189, in __init__
+(EngineCore pid=295) ERROR 10-11 23:21:02 [core.py:1505]     super().__init__(
+(EngineCore pid=295) ERROR 10-11 23:21:02 [core.py:1505]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core.py", line 141, in __init__
+(EngineCore pid=295) ERROR 10-11 23:21:02 [core.py:1505]     self.model_executor = executor_class(vllm_config)
+(EngineCore pid=295) ERROR 10-11 23:21:02 [core.py:1505]                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=295) ERROR 10-11 23:21:02 [core.py:1505]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/executor/abstract.py", line 126, in __init__
+(EngineCore pid=295) ERROR 10-11 23:21:02 [core.py:1505]     self._init_executor()
+(EngineCore pid=295) ERROR 10-11 23:21:02 [core.py:1505]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/executor/uniproc_executor.py", line 69, in _init_executor
+(EngineCore pid=295) ERROR 10-11 23:21:02 [core.py:1505]     self.driver_worker.init_device()
+(EngineCore pid=295) ERROR 10-11 23:21:02 [core.py:1505]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/worker_base.py", line 350, in init_device
+(EngineCore pid=295) ERROR 10-11 23:21:02 [core.py:1505]     self.worker.init_device()  # type: ignore
+(EngineCore pid=295) ERROR 10-11 23:21:02 [core.py:1505]     ^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=295) ERROR 10-11 23:21:02 [core.py:1505]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/gpu_worker.py", line 521, in init_device
+(EngineCore pid=295) ERROR 10-11 23:21:02 [core.py:1505]     self.requested_memory = request_memory(
+(EngineCore pid=295) ERROR 10-11 23:21:02 [core.py:1505]                             ^^^^^^^^^^^^^^^
+(EngineCore pid=295) ERROR 10-11 23:21:02 [core.py:1505]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/utils.py", line 762, in request_memory
+(EngineCore pid=295) ERROR 10-11 23:21:02 [core.py:1505]     raise ValueError(
+(EngineCore pid=295) ERROR 10-11 23:21:02 [core.py:1505] ValueError: Free memory on device cuda:0 (30.85/31.36 GiB) on startup is less than desired GPU memory utilization (0.99, 31.04 GiB). Decrease GPU memory utilization or reduce GPU memory used by other processes.
+Process EngineCore:
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+  File "/usr/lib/python3.12/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core.py", line 1509, in run_engine_core
+    raise e
+  File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core.py", line 1477, in run_engine_core
+    engine_core = EngineCoreProc(*args, engine_index=dp_rank, **kwargs)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/gpu_worker.py", line 521, in init_device
+    self.requested_memory = request_memory(
+                            ^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/utils.py", line 762, in request_memory
+    raise ValueError(
+ValueError: Free memory on device cuda:0 (30.85/31.36 GiB) on startup is less than desired GPU memory utilization (0.99, 31.04 GiB). Decrease GPU memory utilization or reduce GPU memory used by other processes.
+Traceback (most recent call last):
+  File "/usr/local/bin/vllm", line 10, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core_client.py", line 682, in __init__
+    with launch_core_engines(
+  File "/usr/lib/python3.12/contextlib.py", line 144, in __exit__
+    next(self.gen)
+  File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/utils.py", line 1351, in launch_core_engines
+    wait_for_engine_startup(
+  File "/usr/local/lib/python3.12/dist-packages/vllm/v1/engine/utils.py", line 1431, in wait_for_engine_startup
+    raise RuntimeError(
+RuntimeError: Engine core initialization failed. See root cause above. Failed core proc(s): {'EngineCore': 1}
+(APIServer pid=1) INFO 10-11 23:21:16 [api_utils.py:286] non-default args: {'model_tag': '/models/Qwen3.8-27B-NVFP4_uncensored', 'enable_auto_tool_choice': True, 'tool_call_parser': 'qwen3_coder', 'model': '/models/Qwen3.8-27B-NVFP4_uncensored', 'max_model_len': 131072, 'served_model_name': ['Qwen/Qwen3.8-27B'], 'reasoning_parser': 'qwen3', 'gpu_memory_utilization': 0.99, 'enable_mfu_metrics': True, 'max_num_seqs': 16}
+(APIServer pid=1) INFO 10-11 23:21:24 [model.py:574] Resolved architecture: Qwen3_5ForConditionalGeneration

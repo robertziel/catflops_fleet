@@ -1,0 +1,63 @@
+--- a/python/sglang/srt/layers/attention/qwen_sparse_attn_backend.py
++++ b/python/sglang/srt/layers/attention/qwen_sparse_attn_backend.py
+@@ -44,6 +44,30 @@
+ 
+ _TRTLLM_SPARSE_PAGE_SIZE = 64
+ 
++# Fleet patch qsa-fp8-kv: the SM121 QSA decode kernel and the chunk-prefill kernel read BF16 K/V only, so a pool
++# stored in FP8 (--kv-cache-dtype fp8_e4m3/fp8_e5m2) is widened to BF16 where its rows are gathered — at most topk
++# (<= 2,055) of them a request — and the layer's KV scale (the pool divided by it on write) multiplied back.
++_FP8_KV_DTYPES = (torch.float8_e4m3fn, torch.float8_e5m2)
++
++
++def _qsa_gather_dtype(pool_dtype: torch.dtype) -> torch.dtype:
++    """The dtype QSA's kernels read gathered K/V in: BF16 for an FP8 pool, the pool's own otherwise."""
++    return torch.bfloat16 if pool_dtype in _FP8_KV_DTYPES else pool_dtype
++
++
++def _qsa_unscale_(t: torch.Tensor, scale) -> torch.Tensor:
++    """Multiply rows gathered from an FP8 pool by the scale the pool divided them by on write (None or 1.0: none)."""
++    if scale is not None and float(scale) != 1.0:
++        t.mul_(float(scale))
++    return t
++
++
++def _qsa_widen(t: torch.Tensor, scale) -> torch.Tensor:
++    """Rows gathered from the pool, in the dtype QSA's kernels read (see _qsa_gather_dtype)."""
++    if t.dtype not in _FP8_KV_DTYPES:
++        return t
++    return _qsa_unscale_(t.to(torch.bfloat16), scale)
++
+ 
+ @lru_cache(maxsize=1)
+ def _resolve_trtllm_sparse_decode():
+@@ -1364,8 +1388,8 @@
+         cu_seqlens_k = F.pad(sequence_lens_tensor.cumsum(0), (1, 0)).contiguous()
+         output = sparse_gqa_fwd_interface_triton_ck(
+             q.contiguous(),
+-            torch.cat(k_parts),
+-            torch.cat(v_parts),
++            _qsa_widen(torch.cat(k_parts), getattr(layer, "k_scale_float", None)),
++            _qsa_widen(torch.cat(v_parts), getattr(layer, "v_scale_float", None)),
+             topk_indices,
+             cu_seqlens_q,
+             cu_seqlens_k,
+@@ -1587,7 +1611,7 @@
+             scratch_capacity,
+             k_buffer.shape[1],
+             k_buffer.shape[2],
+-            k_buffer.dtype,
++            _qsa_gather_dtype(k_buffer.dtype),     # Triton's store widens FP8 rows to BF16 as it packs them
+             k_buffer.device,
+         )
+         qwen_sparse_kv_extraction_compact_triton(
+@@ -1607,6 +1631,9 @@
+             batch,
+             topk,
+         )
++        if k_buffer.dtype in _FP8_KV_DTYPES:
++            _qsa_unscale_(packed_k, getattr(layer, "k_scale_float", None))
++            _qsa_unscale_(packed_v, getattr(layer, "v_scale_float", None))
+         output = flash_attn_varlen_func(
+             q=q,
+             k=packed_k,

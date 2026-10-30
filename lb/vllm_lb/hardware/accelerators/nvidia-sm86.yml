@@ -1,0 +1,10 @@
+# NVIDIA Ampere at compute capability 8.6 — the GeForce RTX 30-series (RTX 3090). An ACCELERATOR
+# (vllm_lb/hardware/accelerators.py): what an engine's KERNELS are compiled for and can run, shared by every card type
+# that names it. Every figure is {value, source}; value null = no source states it, and the source says why.
+name: NVIDIA Ampere, compute capability 8.6 (sm_86)
+facts:
+  arch: {value: sm_86, source: "NVIDIA, CUDA GPUs compute capability list (developer.nvidia.com/cuda-gpus): 'GeForce RTX 3090 … 8.6'"}
+  gpu_runtime: {value: nvidia, source: "an NVIDIA CUDA GPU: a container reaches it through Docker's NVIDIA device reservation (the NVIDIA Container Toolkit) — deploy/standalone/node-gpu.nvidia.yml"}
+  platforms: {value: [linux/amd64], source: "the host this card sits in on this project is x86-64 (lb/fleet.one-host.example.yml: the 3090 beside the 5090 in a `platform: linux/amd64` box). An Arm host is not established here"}
+  precisions: {value: [bf16, fp16], source: "NVIDIA RTX Blackwell GPU Architecture whitepaper v1.1 (2025), Appendix A, Table 3: RTX 3090 Peak BF16 Tensor TFLOPS 71.2 (dense); 'Peak FP8 Tensor TFLOPS' and 'Peak FP4 Tensor TFLOPS' N/A — Ampere's Tensor Cores have neither FP8 nor FP4"}
+  quant_formats: {value: [none], source: "unquantised bf16 weights run on the card's BF16 Tensor Cores (whitepaper Table 3, 71.2 TFLOPS). No quantised checkpoint has been served on a 3090 in this project, so no quant format is established here: an NVFP4 or FP8 format needs a tensor unit this arch lacks, and a weight-only kernel for it is not measured"}

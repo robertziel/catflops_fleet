@@ -1,0 +1,36 @@
+{
+  "what": "The dense 27B (qwen3.8-27b-nvidia-nvfp4) on the TP=2 pair, generations 103 and 104, 2026-10-02: what each box had free at launch and with the pair serving (/lb/status captures at 1790933427, 1790934649 and 1790934814), and the engine's own lines from the generation-104 rank logs (docker logs qwen38-cluster-vllm on box-a and box-b).",
+  "config": {"model_choice": "qwen3.8-27b-nvidia-nvfp4", "max_num_seqs": 16, "max_model_len": 262144,
+             "max_num_batched_tokens": 8192, "num_speculative_tokens": 4, "kv_cache_memory": 48000000000,
+             "ple_replicate": null},
+  "roles": {"box-a": "head", "box-b": "worker"},
+  "generation_103": {"mem_at_launch_gib": {"box-a": 114.8, "box-b": 115.6},
+                     "actual_used_gib": {"box-a": 69.9, "box-b": 66.6}},
+  "generation_104": {"mem_at_launch_gib": {"box-a": 115.6, "box-b": 115.7},
+                     "mem_rest_gib": {"box-a": 46.3, "box-b": 50.2},
+                     "mem_available_gib": {"box-a": 45.8, "box-b": 49.3},
+                     "actual_used_gib": {"box-a": 69.8, "box-b": 66.4}},
+  "engine_log_lines_generation_104": {
+    "rank0": [
+      "[model_runner.py:404] Model loading took 10.68 GiB memory and 43.891561 seconds",
+      "[interface.py:938] Setting attention block size to 816 tokens to ensure that attention page size is >= mamba page size.",
+      "[interface.py:962] Padding mamba page size by 1.62% to ensure that mamba page size and attention page size are exactly equal.",
+      "[gpu_worker.py:544] Initial free memory 109.26 GiB, reserved 44.7 GiB memory for KV Cache as specified by kv_cache_memory_bytes config and skipped memory profiling.",
+      "[kv_cache_utils.py:2032] GPU KV cache size: 1,302,238 tokens, Maximum concurrency for 262,144 tokens per request: 4.97x",
+      "[model_runner.py:960] Graph capturing finished in 14 secs, took 1.59 GiB"],
+    "rank1": [
+      "[model_runner.py:404] Model loading took 10.68 GiB memory and 14.235180 seconds",
+      "[gpu_worker.py:544] Initial free memory 110.79 GiB, reserved 44.7 GiB memory for KV Cache as specified by kv_cache_memory_bytes config and skipped memory profiling.",
+      "[model_runner.py:960] Graph capturing finished in 14 secs, took 1.58 GiB"]},
+  "cache_config_info_generation_105": {
+    "what": "vllm:cache_config_info scraped from the head's /metrics on 2026-10-02 (generation 105, same model, same 48 GB pin)",
+    "block_size": 816, "num_gpu_blocks": 1689, "kv_cache_max_concurrency": 4.9676470588235295,
+    "kv_cache_memory_bytes": 48000000000, "kv_cache_size_tokens": 1302238},
+  "cache_config_info_flash_next_2026_09_30": {
+    "what": "vllm:cache_config_info scraped from the head's /metrics on 2026-09-30 (Flash-Next, 28 GB pin; its attention block is 1,616 tokens per the 2026-09-15 start log, the metric's block_size said 8)",
+    "num_gpu_blocks": 1225, "kv_cache_max_concurrency": 6.51595744680851,
+    "kv_cache_memory_bytes": 28000000000, "kv_cache_size_tokens": 1708119},
+  "notes": ["Model loading took 10.68 GiB = the weights (10.28) + the MTP drafter (0.40), per rank.",
+            "overhead = actual − weights − mtp − pin: head 69.8 − 10.28 − 0.40 − 44.70 = 14.4 (gen 104), 14.5 (gen 103); worker 66.4 − 55.38 = 11.0 (gen 104), 11.2 (gen 103). The catalog takes the larger of the two generations per role.",
+            "The slopes per seat and per 1,024 tokens of prefill budget are NOT measured for this model: 0 in the catalog, so neither knob is charged above these anchors."]
+}

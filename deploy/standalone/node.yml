@@ -1,0 +1,50 @@
+# deploy/standalone/node.yml: the MODEL NODE alone -- one engine on one GPU (EDGE_NODE_*), on EDGE_NODE_NETWORK where the LB
+# dials it -- in the same compose project as docker-compose.yml (`name:` below), in a file of its own: compose
+# interpolates EVERY service of the files it is given, so the node's file names nothing but the node section's values
+# and a host that runs only a node (a node-only server file, up.sh) can bring it up. Its GPU is attached by
+# node-gpu.<EDGE_NODE_GPU_RUNTIME>.yml, its MFU patch by node-mfu.<EDGE_NODE_MFU_PATCH>.yml and the server it runs by
+# node-engine.<EDGE_NODE_ENGINE>.yml (up.sh adds all three): this file is what every engine's node shares — image, name,
+# limits, port, models, network, niceness — and the engine's override is the server (its entrypoint, its command, the
+# variables only it reads), so a node is never handed a knob its engine does not read.
+# Brought up by ./up.sh node, never a bare `docker compose up`.
+#
+# ITS OWN COMPOSE PROJECT (EDGE_NODE_PROJECT, the server file's): two nodes on one box — a chat node and a speech one,
+# each its own server file and applier — are two projects; in one, `up -d node` of either would recreate the other.
+# A standalone server whose LB, gates and chat are docker-compose.yml's names that file's project (vllm-standalone).
+name: "${EDGE_NODE_PROJECT:?set in deploy/standalone/.env: the node's compose project}"
+services:
+  node:
+    image: "${EDGE_NODE_IMAGE:?set in deploy/standalone/.env}"
+    container_name: "${EDGE_NODE_NAME:?set in deploy/standalone/.env}"
+    restart: unless-stopped
+    ipc: host
+    # BOUNDED on a box others share (the LB, the broker): the box's `node_limits` in the fleet file, rendered
+    # by node-env — memory with NO swap (memswap = mem), CPUs, processes. No default: unset, compose stops and names it.
+    # (On an APU the GPU pool, GTT, is not charged to the memcg: `mem_limit` bounds the processes, the fleet's
+    # gpu_ram_max_gib the pool.)
+    mem_limit: "${EDGE_NODE_MEMORY:?set in deploy/standalone/.env (node-env renders it from the box's node_limits)}"
+    memswap_limit: "${EDGE_NODE_MEMORY:?set in deploy/standalone/.env (node-env renders it from the box's node_limits)}"
+    cpus: "${EDGE_NODE_CPUS:?set in deploy/standalone/.env (node-env renders it from the box's node_limits)}"
+    pids_limit: "${EDGE_NODE_PIDS_LIMIT:?set in deploy/standalone/.env (node-env renders it from the box's node_limits)}"
+    ports:
+      - "${EDGE_NODE_PUBLISH:?set in deploy/standalone/.env}:8000"
+    volumes:
+      - "${EDGE_MODELS_DIR:?set in deploy/standalone/.env}:/models:ro"
+      # tp-rank's MFU byte-size patch is NOT here: node-mfu.<EDGE_NODE_MFU_PATCH>.yml mounts and sets it only for a
+      # checkpoint whose quant method needs it (node-env renders the value from the catalog row) — a PYTHONPATH of
+      # ours replaces the image's own, and under ROCm the patch's sitecustomize recursed until OOM (2026-10-17).
+    environment:
+      # the engine's niceness (the box's node_limits.nice): below the LB when a cold compile takes every core
+      EDGE_NODE_NICE: "${EDGE_NODE_NICE:?set in deploy/standalone/.env (node-env renders it from the box's node_limits)}"
+    networks: [node]
+    # THE SERVER IT RUNS — its entrypoint, command and the variables only it reads — is node-engine.<EDGE_NODE_ENGINE>.yml's.
+    # HOW THE CONTAINER ATTACHES THE CARD is not here: it is the card type's `gpu_runtime` (lb/vllm_lb/hardware),
+    # one override per runtime — node-gpu.nvidia.yml, node-gpu.rocm.yml — which up.sh adds by EDGE_NODE_GPU_RUNTIME.
+    logging:
+      driver: json-file
+      options: {max-size: "20m", max-file: "5"}
+
+networks:
+  node:
+    name: "${EDGE_NODE_NETWORK:?set in deploy/standalone/.env}"
+    external: true

@@ -1,0 +1,26 @@
+# NVIDIA GeForce RTX 5090 — a discrete Blackwell card with 32 GB of GDDR7 of its own.
+# A hardware TYPE (vllm_lb/hardware/profiles.py loads it): every figure is {value, source} — value null means no
+# source states it, and the source then says why. Peaks are one GPU's, DENSE, at the precision named.
+name: NVIDIA GeForce RTX 5090
+memory: discrete
+# What its kernels target (vllm_lb/hardware/accelerators/<key>.yml): its arch and gpu_runtime are the
+# accelerator's, one place per value — shared with every product of its architecture.
+accelerator: nvidia-sm120
+# local: a one-host node the LB requests and its own host applies (deploy/standalone/up.sh node) — the standalone
+# server's vLLM node runs on this card. tp-rank (ssh) is built for DGX Spark pairs only.
+controls: [local]
+facts:
+  memory_gb: {value: 32, source: "NVIDIA RTX Blackwell GPU Architecture whitepaper v1.1 (2025), Appendix A, Table 3 'GeForce RTX 5090 vs GeForce RTX 4090 vs GeForce RTX 3090 Specs': 'Frame Buffer Memory Size and Type 32 GB GDDR7'"}
+  cuda_cores: {value: 21760, source: "NVIDIA RTX Blackwell GPU Architecture whitepaper v1.1 (2025), Appendix A, Table 3: 'CUDA Cores / GPU 21760'; the product page (nvidia.com/en-us/geforce/graphics-cards/50-series/rtx-5090): 'NVIDIA CUDA Cores 21760'"}
+  peak_gbps: {value: 1792, source: "NVIDIA RTX Blackwell GPU Architecture whitepaper v1.1 (2025), Appendix A, Table 3: 'Memory Bandwidth 1792 GB/sec' (512-bit, 28 Gbps)"}
+  host_platform: {value: null, source: "a discrete card runs in whatever host it is plugged into: the box's own `platform` in the fleet file says which"}
+  bandwidth_counter: {value: null, source: "not established: neither NVIDIA's spec pages nor a measurement in this repo says whether a DRAM-traffic counter can be read on this card (nvidia-smi's utilization.memory is a duty cycle, not traffic)"}
+  # vLLM's START CHECK reads these two (v1/worker/utils.py:761 @2eb491e, fleet.py `_start_check`): it refuses a
+  # gpu_memory_utilization whose share of the visible total exceeds the free memory, before anything loads.
+  visible_gib: {value: 31.36, source: "measured 2026-10-11 23:21Z on this project's one-card RTX 5090 node (vLLM 2eb491e, the node's boot log): 'Free memory on device cuda:0 (30.85/31.36 GiB) on startup' — MemorySnapshot.total_memory, CUDA's cudaMemGetInfo total (vllm/utils/mem_utils.py:143), printed by v1/worker/utils.py:761-770 to 0.01 GiB; under the spec's 32 GB"}
+  free_at_start_gib: {value: 30.85, source: "measured 2026-10-11 23:21Z on this project's one-card RTX 5090 node, the card otherwise idle (vLLM 2eb491e, the node's boot log): 'Free memory on device cuda:0 (30.85/31.36 GiB) on startup is less than desired GPU memory utilization (0.99, 31.04 GiB)' (v1/worker/utils.py:761-770, to 0.01 GiB) — read after vLLM's own CUDA context exists (gpu_worker.py:516-523), so the context is already out of it; another process on the card leaves less"}
+  mfu_patch_loads: {value: true, source: "the standalone 5090 node has run with it since ab270fe (2026-10-11): deploy/standalone/vllm-mfu/sitecustomize.py on PYTHONPATH of vllm/vllm-openai (CUDA), serving the 27B NVFP4 whose quant method is modelopt_mixed — node-mfu.on.yml since d2dc9e7"}
+  peak_tflops:
+    bf16: {value: 209.5, source: "NVIDIA RTX Blackwell GPU Architecture whitepaper v1.1 (2025), Appendix A, Table 3: 'Peak BF16 Tensor TFLOPS with FP32 Accumulate 209.5/419' — dense (the X of X/Y; Y is with sparsity), at GPU Boost Clock"}
+    fp8: {value: 419, source: "NVIDIA RTX Blackwell GPU Architecture whitepaper v1.1 (2025), Appendix A, Table 3: 'Peak FP8 Tensor TFLOPS with FP32 Accumulate 419/838' — dense, at GPU Boost Clock; FP32 accumulate, as an FP8 GEMM runs (with FP16 accumulate the table says 838)"}
+    nvfp4: {value: 1676, source: "NVIDIA RTX Blackwell GPU Architecture whitepaper v1.1 (2025), Appendix A, Table 3: 'Peak FP4 Tensor TFLOPS with FP32 Accumulate 1676/3352' — dense, at GPU Boost Clock; NVFP4 is an FP4 format, run by the FP4 Tensor Cores"}

@@ -1,0 +1,65 @@
+{
+  "what": "What CONCURRENCY (max_num_seqs) costs one rank in unified memory on the live pair, measured 2026-10-01, and why the start gate has to charge it. f1c8491 taught the gate the PREFILL BUDGET and deliberately left max_num_seqs out, and said so: the only figures then were CUDA-graph captures at 1 and 2 seats (0.29 / 0.59 GiB, worklog/vllm-cluster-ram-headroom.md §4), and a slope drawn through two points out to 48 seats would have started refusing configurations that work. These are the figures that were missing — the live pair, same model, same context, same prefill budget, at 16 seats and at 24.",
+
+  "boxes": {
+    "note": "box-a and box-b are NVIDIA GB10 (DGX Spark, hostname box-b-host). CPU and GPU share ONE LPDDR5X pool, so a CUDA allocation failure and host memory exhaustion are the same event seen from two sides, and MemAvailable is a legitimate signal for it.",
+    "mem_total_gib": 121.7,
+    "mem_at_launch_gib": 115.5,
+    "mem_at_launch_source": "The operator's figure for what these boxes have free when a rank launches, consistent with the two recorded ones in cluster-b16384-2026-09-30-memory.json: 115.7 (generation 52, from a real /lb/status capture) and 116.0 (generation 68)."
+  },
+
+  "generations": {
+    "source": "lb/state/perf/boots-2026-09-30.jsonl and lb/state/perf/boots-2026-10-01.jsonl — the LB's own boot records, whose `config` block carries the knobs each generation was launched with (config_source `launch`). As the 2026-09-30 fixture also records, those records hold NO memory field of any kind, and the LB does not persist `mem_at_launch`; so the MemAvailable below is the operator's live read of the box while that generation was the one serving.",
+    "84": {"max_num_seqs": 16, "max_num_batched_tokens": 8192, "num_speculative_tokens": 4, "max_model_len": 262144, "outcome": "serving"},
+    "87": {"max_num_seqs": 24, "max_num_batched_tokens": 8192, "num_speculative_tokens": 2, "max_model_len": 262144, "outcome": "serving", "note": "a second 24-seat generation, reached `serving` — no memory sample was taken on it, so it is context, not evidence"},
+    "88": {"max_num_seqs": 16, "max_num_batched_tokens": 8192, "num_speculative_tokens": 3, "max_model_len": 262144, "outcome": "serving"},
+    "90": {"max_num_seqs": 24, "max_num_batched_tokens": 8192, "num_speculative_tokens": 3, "max_model_len": 262144, "outcome": "serving"}
+  },
+
+  "samples": [
+    {"generation": 84, "box": "box-a", "role": "head", "max_num_seqs": 16, "num_speculative_tokens": 4,
+     "load": "idle, just after serving", "mem_available_gib": 11.3},
+    {"generation": 88, "box": "box-a", "role": "head", "max_num_seqs": 16, "num_speculative_tokens": 3,
+     "load": "under saturating load, steady", "mem_available_gib": 4.8},
+    {"generation": 90, "box": "box-a", "role": "head", "max_num_seqs": 24, "num_speculative_tokens": 3,
+     "load": "IDLE, no traffic at all", "mem_available_gib": 1.7}
+  ],
+
+  "per_seat": {
+    "gib_per_seat_between_16_and_24": 1.2,
+    "arithmetic": "(11.3 − 1.7) GiB of MemAvailable over (24 − 16) seats — both samples IDLE, same box, same role, same model, same context, same prefill budget, same KV pin = 9.6 / 8 = 1.2 GiB per seat.",
+    "anchor_max_num_seqs": 16,
+    "anchor_note": "16 is the zero point because 16 is the highest concurrency MEASURED to rest safely on these boxes: 11.3 GiB free at generation 84, above the 9.1 GiB of the configuration that served for weeks and far above the 0.8–4.2 GiB band that hung them. Charging from the 2026-09-15 calibration point (max_num_seqs 1) instead would mean extrapolating that two-point CUDA-graph slope over 15 seats — about 4.4 GiB — and the live pair contradicts it: at 16 seats the head's whole footprint is 104.2–104.7 GiB (115.5–116.0 at launch, 11.3 left) against the 103.2 GiB this estimator predicts at 1 seat, so the real cost between 1 and 16 seats is 1.0–1.5 GiB, not 4.4. A charge below the anchor would refuse what demonstrably works, which is the trap f1c8491's author named. Nothing below the anchor is credited back, exactly as a prefill budget below 8,192 is not.",
+    "why_it_is_resting_cost_not_a_load_effect": "Generation 90's 1.7 GiB was read with NO traffic at all. The KV pool is pinned and allocated up front (kv_cache_memory 28000000000 bytes), and the decode CUDA graphs are captured during startup, so what a concurrency costs is paid before the first request and does not come back when the pair goes quiet. 1.7 GiB is this configuration's RESTING cost.",
+    "confound": "The two idle samples differ in num_speculative_tokens as well — 4 at generation 84, 3 at generation 90 — so 1.2 is a bound, not a clean coefficient. The confound has a KNOWN SIGN. The drafter's weights do not change with the count (mtp_gib is the whole MTP layer either way); what the count changes is the uniform decode batch the engine captures graphs for and sizes its per-step activations from, seqs × (spec + 1): 80 slots at generation 84 against 96 at generation 90. Fewer proposals is less of that, never more. So between those two samples the step from spec 4 to 3 RELEASED memory while the 8 extra seats took it, and 1.2 GiB per seat is a LOWER bound on what a seat costs between 16 and 24. It is charged as a bound; the 8 GiB start headroom is what covers the remainder. What stays confounded and unmeasured: the per-seat cost ABOVE 24 seats, and whether the cost is linear or stepped inside 17–23 — this is a straight line between two measured points, which over-charges above 24 (monotone, the safe side) and interpolates between them.",
+    "not_the_seq_state": "It is not the per-sequence linear-attention state: seq_state_gib is 0.0551 GiB, so 8 more seats is 0.44 GiB of mamba pages, and those come out of the pinned KV pool in any case. 1.2 GiB per seat is an order of magnitude above that — it is the captured decode graphs, the per-step activation buffers sized on the batch, the sampler's own seqs × vocab buffers, and the caching allocator's high-water mark, which torch never returns to the driver."
+  },
+
+  "load_cost": {
+    "gib_at_16_seats": 6.5,
+    "arithmetic": "(11.3 idle − 4.8 saturated) GiB at the same 16 seats, generations 84 and 88. Same spec confound, same sign: the saturated sample is the one with FEWER proposals, so 6.5 understates what a load costs.",
+    "why_it_matters": "The second, independent reason 24 seats must be refused. The box at 24 seats RESTS at 1.7 GiB free — less than one saturating load is measured to consume at 16. There is no load it can absorb, and nothing left for a generation handover. It also says the gateway's 8 GiB `cluster_start_headroom_gib` is the right size, because a start must leave more than a saturating load takes: this fixture is not a reason to move it."
+  },
+
+  "implied_footprint": {
+    "note": "DERIVED from the launch figure above, not measured directly: nothing on disk records what box-a had free when generation 90 launched.",
+    "actual_used_gib_at_24_seats": {"box-a": 113.8},
+    "estimated_total_gib_before_this_fix": {"box-a": 103.2},
+    "miss_gib": 10.6,
+    "estimated_total_gib_after_this_fix": {"box-a": 112.8},
+    "arithmetic": "115.5 at launch − 1.7 resting = 113.8 GiB really taken by the head at 24 seats. Blind to concurrency the estimator said 103.2 — a 10.6 GiB miss, 9.3 %, which sat just under the catalog's 10 % deviation tolerance and so was never flagged. With 8 seats above the anchor charged at 1.2 it says 112.8, a 1.0 GiB miss."
+  },
+
+  "hang_band": {
+    "safe_free_gib": 9.1,
+    "fatal_free_gib": [0.8, 4.2],
+    "source": "cluster-b16384-2026-09-30-memory.json, `safe_boundary`",
+    "verdict": "1.7 GiB rests INSIDE the band that hung both GB10 boxes on 2026-09-30, and leaves nothing to absorb a generation handover — the exact moment they died: NVRM `Out of memory [NV_ERR_NO_MEMORY]` at 20:46–20:47Z, the minute one generation ended and the next began."
+  },
+
+  "the_worker_rank": {
+    "note": "Only box-a, the head, was sampled at 24 seats. The concurrency cost is an engine cost per rank — captured decode graphs, per-step activations, the allocator's high-water mark — so it is charged on BOTH ranks. That is the conservative side and costs nothing in practice: the head needs 5.5 GiB more than the worker (overhead_gib 12.66 against 7.16), so the head is the rank that gates either way."
+  },
+
+  "verdict": "REFUSE a start above 16 seats on 115.5 GiB boxes. At 16 and batched 8192 the head needs 103.2 GiB, rests at 11.3 GiB free and has banked many generations; at 24 it needs 112.8, rests at 1.7 and can absorb neither a load nor a handover. The prefill budget cannot save 24 seats: at 8,192 that term is already zero and nothing below it is credited, so there is no budget left to give back."
+}

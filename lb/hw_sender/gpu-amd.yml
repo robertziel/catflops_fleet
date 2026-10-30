@@ -1,0 +1,10 @@
+# GPU kind: AMD (the amdgpu driver). fleet_telemetry reads the card from the driver's own sysfs
+# (/sys/class/drm/card<N>/device: utilisation, VRAM, and its hwmon — edge temperature, PPT power, sclk), the files
+# rocm-smi itself reads. sysfs is readable from any container, so this grants NOTHING: no ROCm tree, no /dev/kfd or
+# /dev/dri, no host /sys mount. An APU reports its small VRAM carve-out as the card's memory; the LB shows the box's
+# RAM for a unified-memory box (its fleet type says which it is).
+# Select it in lb/hw_sender/.env: COMPOSE_FILE=docker-compose.yml:gpu-amd.yml (+ :bridged.yml).
+services:
+  hw-sender:
+    environment:
+      HW_SENDER_GPU: amd

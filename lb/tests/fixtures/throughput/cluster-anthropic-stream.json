@@ -1,0 +1,111 @@
+{
+  "captured_at": "2026-09-15T21:43:11+00:00",
+  "via": "http://127.0.0.1:8010",
+  "request": {
+    "method": "POST",
+    "path": "/v1/messages?beta=true",
+    "headers": {
+      "Content-Type": "application/json",
+      "anthropic-version": "2023-06-01"
+    },
+    "body": {
+      "model": "qwen3.8:latest",
+      "max_tokens": 32,
+      "stream": true,
+      "messages": [
+        {
+          "role": "user",
+          "content": "Count from 1 to 20, separated by single spaces. Reply with the numbers only."
+        }
+      ]
+    }
+  },
+  "status": 200,
+  "reason": "OK",
+  "headers": [
+    [
+      "Server",
+      "vllm-lb/1.0 Python/3.12.14"
+    ],
+    [
+      "Date",
+      "Tue, 15 Sep 2026 21:43:10 GMT"
+    ],
+    [
+      "date",
+      "Tue, 15 Sep 2026 21:43:10 GMT"
+    ],
+    [
+      "server",
+      "uvicorn"
+    ],
+    [
+      "content-type",
+      "text/event-stream; charset=utf-8"
+    ],
+    [
+      "Connection",
+      "close"
+    ],
+    [
+      "X-LB-Backend",
+      "http://192.0.2.2:8100"
+    ],
+    [
+      "X-LB-Kind",
+      "cluster"
+    ],
+    [
+      "X-LB-Box",
+      "box-a + box-b"
+    ]
+  ],
+  "served_by": {
+    "X-LB-Backend": "http://192.0.2.2:8100",
+    "X-LB-Kind": "cluster",
+    "X-LB-Box": "box-a + box-b"
+  },
+  "head_s": 0.194253,
+  "reads": [
+    [
+      0.194264,
+      517
+    ],
+    [
+      0.237513,
+      131
+    ],
+    [
+      0.2868,
+      143
+    ],
+    [
+      0.331614,
+      138
+    ],
+    [
+      0.376459,
+      137
+    ],
+    [
+      0.422947,
+      147
+    ],
+    [
+      0.473479,
+      148
+    ],
+    [
+      0.523846,
+      377
+    ],
+    [
+      0.523912,
+      188
+    ]
+  ],
+  "bytes": 1926,
+  "abandoned": false,
+  "refused_before": [],
+  "posts_so_far": 1
+}

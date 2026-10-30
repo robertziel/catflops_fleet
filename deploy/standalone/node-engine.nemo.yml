@@ -1,0 +1,29 @@
+# deploy/standalone/node-engine.nemo.yml -- the node runs nemo (EDGE_NODE_ENGINE=nemo): a transcription server on
+# NVIDIA NeMo ASR (a .nemo checkpoint: Parakeet TDT) — the image is the fleet file's `launch.image` for this engine —
+# behind the same transcription-server contract as node-engine.faster-whisper.yml (docs/design/engines.md:
+# /v1/audio/transcriptions, /health, /metrics, GET /v1/models). up.sh adds this file when the launch choice's catalog
+# `node_engine` is nemo. Never started on its own.
+#
+# It REPLACES node.yml's vLLM entrypoint and command; the port, the checkpoint mount (/models), the limits, the network
+# and the card are the node's. The service's settings, mapped from the node's values once:
+#   MODEL_SIZE           the checkpoint's folder in the container (one .nemo file under EDGE_MODELS_DIR) — also the id
+#                        its /v1/models lists, which is why the catalog row's served_name is that path
+#   DEVICE               cuda
+#   MAX_ACTIVE_REQUESTS  the launch's max_num_seqs — at most what the catalog's engine_memory was measured at
+#   WORKER_ID            its log name: the container's
+# and OPTIONAL — set only when its variable holds a value (fleet.py NemoEngine):
+#   EDGE_NODE_MAX_QUEUE  MAX_QUEUE_SIZE with FAIL_FAST_WHEN_BUSY=false; unset = a busy realtime request is answered 503
+# How a long file is cut into pieces is the image's own setting.
+services:
+  node:
+    entrypoint:
+      - /bin/sh
+      - -c
+      - 'exec env $${EDGE_NODE_MAX_QUEUE:+MAX_QUEUE_SIZE=$$EDGE_NODE_MAX_QUEUE FAIL_FAST_WHEN_BUSY=false} nice -n "$$EDGE_NODE_NICE" python -m transcription'
+    command: []
+    environment:
+      MODEL_SIZE: "/models/${EDGE_NODE_MODEL:?set in deploy/standalone/.env}"
+      DEVICE: cuda
+      MAX_ACTIVE_REQUESTS: "${EDGE_NODE_MAX_NUM_SEQS:?set in deploy/standalone/.env}"
+      WORKER_ID: "${EDGE_NODE_NAME:?set in deploy/standalone/.env}"
+      EDGE_NODE_MAX_QUEUE:

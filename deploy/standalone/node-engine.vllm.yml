@@ -1,0 +1,58 @@
+# deploy/standalone/node-engine.vllm.yml -- the node runs vLLM (EDGE_NODE_ENGINE=vllm): `vllm serve` with the launch's
+# figures. up.sh adds this file when the launch choice's catalog `node_engine` is vllm (`python -m vllm_lb.fleet
+# node-env` renders its variables: fleet.py VllmEngine.env_lines); node-engine.faster-whisper.yml is the other engine.
+# Never started on its own. Its variables (EDGE_NODE_SERVED_NAME, _MAX_MODEL_LEN, _GPU_MEM_UTIL and the optional ones)
+# are vLLM's alone: .env.example documents them commented out, and compose refuses a vLLM node without the required
+# ones, naming each.
+services:
+  node:
+    environment:
+      # The OPTIONAL node values, handed through from the server file / the applied node.env as they are there — a
+      # number, empty or absent; empty or absent is vLLM's OWN, so no compose default stands in for any of them
+      # (`python -m vllm_lb.fleet node-env` renders the lines; fleet.py OPTIONAL_NODE_ENV):
+      #   EDGE_NODE_MAX_NUM_BATCHED_TOKENS  the prefill chunk (--max-num-batched-tokens); unset = vLLM's default
+      #   EDGE_NODE_KV_CACHE_MEMORY         the KV pool PINNED in bytes (--kv-cache-memory-bytes); unset = sized from
+      #                                     --gpu-memory-utilization (which vLLM still checks against free memory)
+      #   EDGE_NODE_KV_OFFLOAD_RAM_GIB      a KV tier in the HOST's RAM, GiB (--kv-offloading-size, native backend):
+      #                                     a preempted request's prompt KV parked there and copied back into VRAM, not
+      #                                     recomputed. Mapped in /dev/shm — the host's, by `ipc: host` above — pinned
+      #                                     whole at start; unset = no tier. The fleet bounds it per box.
+      EDGE_NODE_MAX_NUM_BATCHED_TOKENS:
+      EDGE_NODE_KV_CACHE_MEMORY:
+      #   EDGE_NODE_REASONING_PARSER        vLLM's reasoning parser (--reasoning-parser); unset = none: a model with no
+      #                                     thinking format, whose answers a parser would move out of `content`
+      EDGE_NODE_KV_OFFLOAD_RAM_GIB:
+      EDGE_NODE_REASONING_PARSER:
+      #   EDGE_NODE_TOOL_CALL_PARSER        vLLM's tool-call parser, with --enable-auto-tool-choice: a CHAT node's (a chat
+      #                                     client sends tools with tool_choice auto, which vLLM refuses without both);
+      #                                     unset = neither flag, a transcription node's (the fleet: TASK_KEYS)
+      EDGE_NODE_TOOL_CALL_PARSER:
+      #   EDGE_NODE_KV_CACHE_DTYPE          the KV cache's element type (--kv-cache-dtype: nvfp4, fp8_e4m3, …), one the
+      #                                     IMAGE accepts (the fleet checks it: lb/vllm_lb/kv_cache_dtypes.json);
+      #                                     unset = vLLM's own (auto, the model's dtype)
+      EDGE_NODE_KV_CACHE_DTYPE:
+    # The image's own entrypoint (vllm-openai: ENTRYPOINT ["vllm", "serve"]) behind a shell that adds each optional
+    # flag ONLY when its variable holds a value: a compose list cannot drop an item, and an empty one is an argument
+    # vLLM's parser refuses. `$$` is compose's escape — the container's shell reads the variable, compose does not.
+    # The offload backend is stated, never left to vLLM's default (`lmcache` would be a separate server).
+    entrypoint:
+      - /bin/sh
+      - -c
+      - 'exec nice -n "$$EDGE_NODE_NICE" vllm serve "$$@" $${EDGE_NODE_TOOL_CALL_PARSER:+--enable-auto-tool-choice --tool-call-parser "$$EDGE_NODE_TOOL_CALL_PARSER"} $${EDGE_NODE_MAX_NUM_BATCHED_TOKENS:+--max-num-batched-tokens "$$EDGE_NODE_MAX_NUM_BATCHED_TOKENS"} $${EDGE_NODE_KV_CACHE_MEMORY:+--kv-cache-memory-bytes "$$EDGE_NODE_KV_CACHE_MEMORY"} $${EDGE_NODE_KV_OFFLOAD_RAM_GIB:+--kv-offloading-size "$$EDGE_NODE_KV_OFFLOAD_RAM_GIB" --kv-offloading-backend native} $${EDGE_NODE_REASONING_PARSER:+--reasoning-parser "$$EDGE_NODE_REASONING_PARSER"} $${EDGE_NODE_KV_CACHE_DTYPE:+--kv-cache-dtype "$$EDGE_NODE_KV_CACHE_DTYPE"}'
+      - vllm-serve
+    command:
+      - "/models/${EDGE_NODE_MODEL:?set in deploy/standalone/.env}"
+      - --served-model-name
+      - "${EDGE_NODE_SERVED_NAME:?set in deploy/standalone/.env}"
+      - --max-model-len
+      - "${EDGE_NODE_MAX_MODEL_LEN:?set in deploy/standalone/.env}"
+      - --max-num-seqs
+      - "${EDGE_NODE_MAX_NUM_SEQS:?set in deploy/standalone/.env}"
+      - --gpu-memory-utilization
+      - "${EDGE_NODE_GPU_MEM_UTIL:?set in deploy/standalone/.env}"
+      # vllm:estimated_*_per_gpu_total stay 0.0 without it, and the panel's COMPUTE / MEMORY BANDWIDTH
+      # say "not measuring" — the same switch tp-rank turns on for the pair
+      - --enable-mfu-metrics
+      # the caller's priority (the LB's X-Priority): vLLM reads a request's `priority` only under this policy
+      - --scheduling-policy
+      - priority

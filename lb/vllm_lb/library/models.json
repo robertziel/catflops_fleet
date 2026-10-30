@@ -1,0 +1,847 @@
+{
+  "about": "THE MODEL AXIS (vllm_lb/catalog.py `document`): what each checkpoint IS, as its config.json says — format, architectures, quant format, window, layer shapes — plus its label and served name. Facts are {value, source}; `python -m vllm_lb.model_facts <checkpoint>` reads them from a staged folder. No path: WHERE a checkpoint sits is the deployment's (the fleet file's `checkpoints`).",
+  "models": [
+    {
+      "id": "qwen3.8-flash-next-hibrid48",
+      "label": "Qwen3.8 Flash-Next hibrid48 · MoE NVFP4",
+      "served_name": "Qwen/Qwen3.8-Flash-Next",
+      "size_gib": 98.1,
+      "quant_method": {
+        "value": "modelopt_mixed",
+        "source": "the checkpoint's own config.json (qwen38-flash-next-cluster/Qwen3.8-Flash-Next-hibrid48, read 2026-10-17 on box-c /srv/models): quantization_config quant_method modelopt, quant_algo MIXED_PRECISION — which vLLM reports as modelopt_mixed (its MFU model has no byte size for it: the patch, fleet.MFU_PATCHED_QUANTS)"
+      },
+      "quant_format": {
+        "value": "modelopt_mixed",
+        "source": "its quantization_config's method (this row's quant_method source)"
+      },
+      "format": {
+        "value": "hf",
+        "source": "a Hugging Face folder whose config.json names its architectures"
+      },
+      "architectures": {
+        "value": [
+          "Qwen4ExpForConditionalGeneration"
+        ],
+        "source": "worklog/vllm-cluster-ram-headroom.md: Qwen3.8-Flash-Next-hibrid48's config.json read on box-a: architectures = ['Qwen4ExpForConditionalGeneration'], model_type qwen4_exp"
+      },
+      "shape": {
+        "num_hidden_layers": {
+          "value": 48,
+          "source": "worklog/vllm-cluster-ram-headroom.md: Qwen3.8-Flash-Next-hibrid48 config.json read on box-a — text_config.num_hidden_layers = 48"
+        },
+        "full_attention_layers": {
+          "value": 12,
+          "source": "worklog/vllm-cluster-ram-headroom.md: Qwen3.8-Flash-Next-hibrid48 config.json read on box-a — text_config.layer_types: 48 entries -> {'linear_attention': 36, 'full_attention': 12}"
+        },
+        "num_key_value_heads": {
+          "value": 2,
+          "source": "worklog/vllm-cluster-ram-headroom.md: Qwen3.8-Flash-Next-hibrid48 config.json read on box-a — text_config.num_key_value_heads = 2"
+        },
+        "head_dim": {
+          "value": 256,
+          "source": "worklog/vllm-cluster-ram-headroom.md: Qwen3.8-Flash-Next-hibrid48 config.json read on box-a — text_config.head_dim = 256"
+        },
+        "kv_lora_rank": {
+          "value": null,
+          "source": "worklog/vllm-cluster-ram-headroom.md: Qwen3.8-Flash-Next-hibrid48 config.json read on box-a — text_config.* names no kv_lora_rank: GQA attention, no MLA"
+        }
+      },
+      "chat": {
+        "value": true,
+        "source": "a Qwen3.8 instruct checkpoint with the Qwen chat template (tool calls, thinking levels): what the chat has served since 2026-09 (operator 2026-10-18: the chat lists only models it can use)"
+      },
+      "task": {
+        "value": "chat",
+        "source": "a generative LLM checkpoint served through the engine's OpenAI and Anthropic chat APIs (/v1/chat/completions, /v1/messages); it takes no audio upload"
+      },
+      "limits": {
+        "max_model_len": 262144,
+        "max_num_seqs": [
+          1,
+          48
+        ]
+      },
+      "uncensored": {
+        "default": true,
+        "calibration": "ARCH-EXACT, NOT CALIBRATION-VERIFIED (2026-10-10): myllmbox/Qwen3.8-Flash-Next-hibrid48-uncensored (rev 572e216), hibrid48's own abliterated sibling - OrcaRouter's abliteration (one refusal direction removed from 149 residual writers), the same architectures, layer count, 262,144 window, MTP drafter and a byte-identical NVFP4 PLE table - REWRITTEN from the publisher's compressed-tensors into hibrid48's own ModelOpt MIXED_PRECISION layout by deploy/sglang-27b-tp2/ct_to_modelopt.py (README-modelopt-conversion.md beside the weights), so it loads through the same kernels, config path and tp-rank views as the original. WHAT CHANGED: routed experts and lm_head keep their NVFP4 bytes (weight_scale_2 = 1/weight_global_scale, exact); the experts' per-expert input_scale is COPIED from hibrid48's same expert and projection - the publisher's build is weight-only and carries no activation statistics, so those scales are hibrid48's calibration, not this checkpoint's; the drafter's 507 experts whose w1 and w3 (silu and linear halves) carry different globals are folded exactly into down_proj; the 300 FP8 per-channel GDN/QSA/shared-expert linears are dequantised to BF16 (one bf16 rounding; +1.36 GiB a rank over the original, whose GDN is W4A16_NVFP4). Verified tensor-for-tensor against the source (ct_to_modelopt.py verify). WATCHED LOADING ON THIS ROW 2026-10-11, generation 193 (PLE split, every other setting the default): 'Model loading took 51.98 GiB' a rank, serving at 20:08:35Z, the boxes using 91.6/86.7 GiB against the estimate's 89.8/84.3 - the memory block is still the ORIGINAL's measurement, about 1.4 GiB a rank light for this checkpoint. Its earlier vLLM failures were NOT its layout: generations 183/184 (the publisher's compressed-tensors) and 190/191 (this rewrite) were killed by tp-rank's memory guard before the KV pool exactly as the ORIGINAL was in 192 - all five with the PLE table replicated (lb/tests/test_flash_next_ple_split.py)."
+      }
+    },
+    {
+      "id": "qwen3.8-flash-next-sglang",
+      "label": "Qwen3.8 Flash-Next hibrid48 · MoE NVFP4 · SGLang NEXTN",
+      "served_name": "Qwen/Qwen3.8-Flash-Next-SGLang",
+      "size_gib": 98.1,
+      "quant_method": {
+        "value": "modelopt_mixed",
+        "source": "the checkpoint's own config.json (qwen38-flash-next-cluster/Qwen3.8-Flash-Next-hibrid48, read 2026-10-17 on box-c /srv/models): quantization_config quant_method modelopt, quant_algo MIXED_PRECISION — which vLLM reports as modelopt_mixed (its MFU model has no byte size for it: the patch, fleet.MFU_PATCHED_QUANTS); served by SGLang here, which loads no vLLM patch — the fact is the checkpoint's"
+      },
+      "quant_format": {
+        "value": "modelopt_mixed",
+        "source": "its quantization_config's method (this row's quant_method source)"
+      },
+      "format": {
+        "value": "hf",
+        "source": "a Hugging Face folder whose config.json names its architectures"
+      },
+      "architectures": {
+        "value": [
+          "Qwen4ExpForConditionalGeneration"
+        ],
+        "source": "worklog/vllm-cluster-ram-headroom.md: Qwen3.8-Flash-Next-hibrid48's config.json read on box-a: architectures = ['Qwen4ExpForConditionalGeneration'], model_type qwen4_exp"
+      },
+      "shape": {
+        "num_hidden_layers": {
+          "value": 48,
+          "source": "worklog/vllm-cluster-ram-headroom.md: Qwen3.8-Flash-Next-hibrid48 config.json read on box-a — text_config.num_hidden_layers = 48"
+        },
+        "full_attention_layers": {
+          "value": 12,
+          "source": "worklog/vllm-cluster-ram-headroom.md: Qwen3.8-Flash-Next-hibrid48 config.json read on box-a — text_config.layer_types: 48 entries -> {'linear_attention': 36, 'full_attention': 12}"
+        },
+        "num_key_value_heads": {
+          "value": 2,
+          "source": "worklog/vllm-cluster-ram-headroom.md: Qwen3.8-Flash-Next-hibrid48 config.json read on box-a — text_config.num_key_value_heads = 2"
+        },
+        "head_dim": {
+          "value": 256,
+          "source": "worklog/vllm-cluster-ram-headroom.md: Qwen3.8-Flash-Next-hibrid48 config.json read on box-a — text_config.head_dim = 256"
+        },
+        "kv_lora_rank": {
+          "value": null,
+          "source": "worklog/vllm-cluster-ram-headroom.md: Qwen3.8-Flash-Next-hibrid48 config.json read on box-a — text_config.* names no kv_lora_rank: GQA attention, no MLA"
+        }
+      },
+      "chat": {
+        "value": true,
+        "source": "a Qwen3.8 instruct checkpoint with the Qwen chat template (tool calls, thinking levels): what the chat has served since 2026-09 (operator 2026-10-18: the chat lists only models it can use)"
+      },
+      "task": {
+        "value": "chat",
+        "source": "a generative LLM checkpoint served through the engine's OpenAI and Anthropic chat APIs (/v1/chat/completions, /v1/messages); it takes no audio upload"
+      },
+      "limits": {
+        "max_model_len": 262144,
+        "max_num_seqs": [
+          1,
+          48
+        ]
+      },
+      "uncensored": {
+        "default": true,
+        "calibration": "ARCH-EXACT, NOT CALIBRATION-VERIFIED (2026-10-10): the same twin dir as the vLLM row's - myllmbox/Qwen3.8-Flash-Next-hibrid48-uncensored (rev 572e216) REWRITTEN from the publisher's compressed-tensors into hibrid48's ModelOpt MIXED_PRECISION layout by deploy/sglang-27b-tp2/ct_to_modelopt.py (README-modelopt-conversion.md beside the weights). SGLang's fleet image has no compressed-tensors scheme for a W4A16 NVFP4 MoE or linear (`Unsupported FusedMoe scheme`, 2026-10-10); in the ModelOpt layout the experts are NVFP4 with per-expert input_scale COPIED from hibrid48's same expert (the publisher's build is weight-only, so these are hibrid48's calibration, not this checkpoint's), lm_head is W4A16_NVFP4, the drafter's 507 experts whose w1 and w3 (silu and linear halves) carry different globals are folded exactly into down_proj, and the 300 FP8 per-channel GDN/QSA/shared-expert linears are BF16 (+1.36 GiB a rank over the original's W4A16_NVFP4 GDN). tp-rank builds the -hfquant view from its config.json exactly as for the original, and the -ple-fp8 view it needs is a symlink farm onto hibrid48's (byte-identical tables; on box-a since 2026-10-10). Never watched loading: the memory block is the ORIGINAL's measurement, 1.36 GiB a rank light for this checkpoint."
+      }
+    },
+    {
+      "id": "qwen3.8-flash-next-tensorfold-nvfp4",
+      "label": "Qwen3.8 Flash-Next NVFP4 · TensorFold native · RoCE",
+      "served_name": "Qwen/Qwen3.8-Flash-Next-TensorFold",
+      "size_gib": 123.6,
+      "quant_method": {
+        "value": "modelopt",
+        "source": "the checkpoint's own config.json (nvidia/Qwen3.8-Flash-Next-NVFP4 rev fc694b54, read 2026-10-29 on box-a): quantization_config quant_method modelopt; TensorFold reads the format itself (the recipe: 'the engine reads the format from config.json') and loads no vLLM patch"
+      },
+      "quant_format": {
+        "value": "modelopt",
+        "source": "its quantization_config's method (this row's quant_method source)"
+      },
+      "format": {
+        "value": "hf",
+        "source": "a Hugging Face folder whose config.json names its architectures"
+      },
+      "architectures": {
+        "value": [
+          "Qwen4ExpForConditionalGeneration"
+        ],
+        "source": "the checkpoint's own config.json at the recipe's pin (nvidia/Qwen3.8-Flash-Next-NVFP4 rev fc694b54, read 2026-10-30 off Hugging Face; tests/fixtures/shape/Qwen3.8-Flash-Next-NVFP4.config.json): architectures [\"Qwen4ExpForConditionalGeneration\"], model_type qwen4_exp"
+      },
+      "chat": {
+        "value": true,
+        "source": "a Qwen3.8 Flash-Next instruct checkpoint served through TensorFold's OpenAI and Anthropic APIs (/v1/chat/completions, /v1/messages; its server renders the chat template and tool calls itself — the spike's tool check returned get_weather({\"city\":\"Warsaw\"}), finish tool_calls, 2026-10-29)"
+      },
+      "task": {
+        "value": "chat",
+        "source": "a generative LLM checkpoint served through the engine's OpenAI and Anthropic chat APIs; it takes no audio upload"
+      },
+      "vision": {
+        "value": true,
+        "source": "the spike's rank 0 (2026-10-29): '[tensorfold] vision: image and video input on this GPU, a 0.84 GiB tower' — launched with --vision (engine_args.vision), as the recipe's default"
+      },
+      "limits": {
+        "max_model_len": 262144,
+        "max_num_seqs": [
+          1,
+          16
+        ]
+      },
+      "traffic": {
+        "family": "routed",
+        "dense_read_bytes": 5098281344,
+        "routed_expert_bytes": 33973862400,
+        "experts": 512,
+        "top_k": 10,
+        "attention_layers": 12,
+        "num_key_value_heads": 2,
+        "head_dim": 256,
+        "kv_cache_dtype_bytes": 1,
+        "fp8_key_trailer_bytes": 16,
+        "index_budget": 2048,
+        "index_ratio": 4,
+        "index_head_dim": 128,
+        "index_dtype_bytes": 2,
+        "linear_attention_layers": 36,
+        "linear_num_key_heads": 16,
+        "linear_num_value_heads": 48,
+        "linear_key_head_dim": 128,
+        "linear_value_head_dim": 128,
+        "linear_state_dtype_bytes": 4,
+        "linear_conv_kernel": 4,
+        "linear_conv_dtype_bytes": 2,
+        "state_transfers": 2,
+        "omits": "the MTP drafter's passes are not charged: TensorFold counts no draft pass (patch 0014 counts verify forwards and prompt chunks only), so its head's weights (mtp.*: 2.5 GB of FP8 experts re-quantized at load, bf16 attention) and the draft head's lm_head rows have no count to multiply",
+        "source": "Per rank, TP=2, derived 2026-10-30 (tests/test_tensorfold_bandwidth_model.py). WEIGHTS off nvidia/Qwen3.8-Flash-Next-NVFP4 rev fc694b54's own shard headers (all 11 files read by HTTP range; total 132,639,846,394 B = the index's total_size; grouped in tests/fixtures/shape/Qwen3.8-Flash-Next-NVFP4.header-groups.json) under TensorFold's loader split (recipe be3ed857 patch 0003 zig/src/families/flashnext/cuda_weights.zig: 'DeltaNet key/value heads and attention q/kv heads by rank, out_proj / o_proj input columns, every expert and the shared expert at the rank's half of the intermediate width, lm_head ... by vocabulary, the rest replicated'; 'bf16 linears as stored'; the shared expert as bf16 tiles with fp32 unit scales, fp4Table): dense_read_bytes = split 3,319,893,376 (GDN in_proj_qkv/z/a/b, conv1d, out_proj; attention q/k/v/o; lm_head, halved) + replicated 1,512,352,768 (hyper-connections 1.27e9, router 0.13e9, indexer qk 0.04e9, PLE key/value 0.07e9, norms) + shared expert 266,035,200; routed_expert_bytes = the 48 layers' NVFP4 experts (U8 codes 60,397,977,600 + F8 block scales 7,549,747,200) halved; the per-expert fp32 globals (0.3 MB) uncharged. Not streamed: embed_tokens and the 51.2 GB FP8 n-gram table (gathered by token), the 0.90 GB vision tower (idle on text). Cross-check: streamed + embedding + half the n-gram table + half the drafter = 62.7 GiB a rank against the recipe's own 62.3 GiB (measurements.json weights_gib). SHAPES off the same revision's config.json (tests/fixtures/shape/Qwen3.8-Flash-Next-NVFP4.config.json): num_experts 512, num_experts_per_tok 10, layer_types 12 full_attention + 36 linear_attention, num_key_value_heads 2 x head_dim 256, indexer_budget 2048, indexer_compress_ratio 4, indexer_head_dim 128, GDN 16 key / 48 value heads x 128 x 128, linear_conv_kernel_dim 4. LAYOUTS off the engine (patch 0005 cuda_state.zig): an FP8 key row is head_dim e4m3 codes + its two fp32 scales + 8 pad bytes (kv8_pad 16), a value row head_dim codes — kRow + vRow = 528, the rank-0 start log's own 'fp8 KV cache, 528 bytes a position a layer'; pooled indexer keys bf16, one per 4 positions; a sequence's GDN state is fixedSizes' recurrent [36, 24, 128, 128] f32 + conv [36, 3, 5,120] bf16, folded in place each pass (gdn_multi.block: 'each tree first folding in its stream's last kept rows (in place)') — read and written once: state_transfers 2. kv_cache_dtype_bytes is the launch's (engine_args kv_cache_dtype fp8_e4m3; at_kv_cache_dtype re-prices it)"
+      }
+    },
+    {
+      "id": "qwen3.8-flash-next-tensorfold-mlx-mtp",
+      "label": "Qwen3.8 Flash-Next MLX 4-bit MTP · TensorFold 0.6.6",
+      "served_name": "Qwen/Qwen3.8-Flash-Next-MLX-TensorFold",
+      "size_gib": 105.5,
+      "quant_method": {
+        "value": null,
+        "source": "the checkpoint's own config.json (TensorFold/Qwen3.8-Flash-Next-MLX-4bit-MTP rev 2b170fa6, read 2026-10-29 on box-a) has no quantization_config quant_method: it states MLX's own `quantization` {group_size 32, bits 4, mode affine}, which only TensorFold reads — no vLLM method, so none"
+      },
+      "quant_format": {
+        "value": "mlx",
+        "source": "its config.json states MLX's own `quantization` {group_size 32, bits 4, mode affine} and no quantization_config (this row's quant_method source)"
+      },
+      "format": {
+        "value": "hf",
+        "source": "a Hugging Face folder whose config.json names its architectures"
+      },
+      "architectures": {
+        "value": [
+          "Qwen4ExpForConditionalGeneration"
+        ],
+        "source": "INFERRED, NOT READ from this checkpoint's own config.json (staged on the pair only): an MLX conversion of it keeps the base model's `architectures`, Qwen3.8-Flash-Next's Qwen4ExpForConditionalGeneration (worklog/vllm-cluster-ram-headroom.md), and TensorFold's native engine serves that one family. Confirm with `python -m vllm_lb.model_facts <checkpoint>` on a box holding it (docs/design/engines.md, Open items)"
+      },
+      "chat": {
+        "value": true,
+        "source": "a Qwen3.8 Flash-Next instruct checkpoint served through TensorFold's OpenAI and Anthropic APIs (/v1/chat/completions, /v1/messages; its server renders the chat template and tool calls itself — the spike's tool check returned get_weather({\"city\":\"Warsaw\"}), finish tool_calls, 2026-10-29)"
+      },
+      "task": {
+        "value": "chat",
+        "source": "a generative LLM checkpoint served through the engine's OpenAI and Anthropic chat APIs; it takes no audio upload"
+      },
+      "limits": {
+        "max_model_len": 262144,
+        "max_num_seqs": [
+          1,
+          16
+        ]
+      }
+    },
+    {
+      "id": "qwen3.8-27b-nvidia-nvfp4",
+      "label": "Qwen3.8 27B · dense NVFP4",
+      "served_name": "Qwen/Qwen3.8-27B",
+      "size_gib": 20.4,
+      "quant_method": {
+        "value": "modelopt_mixed",
+        "source": "what vLLM reports for this NVFP4 checkpoint (nvidia/Qwen3.8-27B-NVFP4: quant_method modelopt, MIXED_PRECISION) — the key vLLM's MFU model has no byte size for, so lb/cluster/tp-rank and the standalone node load the 0.5625 B/weight patch for it (deploy/standalone/vllm-mfu/sitecustomize.py)"
+      },
+      "quant_format": {
+        "value": "modelopt_mixed",
+        "source": "its quantization_config's method (this row's quant_method source)"
+      },
+      "format": {
+        "value": "hf",
+        "source": "a Hugging Face folder whose config.json names its architectures"
+      },
+      "architectures": {
+        "value": [
+          "Qwen3_5ForConditionalGeneration"
+        ],
+        "source": "worklog/prefill-audit.md: the Qwen3.8-27B NVFP4 checkpoint's model_config facts printed by vLLM from its config.json: architectures = ['Qwen3_5ForConditionalGeneration'] (the same name read 2026-10-30 in base.qwen3.6-dense-nvfp4-vllm/config.json, the dense family's staged folder)"
+      },
+      "shape": {
+        "num_hidden_layers": {
+          "value": 64,
+          "source": "worklog/prefill-audit.md: vLLM's model_config facts for the 27B NVFP4: num_hidden_layers = 64"
+        },
+        "full_attention_layers": {
+          "value": 16,
+          "source": "the row's traffic facts (library/models.json traffic, from the checkpoint's config.json): full_attention_layers 16 (48 linear-attention layers beside them)"
+        },
+        "num_key_value_heads": {
+          "value": 4,
+          "source": "the row's traffic facts (library/models.json traffic, from the checkpoint's config.json): num_key_value_heads 4"
+        },
+        "head_dim": {
+          "value": 256,
+          "source": "the row's traffic facts (library/models.json traffic, from the checkpoint's config.json): head_dim 256"
+        },
+        "kv_lora_rank": {
+          "value": null,
+          "source": "the row's traffic facts (library/models.json traffic, from the checkpoint's config.json): GQA attention, no MLA"
+        }
+      },
+      "chat": {
+        "value": true,
+        "source": "a Qwen3.8 instruct checkpoint with the Qwen chat template (tool calls, thinking levels): what the chat has served since 2026-09 (operator 2026-10-18: the chat lists only models it can use)"
+      },
+      "task": {
+        "value": "chat",
+        "source": "a generative LLM checkpoint served through the engine's OpenAI and Anthropic chat APIs (/v1/chat/completions, /v1/messages); it takes no audio upload"
+      },
+      "limits": {
+        "max_model_len": 262144,
+        "max_num_seqs": [
+          1,
+          48
+        ]
+      },
+      "efforts": {
+        "ladder": [
+          "xhigh",
+          "medium",
+          "low",
+          "off"
+        ],
+        "source": "the model's own chat_template.jinja lines 46-55 (md5 519239a4908b; read 2026-10-14 on box-c's Qwen3.8-27B-NVFP4 and site-b's Qwen3.8-27B-NVFP4_uncensored): with enable_thinking undefined or true it takes reasoning_effort|default('xhigh') and raises unless it is xhigh, medium or low (xhigh and low inject an instruction, medium none); enable_thinking false = no reasoning, which the LB sends for 'off' (router.rewrite_effort; vLLM's /v1/messages refuses 'none'/'minimal' with 400 literal_error, thinking disabled answers 200 text-only, 2026-10-14). The LB's effort_map still maps Claude Code's high to medium and max to xhigh."
+      },
+      "uncensored": {
+        "default": true,
+        "calibration": "ARCH-EXACT, NOT CALIBRATION-VERIFIED (2026-10-07): edp1096/Huihui-RadixArk-Qwen3.8-27B-abliterated-NVFP4, 20.4 GiB in 3 shards, identical shape to nvidia/Qwen3.8-27B-NVFP4 (same architectures, quant_method modelopt, layer count, max_position_embeddings 262144). The memory block is the ORIGINAL's measurement and has not been watched loading on this checkpoint."
+      }
+    },
+    {
+      "id": "qwen3.8-27b-nvfp4",
+      "label": "Qwen3.8 27B · dense NVFP4",
+      "served_name": "qwen3.8:latest",
+      "size_gib": 18.4,
+      "quant_method": {
+        "value": "compressed-tensors",
+        "source": "the checkpoint's own config.json (base.qwen3.8-dense-nvfp4-vllm, read 2026-10-17 on box-c /srv/models): quantization_config quant_method compressed-tensors — not one the MFU byte-size patch serves (fleet.MFU_PATCHED_QUANTS)"
+      },
+      "quant_format": {
+        "value": "compressed-tensors",
+        "source": "its quantization_config's method (this row's quant_method source)"
+      },
+      "format": {
+        "value": "hf",
+        "source": "a Hugging Face folder whose config.json names its architectures"
+      },
+      "architectures": {
+        "value": [
+          "Qwen3_5ForConditionalGeneration"
+        ],
+        "source": "worklog/prefill-audit.md: the Qwen3.8-27B NVFP4 checkpoint's model_config facts printed by vLLM from its config.json: architectures = ['Qwen3_5ForConditionalGeneration'] (the same name read 2026-10-30 in base.qwen3.6-dense-nvfp4-vllm/config.json, the dense family's staged folder)"
+      },
+      "shape": {
+        "num_hidden_layers": {
+          "value": 64,
+          "source": "worklog/prefill-audit.md: vLLM's model_config facts for the 27B NVFP4: num_hidden_layers = 64"
+        },
+        "full_attention_layers": {
+          "value": 16,
+          "source": "the row's traffic facts (library/models.json traffic, from the checkpoint's config.json): full_attention_layers 16 (48 linear-attention layers beside them)"
+        },
+        "num_key_value_heads": {
+          "value": 4,
+          "source": "the row's traffic facts (library/models.json traffic, from the checkpoint's config.json): num_key_value_heads 4"
+        },
+        "head_dim": {
+          "value": 256,
+          "source": "the row's traffic facts (library/models.json traffic, from the checkpoint's config.json): head_dim 256"
+        },
+        "kv_lora_rank": {
+          "value": null,
+          "source": "the row's traffic facts (library/models.json traffic, from the checkpoint's config.json): GQA attention, no MLA"
+        }
+      },
+      "chat": {
+        "value": true,
+        "source": "a Qwen3.8 instruct checkpoint with the Qwen chat template (tool calls, thinking levels): what the chat has served since 2026-09 (operator 2026-10-18: the chat lists only models it can use)"
+      },
+      "task": {
+        "value": "chat",
+        "source": "a generative LLM checkpoint served through the engine's OpenAI and Anthropic chat APIs (/v1/chat/completions, /v1/messages); it takes no audio upload"
+      },
+      "limits": {
+        "max_model_len": 262144,
+        "max_num_seqs": [
+          1,
+          8
+        ]
+      },
+      "efforts": {
+        "ladder": [
+          "xhigh",
+          "medium",
+          "low",
+          "off"
+        ],
+        "source": "the model's own chat_template.jinja lines 46-55 (md5 519239a4908b; read 2026-10-14 on box-c's base.qwen3.8-dense-nvfp4-vllm and site-b's Qwen3.8-27B-NVFP4_uncensored): with enable_thinking undefined or true it takes reasoning_effort|default('xhigh') and raises unless it is xhigh, medium or low (xhigh and low inject an instruction, medium none); enable_thinking false = no reasoning, which the LB sends for 'off' (router.rewrite_effort; vLLM's /v1/messages refuses 'none'/'minimal' with 400 literal_error, thinking disabled answers 200 text-only, 2026-10-14). The LB's effort_map still maps Claude Code's high to medium and max to xhigh."
+      }
+    },
+    {
+      "id": "qwen3.8-27b-dflash2",
+      "label": "Qwen3.8 27B · dense NVFP4, BF16 head · DFlash2",
+      "served_name": "Qwen/Qwen3.8-27B-DFlash2",
+      "size_gib": 22.1,
+      "quant_method": {
+        "value": "modelopt_mixed",
+        "source": "built from Qwen3.8-27B-NVFP4 (quantization_config quant_method modelopt, quant_algo MIXED_PRECISION, read 2026-10-17 on box-c /srv/models) by deploy/dflash2-27b-tp2/make_bf16_lmhead.py, which only moves lm_head into the ignore list (worklog/dflash2-27b-tp2.md: 'config.json: dropped 2 lm_head quant entries') — the copy itself lives on box-a only; vLLM reports it as modelopt_mixed"
+      },
+      "quant_format": {
+        "value": "modelopt_mixed",
+        "source": "its quantization_config's method (this row's quant_method source)"
+      },
+      "format": {
+        "value": "hf",
+        "source": "a Hugging Face folder whose config.json names its architectures"
+      },
+      "architectures": {
+        "value": [
+          "Qwen3_5ForConditionalGeneration"
+        ],
+        "source": "worklog/prefill-audit.md: the Qwen3.8-27B NVFP4 checkpoint's model_config facts printed by vLLM from its config.json: architectures = ['Qwen3_5ForConditionalGeneration'] (the same name read 2026-10-30 in base.qwen3.6-dense-nvfp4-vllm/config.json, the dense family's staged folder)"
+      },
+      "shape": {
+        "num_hidden_layers": {
+          "value": 64,
+          "source": "worklog/prefill-audit.md: vLLM's model_config facts for the 27B NVFP4: num_hidden_layers = 64"
+        },
+        "full_attention_layers": {
+          "value": 16,
+          "source": "the row's traffic facts (library/models.json traffic, from the checkpoint's config.json): full_attention_layers 16 (48 linear-attention layers beside them)"
+        },
+        "num_key_value_heads": {
+          "value": 4,
+          "source": "the row's traffic facts (library/models.json traffic, from the checkpoint's config.json): num_key_value_heads 4"
+        },
+        "head_dim": {
+          "value": 256,
+          "source": "the row's traffic facts (library/models.json traffic, from the checkpoint's config.json): head_dim 256"
+        },
+        "kv_lora_rank": {
+          "value": null,
+          "source": "the row's traffic facts (library/models.json traffic, from the checkpoint's config.json): GQA attention, no MLA"
+        }
+      },
+      "chat": {
+        "value": true,
+        "source": "a Qwen3.8 instruct checkpoint with the Qwen chat template (tool calls, thinking levels): what the chat has served since 2026-09 (operator 2026-10-18: the chat lists only models it can use)"
+      },
+      "task": {
+        "value": "chat",
+        "source": "a generative LLM checkpoint served through the engine's OpenAI and Anthropic chat APIs (/v1/chat/completions, /v1/messages); it takes no audio upload"
+      },
+      "limits": {
+        "max_model_len": 262144,
+        "max_num_seqs": [
+          1,
+          48
+        ]
+      }
+    },
+    {
+      "id": "qwen3.8-27b-sglang-dflash2",
+      "label": "Qwen3.8 27B · dense NVFP4 · SGLang DFlash2",
+      "served_name": "Qwen/Qwen3.8-27B-SGLang",
+      "size_gib": 20.4,
+      "quant_method": {
+        "value": "modelopt_mixed",
+        "source": "the checkpoint's own config.json (Qwen3.8-27B-NVFP4, read 2026-10-17 on box-c /srv/models): quantization_config quant_method modelopt, quant_algo MIXED_PRECISION — which vLLM reports as modelopt_mixed (its MFU model has no byte size for it: the patch, fleet.MFU_PATCHED_QUANTS); served by SGLang here, which loads no vLLM patch — the fact is the checkpoint's"
+      },
+      "quant_format": {
+        "value": "modelopt_mixed",
+        "source": "its quantization_config's method (this row's quant_method source)"
+      },
+      "format": {
+        "value": "hf",
+        "source": "a Hugging Face folder whose config.json names its architectures"
+      },
+      "architectures": {
+        "value": [
+          "Qwen3_5ForConditionalGeneration"
+        ],
+        "source": "worklog/prefill-audit.md: the Qwen3.8-27B NVFP4 checkpoint's model_config facts printed by vLLM from its config.json: architectures = ['Qwen3_5ForConditionalGeneration'] (the same name read 2026-10-30 in base.qwen3.6-dense-nvfp4-vllm/config.json, the dense family's staged folder)"
+      },
+      "shape": {
+        "num_hidden_layers": {
+          "value": 64,
+          "source": "worklog/prefill-audit.md: vLLM's model_config facts for the 27B NVFP4: num_hidden_layers = 64"
+        },
+        "full_attention_layers": {
+          "value": 16,
+          "source": "the row's traffic facts (library/models.json traffic, from the checkpoint's config.json): full_attention_layers 16 (48 linear-attention layers beside them)"
+        },
+        "num_key_value_heads": {
+          "value": 4,
+          "source": "the row's traffic facts (library/models.json traffic, from the checkpoint's config.json): num_key_value_heads 4"
+        },
+        "head_dim": {
+          "value": 256,
+          "source": "the row's traffic facts (library/models.json traffic, from the checkpoint's config.json): head_dim 256"
+        },
+        "kv_lora_rank": {
+          "value": null,
+          "source": "the row's traffic facts (library/models.json traffic, from the checkpoint's config.json): GQA attention, no MLA"
+        }
+      },
+      "chat": {
+        "value": true,
+        "source": "a Qwen3.8 instruct checkpoint with the Qwen chat template (tool calls, thinking levels): what the chat has served since 2026-09 (operator 2026-10-18: the chat lists only models it can use)"
+      },
+      "task": {
+        "value": "chat",
+        "source": "a generative LLM checkpoint served through the engine's OpenAI and Anthropic chat APIs (/v1/chat/completions, /v1/messages); it takes no audio upload"
+      },
+      "limits": {
+        "max_model_len": 262144,
+        "max_num_seqs": [
+          1,
+          48
+        ]
+      },
+      "efforts": {
+        "ladder": [
+          "xhigh",
+          "medium",
+          "low",
+          "off"
+        ],
+        "source": "the model's own chat_template.jinja lines 46-55 (md5 519239a4908b; read 2026-10-14 on box-c's Qwen3.8-27B-NVFP4 and site-b's Qwen3.8-27B-NVFP4_uncensored): with enable_thinking undefined or true it takes reasoning_effort|default('xhigh') and raises unless it is xhigh, medium or low (xhigh and low inject an instruction, medium none); enable_thinking false = no reasoning, which the LB sends for 'off' (router.rewrite_effort; vLLM's /v1/messages refuses 'none'/'minimal' with 400 literal_error, thinking disabled answers 200 text-only, 2026-10-14). The LB's effort_map still maps Claude Code's high to medium and max to xhigh."
+      },
+      "traffic": {
+        "family": "dense",
+        "target_read_bytes": 8804567176,
+        "draft_read_bytes": 2353031688,
+        "full_attention_layers": 16,
+        "num_key_value_heads": 4,
+        "head_dim": 256,
+        "kv_cache_dtype_bytes": 1,
+        "linear_attention_layers": 48,
+        "linear_num_value_heads": 48,
+        "linear_key_head_dim": 128,
+        "linear_value_head_dim": 128,
+        "linear_state_dtype_bytes": 2,
+        "draft_attention_layers": 5,
+        "draft_num_key_value_heads": 8,
+        "draft_head_dim": 128,
+        "draft_sliding_window": 2048,
+        "source": "Per rank, TP=2, read 2026-10-03 (tests/test_sglang_bandwidth_model.py checks each against SGLang's own allocations). BYTES A PASS STREAMS, off the shard headers on box-c: target = the 64 layers of /srv/models/Qwen3.8-27B-NVFP4 (16,891,248,640 B of 2-D+ tensors halved + 1,351,808 B of 1-D ones every rank holds) + half the NVFP4 lm_head (357,580,808) = 8,804,567,176; the embedding shard (1.27e9, gathered by token) and the vision tower (0.92e9, idle on text) are resident and never streamed, which is why memory.weights_gib (10.28 GiB, resident) is not this figure. draft = Qwen3.8-27B-DFlash2's attention + MLP halved (QKV/MergedColumn/RowParallel in SGLang srt/models/dflash.py: 3,198,156,800 / 2) + its replicated fc, grouped convs and norms (396,372,480) + the target's lm_head shard its selector projects onto every pass (dflash.py:1097-1124) = 2,353,031,688; the selector's two 248,320 x 256 codebooks are gathered by candidate id. SGLang SHARDS the drafter ('Load weight end ... DFlash2DraftModel ... mem usage=2.25 GB' per rank), so memory.mtp_gib (3.58, the whole file) overstates it here. SHAPES, off the two config.json: 16 full-attention + 48 linear-attention (GDN) layers, 4 KV heads x 256, GDN 48 value heads x 128 x 128; drafter 5 sliding-attention layers, 8 KV heads x 128, sliding_window 2048. DTYPES are the launch's: tp-rank sglang_cmd passes --kv-cache-dtype fp8_e4m3 (1 B, the drafter's pool too) and --mamba-ssm-dtype bfloat16 (2 B; the checkpoint says float32)."
+      },
+      "uncensored": {
+        "default": true,
+        "calibration": "ARCH-EXACT, NOT CALIBRATION-VERIFIED (2026-10-07): edp1096/Huihui-RadixArk-Qwen3.8-27B-abliterated-NVFP4, 20.4 GiB in 3 shards, identical shape to nvidia/Qwen3.8-27B-NVFP4 (same architectures, quant_method modelopt, layer count, max_position_embeddings 262144). The memory block is the ORIGINAL's measurement and has not been watched loading on this checkpoint."
+      }
+    },
+    {
+      "id": "glm-5.3-flash-nvfp4",
+      "label": "GLM-5.3-Flash · MoE NVFP4",
+      "served_name": "zai-org/GLM-5.3-Flash",
+      "size_gib": 184.29,
+      "quant_method": {
+        "value": "compressed-tensors",
+        "source": "the checkpoint's own config.json (RedHatAI/GLM-5.3-Flash-NVFP4 rev 18d55bfd, read 2026-10-20 on box-c /srv/models/glm53-flash-cluster): quantization_config quant_method compressed-tensors, format mixed-precision (llm-compressor NVFP4 experts and linears, the MTP layer FP8-block, the vision tower ignored)"
+      },
+      "quant_format": {
+        "value": "compressed-tensors",
+        "source": "its quantization_config's method (this row's quant_method source)"
+      },
+      "format": {
+        "value": "hf",
+        "source": "a Hugging Face folder whose config.json names its architectures"
+      },
+      "architectures": {
+        "value": [
+          "Glm5NextForConditionalGeneration"
+        ],
+        "source": "read 2026-10-30 from the staged checkpoint's own config.json (GLM-5.3-Flash-NVFP4)"
+      },
+      "chat": {
+        "value": true,
+        "source": "zai-org's GLM-5.3-Flash chat model with its own chat template (tool calls, thinking): the checkpoint card serves it with --tool-call-parser glm47 --reasoning-parser glm45 (README.md, rev 18d55bfd)"
+      },
+      "task": {
+        "value": "chat",
+        "source": "a generative LLM checkpoint served through the engine's OpenAI and Anthropic chat APIs (/v1/chat/completions, /v1/messages); it takes no audio upload"
+      },
+      "vision": {
+        "value": true,
+        "source": "NOT YET ON THIS PAIR — Glm5NextForConditionalGeneration with its vision tower in the checkpoint (347 model.visual.* tensors, 1.05 GiB bf16, and processor_config.json; read 2026-10-21 on box-c) and a chat template that emits images and video; MiaAI-Lab/GLM-5.3-Flash-NVFP4-Dual-DGX-Spark @aed98a1 serves image + video on 2x DGX Spark with the same kernels (its seven sm90 steps all already in this image: probed 2026-10-21)"
+      },
+      "limits": {
+        "max_model_len": 262144,
+        "max_num_seqs": [
+          1,
+          8
+        ]
+      }
+    },
+    {
+      "id": "deepseek-v4-flash-nvfp4",
+      "label": "DeepSeek-V4-Flash-0731 · MoE NVFP4",
+      "served_name": "deepseek-ai/DeepSeek-V4-Flash",
+      "size_gib": 163.48,
+      "quant_method": {
+        "value": "deepseek_v4_fp8",
+        "source": "what vLLM resolves it to (myllmbox/deepseek-v4-flash-cluster-vllm base, vllm/models/deepseek_v4/quant_config.py:135-151 override_quantization_method: model_type deepseek_v4 + quant_method fp8 -> deepseek_v4_fp8): the checkpoint's config.json says quant_method fp8 (FP8-block linears and attention) with moe_quant_algo NVFP4 (modelopt dsv4-nvfp4-experts), which the same file routes to ModelOptNvFp4FusedMoE (:181-190); read 2026-10-23"
+      },
+      "quant_format": {
+        "value": "fp8",
+        "source": "read 2026-10-30 from DeepSeek-V4-Flash-0731-NVFP4/config.json (quantization_config.quant_method) by python -m vllm_lb.model_facts; the B12X image reports it to vLLM as deepseek_v4_fp8 (its quant_config.py, this row's quant_method)"
+      },
+      "format": {
+        "value": "hf",
+        "source": "a Hugging Face folder whose config.json names its architectures"
+      },
+      "architectures": {
+        "value": [
+          "DeepseekV4ForCausalLM"
+        ],
+        "source": "read 2026-10-30 from the staged checkpoint's own config.json (DeepSeek-V4-Flash-0731-NVFP4)"
+      },
+      "chat": {
+        "value": true,
+        "source": "DeepSeek-V4-Flash-0731's chat model with thinking and tool calls: nvidia's card serves it with --tokenizer-mode deepseek_v4 --tool-call-parser deepseek_v4 --reasoning-parser deepseek_v4 (README.md, rev f1caa711)"
+      },
+      "task": {
+        "value": "chat",
+        "source": "a generative LLM checkpoint served through the engine's OpenAI and Anthropic chat APIs (/v1/chat/completions, /v1/messages); it takes no audio upload"
+      },
+      "vision": {
+        "value": false,
+        "source": "DeepseekV4ForCausalLM, text only: no vision tensors in the 48 shard headers and no processor config (rev f1caa711, read 2026-10-23); DeepSeek's image model is the separate DeepSeek-V4-Flash-Vision-Exp checkpoint"
+      },
+      "limits": {
+        "max_model_len": 262144,
+        "max_num_seqs": [
+          1,
+          8
+        ]
+      }
+    },
+    {
+      "id": "mai-ui-2b",
+      "label": "MAI-UI 2B · Qwen3-VL BF16",
+      "served_name": "Tongyi-MAI/MAI-UI-2B",
+      "size_gib": 3.963,
+      "quant_method": {
+        "value": null,
+        "source": "an unquantised BF16 checkpoint: config.json of Tongyi-MAI/MAI-UI-2B (rev 503050934809558c8dfd2ddedaf9621fa74ac2de) carries no quantization_config; torch_dtype bfloat16 — so the MFU byte-size patch (modelopt_mixed) is not needed (vLLM's own MFU model sized it: vllm:estimated_flops_per_gpu_total populated without it, 2026-10-17)"
+      },
+      "quant_format": {
+        "value": "none",
+        "source": "no quantization_config: unquantised weights (this row's quant_method source)"
+      },
+      "format": {
+        "value": "hf",
+        "source": "a Hugging Face folder whose config.json names its architectures"
+      },
+      "architectures": {
+        "value": [
+          "Qwen3VLForConditionalGeneration"
+        ],
+        "source": "read 2026-10-30 from the staged checkpoint's own config.json (MAI-UI-2B)"
+      },
+      "shape": {
+        "num_hidden_layers": {
+          "value": 28,
+          "source": "read 2026-10-30 from MAI-UI-2B/config.json (text_config.) by python -m vllm_lb.model_facts: num_hidden_layers"
+        },
+        "full_attention_layers": {
+          "value": 28,
+          "source": "read 2026-10-30 from MAI-UI-2B/config.json (text_config.) by python -m vllm_lb.model_facts: every layer (no layer_types)"
+        },
+        "num_key_value_heads": {
+          "value": 8,
+          "source": "read 2026-10-30 from MAI-UI-2B/config.json (text_config.) by python -m vllm_lb.model_facts: num_key_value_heads"
+        },
+        "head_dim": {
+          "value": 128,
+          "source": "read 2026-10-30 from MAI-UI-2B/config.json (text_config.) by python -m vllm_lb.model_facts: head_dim"
+        },
+        "max_position_embeddings": {
+          "value": 262144,
+          "source": "read 2026-10-30 from MAI-UI-2B/config.json (text_config.) by python -m vllm_lb.model_facts: max_position_embeddings"
+        },
+        "kv_lora_rank": {
+          "value": null,
+          "source": "read 2026-10-30 from MAI-UI-2B/config.json (text_config.) by python -m vllm_lb.model_facts: no kv_lora_rank"
+        }
+      },
+      "chat": {
+        "value": false,
+        "source": "a GUI-grounding agent: given a screenshot and an instruction it answers click(x,y) or a [x0,y0,x1,y1] box on a 0-1000 grid, not prose (live 2026-10-18, a browser agent's locate) — the chat never offers it (operator 2026-10-18)"
+      },
+      "task": {
+        "value": "chat",
+        "source": "a GUI-grounding VLM answered through vLLM's /v1/chat/completions (a screenshot and an instruction in, click(x,y) out: its `chat` fact) — a chat-completions model, not a speech one"
+      },
+      "vision": {
+        "value": true,
+        "source": "Qwen3VLForConditionalGeneration (model_type qwen3_vl; image_token_id 151655, video 151656 in config.json); proven 2026-10-17 on the AMD iGPU node: a 1440x900 PNG request answered from the image (1,290 prompt tokens)"
+      },
+      "limits": {
+        "max_model_len": 262144,
+        "max_num_seqs": [
+          1,
+          8
+        ]
+      }
+    },
+    {
+      "id": "whisper-large-v3-turbo",
+      "label": "Whisper large-v3-turbo · vLLM FP16",
+      "served_name": "openai/whisper-large-v3-turbo",
+      "size_gib": 1.511,
+      "quant_method": {
+        "value": null,
+        "source": "an unquantised checkpoint: config.json of openai/whisper-large-v3-turbo carries no quantization_config, torch_dtype float16 (vLLM's boot line: quantization=None, dtype=torch.float16, 2026-10-23)"
+      },
+      "quant_format": {
+        "value": "none",
+        "source": "no quantization_config: unquantised weights (this row's quant_method source)"
+      },
+      "format": {
+        "value": "hf",
+        "source": "a Hugging Face folder whose config.json names its architectures"
+      },
+      "architectures": {
+        "value": [
+          "WhisperForConditionalGeneration"
+        ],
+        "source": "read 2026-10-30 from the staged checkpoint's own config.json (whisper-large-v3-turbo)"
+      },
+      "chat": {
+        "value": false,
+        "source": "a speech-to-text model: it answers an audio upload with its transcript, never a conversation"
+      },
+      "task": {
+        "value": "transcription",
+        "source": "WhisperForConditionalGeneration, served by vLLM 0.19.1 on /v1/audio/transcriptions (live 2026-10-23 on the throwaway boot below: a 6.9 s English WAV answered as verbose_json segments in 4.0 s; 'words': null — vLLM gives no word timestamps)"
+      },
+      "limits": {
+        "max_model_len": 448,
+        "max_num_seqs": [
+          1,
+          8
+        ]
+      }
+    },
+    {
+      "id": "faster-whisper-large-v3-turbo",
+      "label": "Whisper large-v3-turbo · faster-whisper CT2 FP16",
+      "served_name": "/models/faster-whisper-large-v3-turbo",
+      "size_gib": 1.51,
+      "quant_method": {
+        "value": null,
+        "source": "a CTranslate2 FP16 conversion (mobiuslabsgmbh/faster-whisper-large-v3-turbo rev 0a363e9161cbc7ed1431c9597a8ceaf0c4f78fcf: model.bin, config.json); vLLM never loads it, and the MFU byte-size patch is vLLM's — none"
+      },
+      "quant_format": {
+        "value": "none",
+        "source": "no quantization_config: unquantised weights (this row's quant_method source)"
+      },
+      "format": {
+        "value": "ctranslate2",
+        "source": "model.bin beside a config.json with no `architectures` (read 2026-10-30 in the staged folder): a CTranslate2 conversion"
+      },
+      "architectures": {
+        "value": [],
+        "source": "a CTranslate2 conversion: its config.json (read 2026-10-30) names no architectures"
+      },
+      "chat": {
+        "value": false,
+        "source": "a speech-to-text model: it answers an audio upload with its transcript, never a conversation"
+      },
+      "task": {
+        "value": "transcription",
+        "source": "Vexa's transcription service (core/meetings/services/transcription; image vexa-stt-rocm sha256:aae9377a47e3, Vexa a01db95ec) on faster-whisper: /v1/audio/transcriptions with word timestamps, /health, GET /v1/models listing its MODEL_SIZE — which is why served_name is the checkpoint's path in the node container (2026-10-23)"
+      },
+      "limits": {
+        "max_model_len": 448,
+        "max_num_seqs": [
+          1,
+          4
+        ]
+      }
+    },
+    {
+      "id": "faster-whisper-large-v3",
+      "label": "Whisper large-v3 · faster-whisper CT2 FP16",
+      "served_name": "/models/faster-whisper-large-v3",
+      "size_gib": 2.88,
+      "quant_method": {
+        "value": null,
+        "source": "a CTranslate2 FP16 conversion (Systran/faster-whisper-large-v3 rev edaa852ec7e145841d8ffdb056a99866b5f0a478: model.bin 3,087,284,237 B, config.json); vLLM never loads it — none"
+      },
+      "quant_format": {
+        "value": "none",
+        "source": "no quantization_config: unquantised weights (this row's quant_method source)"
+      },
+      "format": {
+        "value": "ctranslate2",
+        "source": "model.bin beside a config.json with no `architectures` (read 2026-10-30 in the staged folder): a CTranslate2 conversion"
+      },
+      "architectures": {
+        "value": [],
+        "source": "a CTranslate2 conversion: its config.json (read 2026-10-30) names no architectures"
+      },
+      "chat": {
+        "value": false,
+        "source": "a speech-to-text model: it answers an audio upload with its transcript, never a conversation"
+      },
+      "task": {
+        "value": "transcription",
+        "source": "the full large-v3 (32 decoder layers; turbo keeps 4): Whisper's paper reports the large family's best non-English accuracy (large-v2 Polish FLEURS WER 5.4, arXiv 2212.04356 Table 13), served by the same faster-whisper transcription server as faster-whisper-large-v3-turbo (2026-10-24)"
+      },
+      "limits": {
+        "max_model_len": 448,
+        "max_num_seqs": [
+          1,
+          4
+        ]
+      }
+    },
+    {
+      "id": "parakeet-tdt-0.6b-v3",
+      "label": "Parakeet TDT 0.6B v3 · NeMo",
+      "served_name": "/models/parakeet-tdt-0.6b-v3",
+      "size_gib": 2.34,
+      "quant_method": {
+        "value": null,
+        "source": "NVIDIA's released .nemo checkpoint, unquantised (nvidia/parakeet-tdt-0.6b-v3 rev 541d1f99c6b0c3cd0b11a95167540bb8edefd82b: parakeet-tdt-0.6b-v3.nemo 2,509,332,480 B, sha256 3cbdc85877e6…); vLLM never loads it — none"
+      },
+      "quant_format": {
+        "value": "none",
+        "source": "no quantization_config: unquantised weights (this row's quant_method source)"
+      },
+      "format": {
+        "value": "nemo",
+        "source": "a NeMo .nemo archive, restored by ASRModel.restore_from"
+      },
+      "architectures": {
+        "value": [],
+        "source": "a .nemo archive names a NeMo model class, not a Hugging Face architecture"
+      },
+      "chat": {
+        "value": false,
+        "source": "a speech-to-text model: it answers an audio upload with its transcript, never a conversation"
+      },
+      "task": {
+        "value": "transcription",
+        "source": "a FastConformer-TDT ASR model for 25 European languages, Polish among them, which detects the language itself (model card: Polish FLEURS WER 7.31). On a Polish test set (a CC Spoken Wikipedia reading, clean, under synthetic babble and with a noisy opening; 2026-10-24) it returned 180-187 of ~185 words on every sample, where Whisper large-v3-turbo with its VAD off dropped a 25 s window of clean speech; limits.max_model_len is the lowest the catalog takes: a TDT decoder has no token context"
+      },
+      "limits": {
+        "max_model_len": 1,
+        "max_num_seqs": [
+          1,
+          4
+        ]
+      }
+    }
+  ]
+}

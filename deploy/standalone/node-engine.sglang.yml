@@ -1,0 +1,45 @@
+# deploy/standalone/node-engine.sglang.yml -- the node runs SGLang (EDGE_NODE_ENGINE=sglang): `python3 -m
+# sglang.launch_server` with the launch's figures (`python -m vllm_lb.fleet node-env` renders them: fleet.py
+# SglangEngine.env_lines; image: deploy/images/sglang/Dockerfile built for the box's platform). up.sh adds this
+# file when the launch choice's catalog `node_engine` is sglang. Never started on its own.
+#
+# It REPLACES node.yml's vLLM entrypoint and command; the port, the checkpoint mount (/models), the limits, the network
+# and the card are the node's. SGLang takes its static memory fraction by ITS OWN rule for the card: no
+# --mem-fraction-static here (EDGE_NODE_GPU_MEM_UTIL is vLLM's; node-env renders none for SGLang) — the fleet's fit is
+# the catalog's measured engine_memory. --enable-metrics serves the /metrics the probe reads as SGLang's.
+services:
+  node:
+    environment:
+      # OPTIONAL, handed through as the applied node.env has them — empty or absent is SGLang's own, and no flag:
+      #   EDGE_NODE_KV_CACHE_DTYPE    --kv-cache-dtype (fp8_e4m3, …), one the IMAGE accepts (lb/vllm_lb/kv_cache_dtypes.json)
+      #   EDGE_NODE_REASONING_PARSER  --reasoning-parser
+      #   EDGE_NODE_TOOL_CALL_PARSER  --tool-call-parser: a CHAT node's (a chat client sends tools with tool_choice auto)
+      EDGE_NODE_KV_CACHE_DTYPE:
+      EDGE_NODE_REASONING_PARSER:
+      EDGE_NODE_TOOL_CALL_PARSER:
+    # A shell that adds each optional flag ONLY when its variable holds a value (a compose list cannot drop an item).
+    # `$$` is compose's escape — the container's shell reads the variable, compose does not.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - 'exec nice -n "$$EDGE_NODE_NICE" python3 -m sglang.launch_server "$$@" $${EDGE_NODE_TOOL_CALL_PARSER:+--tool-call-parser "$$EDGE_NODE_TOOL_CALL_PARSER"} $${EDGE_NODE_REASONING_PARSER:+--reasoning-parser "$$EDGE_NODE_REASONING_PARSER"} $${EDGE_NODE_KV_CACHE_DTYPE:+--kv-cache-dtype "$$EDGE_NODE_KV_CACHE_DTYPE"}'
+      - sglang-serve
+    command:
+      - --model-path
+      - "/models/${EDGE_NODE_MODEL:?set in deploy/standalone/.env}"
+      - --served-model-name
+      - "${EDGE_NODE_SERVED_NAME:?set in deploy/standalone/.env}"
+      - --context-length
+      - "${EDGE_NODE_MAX_MODEL_LEN:?set in deploy/standalone/.env}"
+      - --max-running-requests
+      - "${EDGE_NODE_MAX_NUM_SEQS:?set in deploy/standalone/.env}"
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --enable-metrics
+      # the caller's priority (the LB's X-Priority): read only when enabled; lower first, as vLLM; 0 when none is named
+      - --enable-priority-scheduling
+      - --schedule-low-priority-values-first
+      - --default-priority-value
+      - "0"

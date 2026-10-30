@@ -1,0 +1,237 @@
+--- a/python/sglang/srt/function_call/qwen3_coder_detector.py
++++ b/python/sglang/srt/function_call/qwen3_coder_detector.py
+@@ -58,6 +58,17 @@
+         # Initialize attributes that were missing in the original PR
+         self.current_func_name: Optional[str] = None
+ 
++        # A string-typed parameter streams its value as it arrives instead of
++        # waiting for its end marker: a long `script`/`content` argument would
++        # otherwise send nothing for minutes (idle clients abort) and, if
++        # max_tokens cut it, nothing at all.
++        # Name of the string parameter whose value is being streamed.
++        self.streaming_param: Optional[str] = None
++        # Whether its value's leading "\n" (stripped, as detect_and_parse does) was handled.
++        self.streaming_param_lead_done: bool = False
++        # Whether `"name": "` went out (held while the value may still be `null`).
++        self.streaming_param_opened: bool = False
++
+     def has_tool_call(self, text: str) -> bool:
+         return self.tool_call_start_token in text
+ 
+@@ -175,6 +186,127 @@
+                 )
+             return param_value
+ 
++    def _streams_as_string(self, param_name: str, tools: Optional[list[Tool]]) -> bool:
++        """True when _convert_param_value would return this parameter's text as is."""
++        param_config = self._get_arguments_config(self.current_func_name, tools)
++        if param_name not in param_config:
++            return True
++        return self._get_param_type(param_config[param_name]) in [
++            "string", "str", "text", "varchar", "char", "enum"
++        ]
++
++    def _param_end(self, text: str) -> tuple[int, int]:
++        """(position, length) of the earliest marker that ends a parameter value, or (-1, 0).
++
++        Same rule as the whole-value path: `</parameter>` normally, and the next
++        `<parameter=` or `</function>` when the model left it out."""
++        found = [
++            (pos, length)
++            for pos, length in (
++                (text.find(self.parameter_end_token), len(self.parameter_end_token)),
++                (text.find(self.parameter_prefix), 0),
++                (text.find(self.function_end_token), 0),
++            )
++            if pos != -1
++        ]
++        return min(found) if found else (-1, 0)
++
++    def _held_marker_len(self, text: str) -> int:
++        """Length of the suffix of `text` that may still become a value's end marker."""
++        markers = (self.parameter_end_token, self.parameter_prefix, self.function_end_token)
++        for i in range(max(0, len(text) - max(map(len, markers)) + 1), len(text)):
++            if text[i] == "<" and any(m.startswith(text[i:]) for m in markers):
++                return len(text) - i
++        return 0
++
++    def _may_be_null(self, value_so_far: str) -> bool:
++        """Whether the value can still end as `null` (any case), which converts to JSON null."""
++        head, rest = value_so_far[:4], value_so_far[4:]
++        if not "null".startswith(head.lower()):
++            return False
++        if rest.startswith("\n"):
++            rest = rest[1:]
++        return not rest or any(
++            m.startswith(rest)
++            for m in (self.parameter_end_token, self.parameter_prefix, self.function_end_token)
++        )
++
++    def _param_key_calls(self, param_name: str) -> list[ToolCallItem]:
++        """The fragments that open a parameter: `{` for the first one, then `"name": `."""
++        calls = []
++        if not self.json_started:
++            calls.append(ToolCallItem(tool_index=self.current_tool_id, parameters="{"))
++            self.json_started = True
++        separator = ", " if self.current_tool_param_count > 0 else ""
++        self.current_tool_param_count += 1
++        calls.append(
++            ToolCallItem(
++                tool_index=self.current_tool_id,
++                parameters=f"{separator}{json.dumps(param_name)}: ",
++            )
++        )
++        return calls
++
++    def _stream_string_value(self, tools: List[Tool], calls: list) -> bool:
++        """Send what is final of the streaming string parameter's value.
++
++        Returns True once its end marker was consumed (parsing goes on), False
++        when the rest must wait for more text. Held back: a suffix that may be
++        an end marker's start, the one trailing "\n" detect_and_parse strips,
++        and the whole value while it may still turn out to be `null`.
++        """
++        rest = self._buffer[self.parsed_pos :]
++        if not self.streaming_param_lead_done:
++            if not rest:
++                return False
++            if rest.startswith("\n"):
++                self.parsed_pos += 1
++                rest = rest[1:]
++            self.streaming_param_lead_done = True
++
++        param_name = self.streaming_param
++        end_pos, end_len = self._param_end(rest)
++        if end_pos != -1:
++            value = rest[:end_pos]
++            if value.endswith("\n"):
++                value = value[:-1]
++            if self.streaming_param_opened:
++                fragment = json.dumps(value, ensure_ascii=False)[1:-1] + '"'
++            else:
++                calls.extend(self._param_key_calls(param_name))
++                converted = self._convert_param_value(
++                    value,
++                    param_name,
++                    self._get_arguments_config(self.current_func_name, tools),
++                    self.current_func_name,
++                )
++                fragment = json.dumps(converted, ensure_ascii=False)
++            calls.append(
++                ToolCallItem(tool_index=self.current_tool_id, parameters=fragment)
++            )
++            self.parsed_pos += end_pos + end_len
++            self.streaming_param = None
++            return True
++
++        if not self.streaming_param_opened:
++            if self._may_be_null(rest):
++                return False
++            calls.extend(self._param_key_calls(param_name))
++            calls.append(ToolCallItem(tool_index=self.current_tool_id, parameters='"'))
++            self.streaming_param_opened = True
++        safe = len(rest) - self._held_marker_len(rest)
++        if safe > 0 and rest[safe - 1] == "\n":
++            safe -= 1
++        if safe > 0:
++            calls.append(
++                ToolCallItem(
++                    tool_index=self.current_tool_id,
++                    parameters=json.dumps(rest[:safe], ensure_ascii=False)[1:-1],
++                )
++            )
++            self.parsed_pos += safe
++        return False
++
+     def detect_and_parse(self, text: str, tools: List[Tool]) -> StreamingParseResult:
+         """One-shot parsing for non-streaming scenarios."""
+         if self.tool_call_start_token not in text:
+@@ -267,6 +399,14 @@
+                 break
+ 
+             # -------------------------------------------------------
++            # 0. Inside a string parameter's value: stream it
++            # -------------------------------------------------------
++            if self.streaming_param is not None:
++                if self._stream_string_value(tools, calls):
++                    continue
++                break
++
++            # -------------------------------------------------------
+             # 1. Priority detection: check if it's the start of Tool Call
+             # -------------------------------------------------------
+             if current_slice.startswith(self.tool_call_start_token):
+@@ -307,6 +447,16 @@
+             # -------------------------------------------------------
+             if current_slice.startswith(self.parameter_prefix):
+                 name_end = current_slice.find(">")
++                if name_end != -1 and self._streams_as_string(
++                    current_slice[len(self.parameter_prefix) : name_end], tools
++                ):
++                    self.streaming_param = current_slice[
++                        len(self.parameter_prefix) : name_end
++                    ]
++                    self.streaming_param_lead_done = False
++                    self.streaming_param_opened = False
++                    self.parsed_pos += name_end + 1
++                    continue
+                 if name_end != -1:
+                     value_start_idx = name_end + 1
+                     rest_of_slice = current_slice[value_start_idx:]
+@@ -473,6 +623,56 @@
+         normal_text = "".join(normal_text_chunks) if normal_text_chunks else ""
+         return StreamingParseResult(calls=calls, normal_text=normal_text)
+ 
++    def finish(self, tools: List[Tool]) -> StreamingParseResult:
++        """The stream is over: release what waited for a marker that can no longer arrive.
++
++        Outside a call that is plain text (a trailing "<" held as a possible tag
++        start). Inside one it is a call cut off mid-arguments (finish_reason
++        "length"): its name already went out, so emitting nothing would leave the
++        client the complete, valid call `{}`, which it runs. The arguments written
++        so far go out instead, as JSON that is never closed: the cut call can
++        never run as if it were whole.
++        """
++        rest = self._buffer[self.parsed_pos :]
++        self._buffer, self.parsed_pos = "", 0
++        if self.current_func_name is None and self.streaming_param is None:
++            if self.is_inside_tool_call:
++                return StreamingParseResult()
++            return StreamingParseResult(normal_text=rest)
++
++        calls = []
++        if self.streaming_param is not None:
++            param_name, value = self.streaming_param, rest
++            if not self.streaming_param_lead_done and value.startswith("\n"):
++                value = value[1:]
++        elif rest.startswith(self.parameter_prefix) and ">" in rest:
++            name_end = rest.index(">")
++            param_name, value = rest[len(self.parameter_prefix) : name_end], rest[name_end + 1 :]
++            if value.startswith("\n"):
++                value = value[1:]
++        else:
++            param_name = value = None
++
++        if param_name is not None and not (
++            self.streaming_param is not None and self.streaming_param_opened
++        ):
++            calls.extend(self._param_key_calls(param_name))
++            calls.append(ToolCallItem(tool_index=self.current_tool_id, parameters='"'))
++        elif not self.json_started:
++            calls.append(ToolCallItem(tool_index=self.current_tool_id, parameters="{"))
++            self.json_started = True
++        if value:
++            # The value written so far, as a JSON string never closed.
++            calls.append(
++                ToolCallItem(
++                    tool_index=self.current_tool_id,
++                    parameters=json.dumps(value, ensure_ascii=False)[1:-1],
++                )
++            )
++        self.streaming_param = None
++        self.current_func_name = None
++        return StreamingParseResult(calls=calls)
++
+     def supports_structural_tag(self) -> bool:
+         return True
+ 

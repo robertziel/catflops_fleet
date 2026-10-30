@@ -1,0 +1,2 @@
+# This deployment's pair: hosts, fabric addresses, interface. Copy env.example.sh to this name and fill it in.
+env.sh

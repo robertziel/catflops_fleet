@@ -1,0 +1,18 @@
+# GPU kind: NVIDIA. Every GPU on this server goes to the sender, through the same device request as
+# `docker run --gpus all` (Driver "", Count -1, capabilities [[gpu]]). The NVIDIA container toolkit (its runtime hook, or CDI when
+# the daemon has the nvidia spec) puts nvidia-smi into the container. fleet_telemetry then reads every
+# card with ONE `nvidia-smi --query-gpu=...` per sample (readers/gpu.py NvidiaSmi):
+#   * several cards: the panel shows the BUSIEST card's utilisation and the cards' VRAM summed
+#   * a GB10 (unified memory) reports VRAM as [N/A]: the sender sends null, and the LB shows the
+#     box's RAM flagged `mem_unified` instead of "0 GB"
+# Select it in lb/hw_sender/.env: COMPOSE_FILE=docker-compose.yml:gpu-nvidia.yml (+ :bridged.yml).
+services:
+  hw-sender:
+    environment:
+      HW_SENDER_GPU: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+              count: all

@@ -1,0 +1,26 @@
+# vllm-lb ON ONE MORE NETWORK, for the sealed swarm runner alone (lb/bench_runner).
+#
+# The runner reaches the LB through its egress container, which joins a network the LB is on. With
+# broker_parrot on, the LB's ONLY network is the broker's (docker-compose.broker.yml) — another project's —
+# and the egress does not go there. This file gives the LB a network of the deployment's naming that only
+# the egress joins (lb/bench_runner/.env: BENCH_UPSTREAM_NETWORK = the same name).
+#
+# Select it AFTER an override that names the LB's networks — a service that names networks loses compose's
+# implicit default, so alone this file would take the LB off the network its searxng sidecar is on:
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.broker.yml:docker-compose.bench-net.yml
+#   LB_BENCH_NETWORK=<the network's name>
+#
+# EXTERNAL: two compose projects share it (this one and lb/bench_runner), so neither owns it — create it
+# once, on a subnet you name (a host whose docker pools are exhausted cannot have one picked for it):
+#   docker network create --subnet <a free private /28> <LB_BENCH_NETWORK>
+# Until it exists, `docker compose up` stops naming it — before any container is touched.
+# A standalone server (deploy/standalone) does not use this file: its LB, node and egress share a network.
+services:
+  vllm-lb:
+    networks:
+      - bench
+
+networks:
+  bench:
+    external: true
+    name: "${LB_BENCH_NETWORK:?set in lb/.env when docker-compose.bench-net.yml is in COMPOSE_FILE}"

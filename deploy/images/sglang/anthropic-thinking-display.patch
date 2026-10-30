@@ -1,0 +1,47 @@
+diff --git a/python/sglang/srt/entrypoints/anthropic/protocol.py b/python/sglang/srt/entrypoints/anthropic/protocol.py
+index a79952e..ba8e752 100644
+--- a/python/sglang/srt/entrypoints/anthropic/protocol.py
++++ b/python/sglang/srt/entrypoints/anthropic/protocol.py
+@@ -272,11 +272,15 @@ class AnthropicThinkingParam(BaseModel):
+     serving layer logs a WARNING so operators see that the requested
+     budget is not enforced. ``display="omitted"`` is accepted but
+     similarly cannot suppress reasoning mid-stream and is logged.
++    ``display="updates"`` (Claude Code's default, beta thinking-display-
++    updates-2026-08-18) and ``"highlights"`` (its other setting) ask for
++    progress notes or highlights in place of reasoning; both get the same
++    treatment — accepted, reasoning streamed in full, logged.
+     """
+ 
+     type: Literal["enabled", "disabled", "adaptive"]
+     budget_tokens: Optional[int] = None
+-    display: Optional[Literal["summarized", "omitted"]] = None
++    display: Optional[Literal["summarized", "omitted", "updates", "highlights"]] = None
+ 
+     @model_validator(mode="after")
+     def _validate_thinking_shape(self):
+diff --git a/python/sglang/srt/entrypoints/anthropic/serving.py b/python/sglang/srt/entrypoints/anthropic/serving.py
+index 2c2a559..fc9bd09 100644
+--- a/python/sglang/srt/entrypoints/anthropic/serving.py
++++ b/python/sglang/srt/entrypoints/anthropic/serving.py
+@@ -608,15 +608,17 @@ class AnthropicServing:
+             # because the local backend has no auto-throttle equivalent.
+             # Anything other than ``disabled`` enables reasoning.
+             enabled = anthropic_request.thinking.type != "disabled"
+-            if anthropic_request.thinking.display == "omitted":
++            if anthropic_request.thinking.display in ("omitted", "updates", "highlights"):
+                 # Anthropic 4.7 spec: keep reasoning ON but hide reasoning
+-                # text from the client. The OpenAI streaming pipeline has
++                # text from the client (``updates`` returns short progress
++                # notes in its place). The OpenAI streaming pipeline has
+                 # no equivalent suppress knob — log so operators can see
+                 # the request, then proceed with normal reasoning emission.
+                 logger.warning(
+-                    "Anthropic thinking.display='omitted' is accepted for "
++                    "Anthropic thinking.display=%r is accepted for "
+                     "SDK compatibility but reasoning text will still be "
+-                    "emitted to the client"
++                    "emitted to the client",
++                    anthropic_request.thinking.display,
+                 )
+             self.openai_serving_chat.apply_reasoning_enabled(chat_request, enabled)
+ 

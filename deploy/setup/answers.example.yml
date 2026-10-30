@@ -1,0 +1,154 @@
+# AN ANSWER SHEET — the pair shape: a gateway box that only sends telemetry (box-c), and two GB10 boxes (box-a, box-b)
+# running one model tensor-parallel over SSH, each also serving a classic server. It renders exactly the shipped
+# examples: lb/fleet.yml = lb/fleet.example.yml, power/.env = power/.env.example's inventory (deploy/tests/test_setup.py).
+#
+#   cp deploy/setup/answers.example.yml deploy/setup/answers.yml     # gitignored: the real sheet holds secrets
+#   python3 deploy/setup/render.py deploy/setup/answers.yml --out . --check
+#
+# Every id is a question of deploy/setup/questions.yml; a `per` question's answer maps each instance to its answer.
+# Addresses are documentation ranges (RFC 5737); names are placeholders; the secret is a placeholder, never a secret.
+
+shape.kind: pair
+shape.gateway_host: this
+
+machines.boxes: [box-a, box-b, box-c]
+box.roles: {box-a: [pair-rank, classic], box-b: [pair-rank, classic], box-c: [telemetry-only]}
+box.hostname: {box-a: box-a-host, box-b: box-b-host, box-c: box-c-host}
+box.label: {box-a: box-a-gpu, box-b: box-b-gpu}
+box.platform: {box-a: linux/arm64, box-b: linux/arm64, box-c: linux/amd64}
+box.address: {box-a: 192.0.2.10, box-b: 192.0.2.11}
+box.ssh: {box-a: operator@192.0.2.10, box-b: operator@192.0.2.11}
+
+box.cards:
+  box-a:
+    - {index: 0, type: gb10, serves: true}
+  box-b:
+    - {index: 0, type: gb10, serves: true}
+  box-c:
+    - {index: 0, type: radeon8060s, serves: false}
+
+box.gpu_runtime: {box-a: nvidia, box-b: nvidia, box-c: rocm}
+box.docker: {box-a: ready, box-b: ready, box-c: ready}
+box.container_toolkit: {box-a: present, box-b: present}
+
+broker.enabled: false
+
+models.task: [chat]
+models.engine: any
+models.quantisation: any
+models.speculative: any
+models.staged:
+  - qwen3.8-flash-next-hibrid48
+  - qwen3.8-flash-next-sglang
+  - qwen3.8-flash-next-tensorfold-nvfp4
+  - qwen3.8-flash-next-tensorfold-mlx-mtp
+  - qwen3.8-27b-nvidia-nvfp4
+  - qwen3.8-27b-nvfp4
+  - qwen3.8-27b-dflash2
+  - qwen3.8-27b-sglang-dflash2
+  - glm-5.3-flash-nvfp4
+  - deepseek-v4-flash-nvfp4
+  - mai-ui-2b
+  - whisper-large-v3-turbo
+  - faster-whisper-large-v3-turbo
+  - faster-whisper-large-v3
+  - parakeet-tdt-0.6b-v3
+
+clusters.names: [pair]
+cluster.control: {pair: ssh}
+cluster.ranks:
+  pair:
+    - {box: box-a, interconnect: 198.51.100.1}
+    - {box: box-b, interconnect: 198.51.100.2}
+cluster.url: {pair: "http://192.0.2.10:8100"}
+cluster.first_model: {pair: qwen3.8-27b-nvidia-nvfp4}
+
+cluster.iface: {pair: bond0}
+cluster.link: {pair: roce}
+cluster.ram_usable_fraction: {pair: 0.98}
+cluster.max_num_batched_tokens: {pair: 8192}
+pair.ssh_key: generate
+pair.known_hosts: from-my-known-hosts
+pair.images: build
+pair.roce: false
+
+box.backend_url: {box-a: "http://192.0.2.10:8000", box-b: "http://192.0.2.11:8000"}
+
+box.models_dir: {box-a: "~/models", box-b: "~/models"}
+box.models_free_gib: {box-a: 900, box-b: 900}
+box.models_owner: {box-a: "operator:operator 755", box-b: "operator:operator 755"}
+models.shared_dir: nfs-from-head
+models.search_dirs: ["~/models", /mnt/models]
+checkpoint.path:
+  qwen3.8-flash-next-hibrid48: qwen38-flash-next-cluster/Qwen3.8-Flash-Next-hibrid48
+  qwen3.8-flash-next-sglang: qwen38-flash-next-cluster/Qwen3.8-Flash-Next-hibrid48
+  qwen3.8-flash-next-tensorfold-nvfp4: tensorfold-hf/hub/models--nvidia--Qwen3.8-Flash-Next-NVFP4/snapshots/fc694b54fb0174e0913e6adf86691ef85a4ead47
+  qwen3.8-flash-next-tensorfold-mlx-mtp: tensorfold-hf/hub/models--TensorFold--Qwen3.8-Flash-Next-MLX-4bit-MTP/snapshots/2b170fa6309d5d1ee380b35636075fac7945f286
+  qwen3.8-27b-nvidia-nvfp4: Qwen3.8-27B-NVFP4
+  qwen3.8-27b-nvfp4: base.qwen3.8-dense-nvfp4-vllm
+  qwen3.8-27b-dflash2: dflash2-27b-tp2/Qwen3.8-27B-NVFP4-bf16head
+  qwen3.8-27b-sglang-dflash2: Qwen3.8-27B-NVFP4
+  glm-5.3-flash-nvfp4: glm53-flash-cluster/GLM-5.3-Flash-NVFP4
+  deepseek-v4-flash-nvfp4: deepseek-v4-flash-cluster/DeepSeek-V4-Flash-0731-NVFP4
+  mai-ui-2b: MAI-UI-2B
+  whisper-large-v3-turbo: whisper-large-v3-turbo
+  faster-whisper-large-v3-turbo: faster-whisper-large-v3-turbo
+  faster-whisper-large-v3: faster-whisper-large-v3
+  parakeet-tdt-0.6b-v3: parakeet-tdt-0.6b-v3
+checkpoint.uncensored:
+  qwen3.8-flash-next-hibrid48: qwen38-flash-next-cluster/Qwen3.8-Flash-Next-hibrid48_uncensored
+  qwen3.8-flash-next-sglang: qwen38-flash-next-cluster/Qwen3.8-Flash-Next-hibrid48_uncensored
+  qwen3.8-27b-nvidia-nvfp4: Qwen3.8-27B-NVFP4_uncensored
+  qwen3.8-27b-sglang-dflash2: Qwen3.8-27B-NVFP4_uncensored
+checkpoint.draft:
+  qwen3.8-27b-dflash2: dflash2-27b-tp2/Qwen3.8-27B-DFlash2
+  qwen3.8-27b-sglang-dflash2: Qwen3.8-27B-DFlash2
+
+download.mode: download-now
+models.download_dir: /mnt/models
+download.which: [deploy/stage-qwen38-27b-nvfp4.sh]
+download.gated: false
+
+network.lb_ports_free: free
+exposure.scope: localhost
+exposure.allowed_hosts: [loopback]
+
+search.searxng_secret: "placeholder-run-openssl-rand-hex-32"
+search.enabled: true
+
+power.enabled: true
+power.origin: "https://vllm.example.test"
+power.allowed_hosts: [vllm.example.test]
+power.dry_run: true
+power.gate_secret: i-will-do-it
+power.boxes: [box-a, box-c]
+power_box.ssh_host: {box-a: 192.0.2.2, box-c: 127.0.0.1}
+power_box.in_cluster: {box-a: true}
+power_box.gpu_clock: {box-a: true}
+power_box.default_gpu_clock_mhz: {box-a: 2200}
+power_box.wol_mac: {box-a: "02:00:00:00:00:02"}
+power_box.wol_iface: {box-a: eth-box-a}
+power_box.wol_broadcast: {box-a: 192.0.2.3}
+power_box.power_on_note:
+  box-a: "Wake-on-LAN from the host over the direct cable."
+  box-c: "Power it on with its plug: this page runs on it."
+power_box.consequence:
+  box-a: "The model cluster goes down."
+  box-c: "This page and every service on the host go down."
+
+telemetry.enabled: true
+telemetry.port: 48291
+telemetry.boxes: [box-a, box-b, box-c]
+sender.gpu_kind: {box-a: nvidia, box-b: nvidia, box-c: amd}
+sender.bridged: {box-a: false, box-b: false, box-c: true}
+sender.docker_root: {box-a: /var/lib/docker, box-b: /var/lib/docker, box-c: /var/lib/docker}
+sender.lb_network: {box-c: lb_default}
+
+bench.enabled: false
+
+extras.usage_mcp: build-only
+extras.crawl: false
+extras.dashboard: false
+
+clients.kinds: [claude-code, openai-sdk]
+clients.where: this-host

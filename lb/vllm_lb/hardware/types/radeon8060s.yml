@@ -1,0 +1,28 @@
+# AMD Radeon 8060S — the iGPU of the Ryzen AI Max+ 395 (RDNA 3.5, gfx1151): its memory is the box's own RAM,
+# taken dynamically, beside a small carve-out rocm-smi reports as "VRAM".
+# A hardware TYPE (vllm_lb/hardware/profiles.py loads it): every figure is {value, source} — value null means no
+# source states it, and the source then says why. Peaks are one GPU's, DENSE, at the precision named.
+name: AMD Radeon 8060S (Ryzen AI Max+ 395)
+# The behaviour family (profiles.py): unified — AMD lists its VRAM as "Dynamic + carveout"; the carve-out rocm-smi
+# reports (512 MB on the measured box) is not the memory the GPU computes in.
+memory: unified
+# What its kernels target (vllm_lb/hardware/accelerators/<key>.yml): its arch and gpu_runtime are the
+# accelerator's, one place per value — shared with every product of its architecture.
+accelerator: amd-gfx1151
+# local: a one-host node the LB requests and its own host applies (deploy/standalone/up.sh node, its ROCm override
+# node-gpu.rocm.yml) — e.g. a GUI-agent node on the LB's own box (worklog/parallel-clusters.md). PROVEN 2026-10-17: vLLM
+# 0.19.1 (AMD's gfx1151 ROCm build) served a 2B Qwen3-VL on this iGPU; its start memory is below.
+# The pool vLLM measures is NOT the box's free RAM (free_at_start_gib's source), so a unified box's fit is also bounded
+# by the box's own `gpu_ram_max_gib` (fleet.py `_fit`, the unified family's `pool_problem`).
+# tp-rank (ssh) is built for DGX Spark pairs only.
+controls: [local]
+facts:
+  memory_gb: {value: null, source: "AMD ROCm documentation, GPU hardware specifications, AMD Ryzen APUs table: VRAM 'Dynamic + carveout' — the GPU takes the box's own RAM, so its size is the box's, not the chip's"}
+  cuda_cores: {value: null, source: "an AMD GPU has no CUDA cores: AMD lists 40 compute units for the Radeon 8060S (ROCm documentation, GPU hardware specifications, AMD Ryzen APUs table)"}
+  peak_gbps: {value: null, source: "not established: AMD's ROCm specification table lists no memory bandwidth for the Radeon 8060S, and none was measured on this fleet"}
+  host_platform: {value: linux/amd64, source: "the Radeon 8060S is the iGPU of the Ryzen AI Max+ 395 APU (AMD ROCm GPU hardware specifications, Ryzen APUs table), an x86-64 CPU: read on a Ryzen AI Max+ 395 box 2026-10-11 — /proc/cpuinfo 'AMD RYZEN AI MAX+ 395 w/ Radeon 8060S', uname -m 'x86_64'"}
+  bandwidth_counter: {value: null, source: "not established: no source in this repo says whether rocm-smi can read DRAM traffic on this iGPU"}
+  visible_gib: {value: 124.0, source: "measured on a Radeon 8060S box 2026-10-17, rocm/vllm@sha256:394194d36edcf9b36bcb563e143b21b80e64e7d04f33a447b448c0c0c00c04a8 (vLLM 0.19.1+rocm7.13.0rc2, AMD's gfx1151 build), vLLM's own start check refusing a deliberate gpu_memory_utilization 0.99 (boot-startcheck.log:58): 'Free memory on device cuda:0 (119.26/124.0 GiB) on startup is less than desired GPU memory utilization (0.99, 122.76 GiB)' — on ROCm vLLM reads current_platform.mem_get_info (hipMemGetInfo; vllm/utils/mem_utils.py:104, its psutil branch is CUDA-only), which on this iGPU is the GTT pool: rocm-smi 'GTT Total Memory (B): 133143986176' = 124.0 GiB"}
+  free_at_start_gib: {value: 119.26, source: "the same line (boot-startcheck.log:58, 2026-10-17T14:00:30Z): 119.26 GiB free at start with the GPU idle (broker-ollama holding no model; GTT used 10,111,516,672 B). NOT the box's RAM: host MemAvailable at that moment was 90.39 GiB (free-before-sc.txt) — hipMemGetInfo on this APU overstates the box's free RAM by ~29 GiB, so vLLM's start check passes fractions the box cannot back: the fleet bounds the pool by the box's gpu_ram_max_gib"}
+  mfu_patch_loads: {value: false, source: "measured on a Radeon 8060S box 2026-10-17, rocm/vllm@sha256:394194d36edcf9b36bcb563e143b21b80e64e7d04f33a447b448c0c0c00c04a8: with deploy/standalone/vllm-mfu on PYTHONPATH (replacing the image's own) every Python start that imports vllm runs ROCm's platform detection (offload-arch), which re-enters Python and the sitecustomize again — 2,380 offload-arch processes filled the 24 GiB memcg in ~90 s and were OOM-killed (journalctl -k CONSTRAINT_MEMCG 15:37:06, 15:38:59), no vLLM output at all; `python3 -c print` with it hung under --pids-limit 128 (worklog/parallel-clusters.md, the gui node)"}
+  peak_tflops: {}

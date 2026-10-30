@@ -1,0 +1,177 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="980" viewBox="0 0 1600 980" role="img" aria-label="catflops_fleet architecture">
+  <!-- The gateway's palette (lb/vllm_lb/static/gateway.css): page #0d1117, panels #161b22, the mark's silver, cyan and green. -->
+  <defs>
+    <style>
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      .sans { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; }
+      .cap { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; letter-spacing: 1.6px; fill: #8b949e; }
+      .card { fill: #161b22; stroke: #30363d; stroke-width: 1.5; }
+      .opt { fill: #161b22; stroke: #4d5866; stroke-width: 1.5; stroke-dasharray: 6 5; }
+      .group { fill: none; stroke: #4d5866; stroke-width: 1.5; stroke-dasharray: 6 5; }
+      .title { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 19px; fill: #e6edf3; }
+      .ctitle { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 18px; fill: #e6edf3; }
+      .sub { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 15px; fill: #8b949e; }
+      .note { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; fill: #8b949e; }
+      .port { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14px; fill: #64EBDB; }
+      .route { fill: #1b2129; }
+      .rtext { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14px; fill: #B1B8C0; }
+      .verb { fill: #7BEE98; }
+      .edge { fill: none; stroke: #5a6572; stroke-width: 1.6; }
+      .hot { fill: none; stroke: #64EBDB; stroke-width: 2; }
+      .ctl { fill: none; stroke: #7BEE98; stroke-width: 1.6; stroke-dasharray: 7 5; }
+      .dash { fill: none; stroke: #5a6572; stroke-width: 1.5; stroke-dasharray: 6 5; }
+      .elabel { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; fill: #8b949e; }
+    </style>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#5a6572"/></marker>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#64EBDB"/></marker>
+    <marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#7BEE98"/></marker>
+  </defs>
+
+  <rect width="1600" height="980" rx="16" fill="#0d1117"/>
+
+  <!-- CLIENTS -->
+  <text x="40" y="150" class="cap">CLIENTS</text>
+  <rect x="40" y="175" width="250" height="70" rx="6" class="card"/>
+  <text x="58" y="205" class="ctitle">Claude Code</text>
+  <text x="58" y="229" class="note">/v1/messages · web_search</text>
+  <rect x="40" y="265" width="250" height="70" rx="6" class="card"/>
+  <text x="58" y="295" class="ctitle">OpenAI SDKs, agents</text>
+  <text x="58" y="319" class="note">/v1/chat/completions</text>
+  <rect x="40" y="355" width="250" height="70" rx="6" class="card"/>
+  <text x="58" y="385" class="ctitle">Chat front-ends</text>
+  <text x="58" y="409" class="note">catflops_chat, any client</text>
+  <rect x="40" y="445" width="250" height="70" rx="6" class="card"/>
+  <text x="58" y="475" class="ctitle">Your browser</text>
+  <text x="58" y="499" class="note">the panel · start / stop</text>
+
+  <text x="40" y="745" class="cap">AI ASSISTANTS</text>
+  <rect x="40" y="770" width="250" height="70" rx="6" class="card"/>
+  <text x="58" y="800" class="ctitle">Claude, Cursor</text>
+  <text x="58" y="824" class="note">usage questions over MCP</text>
+
+  <!-- YOUR AUTH PROXY (not shipped) -->
+  <rect x="340" y="175" width="200" height="340" rx="6" class="opt"/>
+  <text x="358" y="205" class="title">your proxy</text>
+  <text x="358" y="232" class="sub">TLS + sign-in</text>
+  <text x="358" y="256" class="note">nginx · Caddy · Traefik</text>
+  <text x="358" y="490" class="note">not shipped</text>
+
+  <path d="M290 210H340" class="edge" marker-end="url(#a)"/>
+  <path d="M290 300H340" class="edge" marker-end="url(#a)"/>
+  <path d="M290 390H340" class="edge" marker-end="url(#a)"/>
+  <path d="M290 480H340" class="edge" marker-end="url(#a)"/>
+  <path d="M540 300H620" class="hot" marker-end="url(#ah)"/>
+  <text x="552" y="290" class="elabel">HTTPS</text>
+
+  <!-- THE GATEWAY HOST -->
+  <text x="850" y="96" class="cap" text-anchor="middle">YOUR GATEWAY HOST · DOCKER COMPOSE · 127.0.0.1 ONLY</text>
+  <rect x="590" y="120" width="520" height="820" fill="#10161e"/>
+  <path d="M590 146V120H616M1084 120H1110V146M1110 914V940H1084M616 940H590V914" fill="none" stroke="#7BEE98" stroke-width="2.5"/>
+
+  <rect x="620" y="150" width="460" height="330" rx="6" class="card"/>
+  <text x="640" y="182" class="title">vllm-lb</text>
+  <text x="1060" y="182" class="port" text-anchor="end">:8010</text>
+  <text x="640" y="208" class="sub">routing · cluster control · panel · telemetry</text>
+  <rect x="640" y="226" width="420" height="34" rx="3" class="route"/>
+  <text x="652" y="248" class="rtext"><tspan class="verb">POST</tspan> /v1/messages</text>
+  <rect x="640" y="266" width="420" height="34" rx="3" class="route"/>
+  <text x="652" y="288" class="rtext"><tspan class="verb">POST</tspan> /v1/chat/completions</text>
+  <rect x="640" y="306" width="420" height="34" rx="3" class="route"/>
+  <text x="652" y="328" class="rtext"><tspan class="verb">GET </tspan> /lb/status</text>
+  <rect x="640" y="346" width="420" height="34" rx="3" class="route"/>
+  <text x="652" y="368" class="rtext"><tspan class="verb">POST</tspan> /lb/clusters/{name}</text>
+  <rect x="640" y="386" width="420" height="34" rx="3" class="route"/>
+  <text x="652" y="408" class="rtext"><tspan class="verb">GET </tspan> /  the panel</text>
+  <text x="640" y="458" class="note">no backend live → 503 with the reason, never a stand-in</text>
+
+  <rect x="620" y="520" width="220" height="80" rx="6" class="card"/>
+  <text x="638" y="550" class="title">searxng</text>
+  <text x="822" y="550" class="port" text-anchor="end">:8811</text>
+  <text x="638" y="577" class="sub">web_search results</text>
+
+  <rect x="860" y="520" width="220" height="80" rx="6" class="card"/>
+  <text x="878" y="550" class="title">fleet.yml</text>
+  <text x="878" y="577" class="sub">catalog · hardware types</text>
+
+  <rect x="620" y="640" width="220" height="90" rx="6" class="card"/>
+  <text x="638" y="670" class="title">vllm-power</text>
+  <text x="822" y="670" class="port" text-anchor="end">:8016</text>
+  <text x="638" y="697" class="sub">Wake-on-LAN, shutdown</text>
+
+  <rect x="860" y="640" width="220" height="90" rx="6" class="opt"/>
+  <text x="878" y="670" class="title">broker_parrot</text>
+  <text x="878" y="697" class="sub">GPU leases</text>
+  <text x="878" y="718" class="note">optional · SQLite, PG</text>
+
+  <rect x="620" y="770" width="220" height="80" rx="6" class="card"/>
+  <text x="638" y="800" class="title">usage-mcp</text>
+  <text x="638" y="827" class="sub">read-only, over stdio</text>
+
+  <path d="M730 480V520" class="edge" marker-end="url(#a)"/>
+  <path d="M970 520V480" class="edge" marker-end="url(#a)"/>
+  <text x="980" y="506" class="elabel">read at start</text>
+  <path d="M1095 480V685H1080" class="dash" marker-end="url(#a)"/>
+  <path d="M620 460H604V810H620" class="dash" marker-end="url(#a)"/>
+  <text x="614" y="880" class="elabel">reads the gateway's state</text>
+  <path d="M290 805H620" class="edge" marker-end="url(#a)"/>
+
+  <!-- YOUR GPU BOXES -->
+  <text x="1160" y="96" class="cap">YOUR GPU BOXES</text>
+  <rect x="1160" y="120" width="400" height="380" rx="8" class="group"/>
+  <text x="1180" y="146" class="cap">TP=2 CLUSTER · STARTED OVER SSH</text>
+
+  <rect x="1180" y="164" width="360" height="80" rx="6" class="card"/>
+  <text x="1198" y="194" class="title">the pair</text>
+  <text x="1522" y="194" class="port" text-anchor="end">:8100</text>
+  <text x="1198" y="221" class="sub">vLLM · SGLang · TensorFold, one model</text>
+
+  <rect x="1180" y="290" width="165" height="190" rx="6" class="card"/>
+  <text x="1198" y="320" class="title">box-a</text>
+  <text x="1198" y="345" class="sub">rank 0 · head</text>
+  <rect x="1196" y="364" width="133" height="30" rx="3" class="route"/>
+  <text x="1206" y="384" class="rtext">tp-rank</text>
+  <rect x="1196" y="402" width="133" height="30" rx="3" class="route"/>
+  <text x="1206" y="422" class="rtext">hw_sender</text>
+  <text x="1198" y="462" class="note">GPU · checkpoints</text>
+
+  <rect x="1375" y="290" width="165" height="190" rx="6" class="card"/>
+  <text x="1393" y="320" class="title">box-b</text>
+  <text x="1393" y="345" class="sub">rank 1</text>
+  <rect x="1391" y="364" width="133" height="30" rx="3" class="route"/>
+  <text x="1401" y="384" class="rtext">tp-rank</text>
+  <rect x="1391" y="402" width="133" height="30" rx="3" class="route"/>
+  <text x="1401" y="422" class="rtext">hw_sender</text>
+  <text x="1393" y="462" class="note">GPU · checkpoints</text>
+
+  <path d="M1262 290V244M1457 290V244" class="edge"/>
+  <path d="M1345 385H1375" class="hot"/>
+  <text x="1360" y="280" class="elabel" text-anchor="middle">RoCE / NCCL</text>
+  <path d="M1360 284V378" class="dash"/>
+
+  <rect x="1160" y="540" width="400" height="90" rx="6" class="card"/>
+  <text x="1178" y="570" class="title">box-c</text>
+  <text x="1542" y="570" class="port" text-anchor="end">:8000</text>
+  <text x="1178" y="597" class="sub">a classic server: one engine on one box</text>
+  <text x="1178" y="618" class="note">vLLM / SGLang</text>
+
+  <text x="1160" y="915" class="note">any box: a hardware type is a YAML file</text>
+  <text x="1160" y="935" class="note">(GB10, RTX 5090 / 3090, AMD iGPU today)</text>
+
+  <!-- gateway ⇄ boxes -->
+  <path d="M1080 204H1180" class="hot" marker-end="url(#ah)"/>
+  <text x="1090" y="194" class="elabel">streamed</text>
+  <path d="M1080 360H1130V340H1180" class="ctl" marker-end="url(#ag)"/>
+  <text x="1090" y="352" class="elabel" fill="#7BEE98">ssh</text>
+  <path d="M1180 450H1120V420H1080" class="dash" marker-end="url(#a)"/>
+  <text x="1086" y="440" class="elabel">UDP</text>
+  <path d="M1080 470H1140V585H1160" class="hot" marker-end="url(#ah)"/>
+  <path d="M840 715H852V755H1360V630" class="ctl" marker-end="url(#ag)"/>
+  <text x="1160" y="745" class="elabel" fill="#7BEE98">wake · shutdown</text>
+
+  <!-- legend -->
+  <g transform="translate(1160 800)">
+    <path d="M0 8H40" class="hot"/><text x="52" y="13" class="note">inference traffic</text>
+    <path d="M0 38H40" class="ctl"/><text x="52" y="43" class="note">control: ssh, power</text>
+    <path d="M0 68H40" class="dash"/><text x="52" y="73" class="note">telemetry, state, optional</text>
+  </g>
+</svg>

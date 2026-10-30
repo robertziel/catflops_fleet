@@ -1,0 +1,2096 @@
+# THE SETUP WIZARD'S QUESTION LIBRARY — every choice a coding agent COLLECTS from the user before it writes one file
+# (SETUP.md is the protocol; deploy/setup/render.py validates an answer sheet against this file and renders the
+# deployment's gitignored files from it). Operator, 2026-10-30: "should ask about dir where to keep models, what model
+# should it load etc. prepare full list to ask user before setup".
+#
+# WHY A LIBRARY: the project's rule is no defaults and no auto-detection (AGENTS.md "A deployment is configuration,
+# never code"). Every deployment value is a deliberate answer, so the list of answers IS the setup. It is DATA so the
+# coverage guard (deploy/tests/test_setup.py) can prove it complete: every required key of every .env.example and
+# compose `${KEY:?}`, every key of every shipped fleet example, is written by a question here — a new env var without
+# a question fails the suite.
+#
+# A QUESTION:
+#   id        <scope>.<name>; the answer sheet's key (deploy/setup/answers.example.yml shows every one)
+#   section   which section it is asked in; sections are asked in the order listed, questions in file order
+#   per       asked once for EACH instance of a scope (scopes: below) — its answer is a mapping instance → value
+#   ask       the question as the agent puts it; why — one line: what the answer decides
+#   when      asked only when this holds on earlier answers (render.py `When`): `id == v`, `id != v`, `id in [a, b]`,
+#             `id in @source` (in a library, render.py SOURCES), `id has v` (a list answer contains v), `len(id) > n`,
+#             a bare `id` (answered and true), `not`, `and`, `or`, `any(<expr over a scope>)`. Inside a `per` question
+#             the scope's own ids are that instance's, and the scope's own name IS the instance
+#             (`checkpoint in @uncensored_models`: asked only for a staged model whose library row has a twin).
+#   required  false = may be left unanswered (left out of the file: the engine's/service's own documented behaviour,
+#             which the question says). Default true: an unanswered required question STOPS the parts that need it.
+#   kind      choice | multi | text | path | host | bind | url | port | secret | number | bool | list | records |
+#             map | fact | image (render.py KINDS says what each accepts)
+#   choices / choices_from / also_from / extra_choices — the finite answers: literal, read from a library
+#             (render.py SOURCES: never a copy of one), plus another question's list answers, plus literal words
+#   validate  what a valid answer is, in words (pattern / min / max / integer are checked by render.py)
+#   writes    `<file> <key>` lines — the file (a placeholder <scope> or <scope.id> is the instance or its answer) and the
+#             key or fleet path it fills; `none — …` when it only informs a later step. `manual: true` = code the agent
+#             writes by hand with its test (a hardware type, an accelerator, a model's library entries), never
+#             rendered.
+#
+# DERIVED, NEVER ASKED (render.py prints them under "DERIVED FROM THE LIBRARIES"): a card's ACCELERATOR (its type's
+# `accelerator`: arch, GPU runtime), and an ssh cluster's first Start as the LB's resolver reads it — the image the
+# matrix (lb/vllm_lb/library/images) gives its recipe on the cluster's accelerator × platform × TP, and whether that
+# combination is measured (docs/design/engines.md "Resolution at Start").
+#   secret    true: the agent never echoes it, never commits it, and render.py masks it everywhere it prints
+#   probe     a READ-ONLY command the agent MAY run (on the box the question is about) to PROPOSE an answer. The
+#             proposal is shown to the user and CONFIRMED before it is an answer: an auto-detected value silently
+#             becoming config is a fallback (SETUP.md Phase 1).
+#   env_format colon | csv (a list as `a:b` or `a,b`); values maps an answer to the value written (null = nothing written)
+#   prefill   what a REFERENCE BLUEPRINT (lb/vllm_lb/library/blueprints; `cluster.blueprint`) PROPOSES for this question
+#             (render.py --prefill): `ref` (its model, @uncensored where it runs the twin), `model`, `estimated`,
+#             `knobs` (every knob), `knobs.<k>`, `fixed.<k>`. A null in the blueprint proposes nothing (the engine's own).
+#             prefill_as: list (the value as a one-item list) | add (added to the list already answered) | at_least
+#             (the answer raised to it, never lowered); prefill_values maps the value to the answer proposed (null: none).
+#             A per-box question is proposed for each box the cluster's ranks name. A proposal is shown and CONFIRMED
+#             like a probe's (SETUP.md Phase 1); the renderer renders the answers, never a blueprint.
+
+version: 1
+
+sections:
+  - {id: shape, title: "Deployment shape"}
+  - {id: machines, title: "Machines"}
+  - {id: cards, title: "GPUs (cards) per machine"}
+  - {id: accel, title: "A kernel target the accelerator library lacks (sub-wizard)"}
+  - {id: hwtype, title: "A card the hardware library lacks (sub-wizard)"}
+  - {id: runtime, title: "GPU runtime and Docker per machine"}
+  - {id: broker, title: "broker_parrot (opt-in)"}
+  - {id: models, title: "Which models"}
+  - {id: newmodel, title: "A model the model library lacks (sub-wizard)"}
+  - {id: clusters, title: "Clusters: what runs where"}
+  - {id: pair, title: "The tensor-parallel pair (SSH)"}
+  - {id: node, title: "One-host nodes (deploy/standalone)"}
+  - {id: backends, title: "Classic servers already running"}
+  - {id: storage, title: "The models directory on each machine"}
+  - {id: download, title: "Getting the checkpoints"}
+  - {id: network, title: "Ports and binds"}
+  - {id: exposure, title: "Who can reach it, and the sign-in in front"}
+  - {id: search, title: "Web search (SearXNG)"}
+  - {id: power, title: "Power panel (power/)"}
+  - {id: telemetry, title: "Hardware telemetry senders"}
+  - {id: bench, title: "Benchmark swarm runner"}
+  - {id: extras, title: "Optional services"}
+  - {id: tuning, title: "Gateway knobs"}
+  - {id: clients, title: "Clients and the smoke test"}
+
+scopes:
+  box: machines.boxes
+  accelerator: accel.new
+  hwtype: hwtype.new
+  newmodel: models.new
+  checkpoint: models.staged
+  cluster: clusters.names
+  power_box: power.boxes
+  sender: telemetry.boxes
+
+# Where each rendered file comes from: its committed example (what is documented and what is required) and the compose
+# files whose `${KEY:?}` it must satisfy. `deploy/standalone/*` is one node's server file (deploy/standalone/<name>.env);
+# `hosts/<box>/…` is a file that lives in THAT machine's checkout, not the gateway's.
+files:
+  lb/.env: {format: env, example: lb/.env.example, compose: [lb/docker-compose.yml, lb/docker-compose.broker.yml, lb/docker-compose.bench-net.yml, lb/docker-compose.node.yml, lb/docker-compose.clients.yml]}
+  lb/fleet.yml: {format: fleet, example: lb/fleet.example.yml}
+  power/.env: {format: env, example: power/.env.example, compose: [power/docker-compose.yml]}
+  deploy/standalone/*: {format: env, example: deploy/standalone/.env.example, compose: [deploy/standalone/node.yml, deploy/standalone/node-engine.vllm.yml, deploy/standalone/node-engine.sglang.yml, deploy/standalone/node-engine.faster-whisper.yml, deploy/standalone/node-engine.nemo.yml, deploy/standalone/node-gpu.nvidia.yml, deploy/standalone/node-gpu.rocm.yml, deploy/standalone/lb.override.yml]}
+  hosts/*/lb/hw_sender/.env: {format: env, example: lb/hw_sender/.env.example, compose: [lb/hw_sender/docker-compose.yml, lb/hw_sender/bridged.yml]}
+  lb/bench_runner/.env: {format: env, example: lb/bench_runner/.env.example, compose: [lb/bench_runner/docker-compose.yml, lb/bench_runner/subnet.yml]}
+  crawl/.env: {format: env, example: crawl/.env.example, compose: [crawl/docker-compose.yml]}
+  .env: {format: env, example: .env.example, compose: [dashboard/docker-compose.yml]}
+  lb/vllm_lb/hardware/types/*.yml: {format: manual}
+  lb/vllm_lb/hardware/accelerators/*.yml: {format: manual}
+  lb/vllm_lb/library/models.json: {format: manual}
+  lb/vllm_lb/library/recipes.json: {format: manual}
+  lb/vllm_lb/library/measurements.json: {format: manual}
+
+# Values one rule computes from several answers (render.py RULES) — never typed twice.
+derived:
+  - id: lb.compose_file
+    writes: [lb/.env COMPOSE_FILE]
+    rule: lb_compose_chain
+    from: [broker.enabled, lb.bench_network, lb.node_network, lb.client_network]
+    why: "docker-compose.yml, then the broker override, then the networks that need it, in lb/.env.example's order"
+  - id: node.env_lines
+    per: cluster
+    when: cluster.control == local
+    writes: ["deploy/standalone/<cluster.server_file> EDGE_NODE_*"]
+    rule: node_env
+    from: [lb/fleet.yml]
+    why: "the node's image, GPU, runtime, model, figures and limits: `python -m vllm_lb.fleet node-env` renders them from the fleet — copied, never chosen by hand"
+  - id: sender.compose_file
+    per: sender
+    when: telemetry.enabled == true
+    writes: ["hosts/<sender>/lb/hw_sender/.env COMPOSE_FILE"]
+    rule: hw_sender_compose
+    from: [sender.gpu_kind, sender.bridged]
+    why: "the base, exactly one GPU kind, and bridged.yml where the LB runs on the same server"
+  - id: sender.hostname
+    per: sender
+    when: telemetry.enabled == true and sender.bridged == true
+    writes: ["hosts/<sender>/lb/hw_sender/.env HW_SENDER_HOSTNAME"]
+    rule: box_hostname
+    from: [box.hostname]
+    why: "the name on the wire must be the box's fleet hostname — the same answer, written once more where bridged.yml reads it"
+  - id: bench.compose_file
+    when: bench.enabled == true and bench.sealed_subnet
+    writes: [lb/bench_runner/.env COMPOSE_FILE]
+    rule: bench_compose
+    from: [bench.sealed_subnet]
+    why: "subnet.yml only where the host's docker has no free address pool"
+
+questions:
+  # ── shape ───────────────────────────────────────────────────────────────────────────────────────────────────────────
+  - id: shape.kind
+    section: shape
+    ask: "Which shape is this deployment? gateway — the gateway in front of LLM servers you already run; standalone — one box running the gateway and one GPU node (deploy/standalone); pair — the gateway plus two boxes running one model tensor-parallel over SSH; mix — several of these under one gateway."
+    why: "decides which sections apply and which files are written"
+    kind: choice
+    choices: [gateway, standalone, pair, mix]
+    validate: "one of the four"
+    writes: ["none — selects the sections that follow"]
+  - id: shape.gateway_host
+    section: shape
+    ask: "Which machine runs the gateway (lb/, :8010)? This one (where the checkout is), or name another you will run the same steps on."
+    why: "where docker compose runs and where 127.0.0.1:8010 is"
+    kind: text
+    validate: "`this` or a machine name you will answer for below"
+    writes: ["none — where Phase 4 boots the gateway"]
+    probe: "hostname"
+  # ── machines ────────────────────────────────────────────────────────────────────────────────────────────────────────
+  - id: machines.boxes
+    section: machines
+    ask: "Name every machine the gateway should know: each runs a server, a cluster rank or a node, or only sends hardware telemetry. Short names (box-a, gpu-1): they are what the panel, leases and logs call them."
+    why: "the fleet file's boxes; every later per-machine question is asked for each"
+    kind: list
+    pattern: "[A-Za-z0-9][A-Za-z0-9._-]*"
+    validate: "names of letters, digits, '.', '_' or '-', each once"
+    writes: ["lb/fleet.yml boxes"]
+  - id: box.roles
+    section: machines
+    per: box
+    ask: "What does this machine do? pair-rank — one rank of a TP pair the gateway starts over SSH; node-local — a one-host node the gateway requests and this host applies; node-observed — a server the gateway only routes to and observes as a cluster; classic — a plain server the gateway dials (backends); telemetry-only — no server, sends hardware numbers."
+    why: "which of its keys the fleet needs (ssh, label, node limits) and which sections apply to it"
+    kind: multi
+    choices: [pair-rank, node-local, node-observed, classic, telemetry-only]
+    validate: "one or more; telemetry-only alone"
+    writes: ["none — selects the machine's keys below"]
+  - id: box.hostname
+    section: machines
+    per: box
+    ask: "Its own hostname, exactly as it reports itself (the hardware sender stamps this name)."
+    why: "how the gateway matches a telemetry sample to the box"
+    kind: text
+    validate: "the output of `hostname` on that machine; unique across boxes"
+    probe: "hostname   # on that machine"
+    writes: ["lb/fleet.yml boxes.<box>.hostname"]
+  - id: box.label
+    section: machines
+    per: box
+    when: "box.roles has pair-rank or box.roles has node-local or box.roles has node-observed or box.roles has classic"
+    ask: "Its GPU lane name: what its servers are called on the panel and what a broker claim stamps (e.g. box-a-gpu)."
+    why: "a serving box needs a label; the fleet refuses one without"
+    kind: text
+    pattern: "[A-Za-z0-9][A-Za-z0-9._-]*"
+    validate: "letters, digits, '.', '_' or '-'; unique across boxes"
+    writes: ["lb/fleet.yml boxes.<box>.label"]
+  - id: box.platform
+    section: machines
+    per: box
+    ask: "Its CPU platform, which every image for it must be built for."
+    why: "compose refuses an image built for another CPU; a GB10 superchip is Arm"
+    kind: choice
+    choices_from: platforms
+    validate: "one of the platforms; a card type that states host_platform must agree"
+    probe: "uname -m   # x86_64 → linux/amd64, aarch64 → linux/arm64"
+    writes: ["lb/fleet.yml boxes.<box>.platform"]
+  - id: box.address
+    section: machines
+    per: box
+    when: "box.roles has pair-rank or box.roles has node-local or box.roles has node-observed or box.roles has classic"
+    ask: "The address the gateway's host reaches it on (an IP or DNS name on your network; 127.0.0.1 if it is the gateway's own box)."
+    why: "goes into the cluster and backend URLs below"
+    kind: host
+    validate: "an IPv4/IPv6 address or a resolvable name, reachable from the gateway host"
+    probe: "ip -brief addr   # on that machine"
+    writes: ["none — informs clusters.<name>.url and backends.<box>.url"]
+  - id: box.ssh
+    section: machines
+    per: box
+    when: "box.roles has pair-rank"
+    ask: "The SSH login the gateway uses to start its rank: user@address."
+    why: "tp-rank runs over SSH from inside the gateway's container"
+    kind: text
+    pattern: "[^@\\s]+@[^@\\s]+"
+    validate: "user@address, a user that may run docker on that box"
+    writes: ["lb/fleet.yml boxes.<box>.ssh"]
+  - id: box.node_memory_gib
+    section: machines
+    per: box
+    when: "box.roles has node-local"
+    ask: "The node container's memory cap on this box, GiB (no swap): the box is shared with the gateway and anything else on it."
+    why: "a node on a shared box runs bounded, never by a default"
+    kind: number
+    integer: true
+    min: 1
+    validate: "a whole number of GiB, below the box's RAM minus what else runs there"
+    probe: "free -g"
+    writes: ["lb/fleet.yml boxes.<box>.node_limits.memory_gib"]
+  - id: box.node_cpus
+    section: machines
+    per: box
+    when: "box.roles has node-local"
+    ask: "How many CPUs the node container may use (a cold compile takes every core for minutes)."
+    why: "docker's cpus limit on the node"
+    kind: number
+    min: 0.1
+    validate: "a number above 0, at most the box's cores"
+    probe: "nproc"
+    writes: ["lb/fleet.yml boxes.<box>.node_limits.cpus"]
+  - id: box.node_pids
+    section: machines
+    per: box
+    when: "box.roles has node-local"
+    ask: "The most processes the node container may run (a runaway process explosion stops there)."
+    why: "docker's pids_limit on the node"
+    kind: number
+    integer: true
+    min: 1
+    validate: "a whole number, e.g. 4096"
+    writes: ["lb/fleet.yml boxes.<box>.node_limits.pids"]
+  - id: box.node_nice
+    section: machines
+    per: box
+    when: "box.roles has node-local"
+    ask: "The niceness the engine runs at inside the node (-20 highest priority … 19 lowest)."
+    why: "keeps the gateway responsive while the node compiles"
+    kind: number
+    integer: true
+    min: -20
+    max: 19
+    validate: "a whole number from -20 to 19"
+    writes: ["lb/fleet.yml boxes.<box>.node_limits.nice"]
+  - id: box.kv_offload_ram_max_gib
+    section: machines
+    per: box
+    when: "box.roles has node-local or box.roles has node-observed"
+    required: false
+    ask: "OPTIONAL — the most GiB of this box's RAM a node's KV tier may take (at most its /dev/shm). Leave unanswered for no KV tier here. Refused on unified memory."
+    why: "bounds a launch's kv_offload_ram_gib"
+    kind: number
+    integer: true
+    min: 1
+    validate: "whole GiB, at most `df -B1 /dev/shm`'s free space"
+    probe: "df -h /dev/shm"
+    prefill: knobs.kv_offload_ram_gib
+    prefill_as: at_least
+    writes: ["lb/fleet.yml boxes.<box>.kv_offload_ram_max_gib"]
+  - id: box.gpu_ram_max_gib
+    section: machines
+    per: box
+    when: "box.roles has node-local or box.roles has node-observed"
+    required: false
+    ask: "OPTIONAL, unified-memory boxes (an APU whose GPU pool is the box's RAM): the most GiB of RAM its nodes' GPU pools may take together. Leave unanswered on a discrete card."
+    why: "the one pool the box's nodes share; a Start past it is refused naming the holders"
+    kind: number
+    integer: true
+    min: 1
+    validate: "whole GiB, below the box's RAM"
+    probe: "free -g"
+    writes: ["lb/fleet.yml boxes.<box>.gpu_ram_max_gib"]
+  # ── cards ───────────────────────────────────────────────────────────────────────────────────────────────────────────
+  - id: box.cards
+    section: cards
+    per: box
+    ask: "Every GPU in this machine, by the driver's index: its hardware type from the library, and whether a server of THIS fleet runs on it (a card someone else uses is listed with serves: false)."
+    why: "the fleet's cards — peaks, memory model and fit come from the serving card's type"
+    kind: records
+    fields:
+      index: {kind: number, integer: true, min: 0}
+      type: {kind: choice, choices_from: hardware_types, also_from: hwtype.new}
+      serves: {kind: bool}
+    validate: "one record per card; a type key from lb/vllm_lb/hardware/types/ (or a new one you add in the hwtype section); serving cards' types must list the cluster's control. Each card's ACCELERATOR (arch, GPU runtime) is its type's: --check shows it, nobody answers it"
+    probe: "nvidia-smi --query-gpu=index,name,memory.total --format=csv   # or: rocm-smi --showproductname"
+    writes: ["lb/fleet.yml boxes.<box>.cards"]
+  # ── accel ───────────────────────────────────────────────────────────────────────────────────────────────────────────
+  # An ACCELERATOR is what kernels target (lb/vllm_lb/hardware/accelerators/<key>.yml): a card type names one, and images,
+  # measurements and recipe overrides are keyed by it, never by product (docs/design/engines.md). A new card of a known
+  # architecture needs none; a new architecture is this sub-wizard, written by hand with its test.
+  - id: accel.new
+    section: accel
+    required: false
+    ask: "Does any card — one in the library or a new one you will add next — need a kernel target (accelerator) that lb/vllm_lb/hardware/accelerators/ lacks (e.g. nvidia-sm89, amd-gfx1100)? Give each a new key. Leave unanswered if every card's accelerator is in the library."
+    why: "an image, a measurement and a recipe override are keyed by accelerator: without one no image resolves for the card"
+    kind: list
+    pattern: "[a-z0-9][a-z0-9-]*"
+    validate: "new keys only (not an existing accelerator), `<vendor>-<arch>`"
+    probe: "nvidia-smi --query-gpu=name,compute_cap --format=csv,noheader   # or: rocminfo | grep gfx"
+    writes: ["none — opens the accelerator sub-wizard below per new key"]
+  - id: accel.name
+    section: accel
+    per: accelerator
+    ask: "The accelerator's name (e.g. NVIDIA Ada Lovelace, compute capability 8.9 (sm_89))."
+    why: "the accelerator's display name"
+    kind: text
+    validate: "the architecture as its vendor names it"
+    manual: true
+    writes: ["lb/vllm_lb/hardware/accelerators/<accelerator>.yml name"]
+  - id: accel.arch
+    section: accel
+    per: accelerator
+    ask: "Its compute architecture (sm_89, gfx1100 …), and the source that says so."
+    why: "what its kernels are compiled for; an arch-specific image runs on that exact arch only"
+    kind: fact
+    validate: "{value, source}: a vendor page or a measurement with its date"
+    probe: "nvidia-smi --query-gpu=compute_cap --format=csv,noheader"
+    manual: true
+    writes: ["lb/vllm_lb/hardware/accelerators/<accelerator>.yml facts.arch"]
+  - id: accel.gpu_runtime
+    section: accel
+    per: accelerator
+    ask: "How a container attaches it: nvidia (Docker's NVIDIA device reservation) or rocm (/dev/kfd + /dev/dri), and the source."
+    why: "selects deploy/standalone/node-gpu.<runtime>.yml; a box's driver stack must be this"
+    kind: fact
+    validate: "{value, source} with value one of the GPU runtimes"
+    manual: true
+    writes: ["lb/vllm_lb/hardware/accelerators/<accelerator>.yml facts.gpu_runtime"]
+  - id: accel.platforms
+    section: accel
+    per: accelerator
+    ask: "The CPU platforms its hosts come in (linux/amd64, linux/arm64), and the source."
+    why: "an image for it is built for one of these; a box's platform must be one"
+    kind: fact
+    validate: "{value, source} with value a list of the platforms"
+    manual: true
+    writes: ["lb/vllm_lb/hardware/accelerators/<accelerator>.yml facts.platforms"]
+  - id: accel.precisions
+    section: accel
+    per: accelerator
+    ask: "The element types its tensor units compute (bf16, fp16, fp8, nvfp4 …), and the source."
+    why: "a type's peak at a precision its accelerator lacks is refused"
+    kind: fact
+    validate: "{value, source}: a vendor whitepaper, or a measured GEMM with its date"
+    manual: true
+    writes: ["lb/vllm_lb/hardware/accelerators/<accelerator>.yml facts.precisions"]
+  - id: accel.quant_formats
+    section: accel
+    per: accelerator
+    ask: "The checkpoint quantisation formats served on it (none for unquantised, modelopt, fp8 …): only what has run there, each with its source."
+    why: "a model's quant format is checked against it before any image is asked for"
+    kind: fact
+    validate: "{value, source}; add a format only when it runs there"
+    manual: true
+    writes: ["lb/vllm_lb/hardware/accelerators/<accelerator>.yml facts.quant_formats"]
+  # ── hwtype ──────────────────────────────────────────────────────────────────────────────────────────────────────────
+  - id: hwtype.new
+    section: hwtype
+    required: false
+    ask: "Is any card NOT in the hardware-type library? Give each a new key (e.g. rtx4090). Each becomes a type file with every figure sourced — a contribution with its test (AGENTS.md \"Hardware\"). Leave unanswered if every card is in the library."
+    why: "the gateway claims nothing about a GPU without a sourced figure"
+    kind: list
+    pattern: "[a-z0-9][a-z0-9_]*"
+    validate: "new keys only (not an existing type)"
+    writes: ["none — opens the sub-wizard below per new type"]
+  - id: hwtype.name
+    section: hwtype
+    per: hwtype
+    ask: "The card's full product name (e.g. NVIDIA GeForce RTX 4090)."
+    why: "the type's display name"
+    kind: text
+    validate: "the vendor's product name"
+    probe: "nvidia-smi --query-gpu=name --format=csv,noheader"
+    manual: true
+    writes: ["lb/vllm_lb/hardware/types/<hwtype>.yml name"]
+  - id: hwtype.memory
+    section: hwtype
+    per: hwtype
+    ask: "Its memory family: discrete (VRAM of its own) or unified (the GPU's memory IS the box's RAM)."
+    why: "picks the behaviour class (how memory is read and drawn)"
+    kind: choice
+    choices_from: memory_families
+    validate: "one of the families; a new family is a new class, not an answer"
+    manual: true
+    writes: ["lb/vllm_lb/hardware/types/<hwtype>.yml memory"]
+  - id: hwtype.controls
+    section: hwtype
+    per: hwtype
+    required: false
+    ask: "Which cluster controls are PROVEN on it (ssh: tp-rank's pair; local: a one-host node)? Only what has run; leave unanswered for none."
+    why: "the fleet refuses a control its card does not list"
+    kind: multi
+    choices_from: controls
+    validate: "controls proven on this card"
+    manual: true
+    writes: ["lb/vllm_lb/hardware/types/<hwtype>.yml controls"]
+  - id: hwtype.accelerator
+    section: hwtype
+    per: hwtype
+    ask: "Its accelerator — what its kernels target: one of lb/vllm_lb/hardware/accelerators/, or a key you added in the accelerator sub-wizard. Its arch and GPU runtime are the accelerator's, never restated on the type."
+    why: "the image matrix, measurements and recipe overrides are keyed by accelerator"
+    kind: choice
+    choices_from: accelerators
+    also_from: accel.new
+    validate: "an accelerator key; the type's host_platform and peak precisions must be ones it lists"
+    manual: true
+    writes: ["lb/vllm_lb/hardware/types/<hwtype>.yml accelerator"]
+  - id: hwtype.memory_gb
+    section: hwtype
+    per: hwtype
+    ask: "Its memory per the spec, GB, and the source (null on unified memory: the box's RAM)."
+    why: "the card's memory as the vendor states it"
+    kind: fact
+    validate: "{value, source}"
+    manual: true
+    writes: ["lb/vllm_lb/hardware/types/<hwtype>.yml facts.memory_gb"]
+  - id: hwtype.cuda_cores
+    section: hwtype
+    per: hwtype
+    ask: "Its CUDA cores (or null + why on a non-CUDA GPU), and the source."
+    why: "the CUDA CORES tile's denominator"
+    kind: fact
+    validate: "{value, source}"
+    manual: true
+    writes: ["lb/vllm_lb/hardware/types/<hwtype>.yml facts.cuda_cores"]
+  - id: hwtype.peak_gbps
+    section: hwtype
+    per: hwtype
+    ask: "Its peak memory bandwidth, GB/s, and the source."
+    why: "the MEMORY BANDWIDTH tile's ceiling"
+    kind: fact
+    validate: "{value, source}"
+    manual: true
+    writes: ["lb/vllm_lb/hardware/types/<hwtype>.yml facts.peak_gbps"]
+  - id: hwtype.peak_tflops
+    section: hwtype
+    per: hwtype
+    ask: "Its DENSE peak TFLOP/s per precision (bf16, fp8, nvfp4 …), each with its source."
+    why: "the COMPUTE tile's ceiling"
+    kind: map
+    validate: "precision → {value, source}; dense figures (the X of NVIDIA's X/Y), at boost clock"
+    manual: true
+    writes: ["lb/vllm_lb/hardware/types/<hwtype>.yml facts.peak_tflops"]
+  - id: hwtype.host_platform
+    section: hwtype
+    per: hwtype
+    ask: "The CPU platform the chip carries, if it IS the box's CPU too (a superchip); null + why for a discrete card."
+    why: "a box's platform must agree with it"
+    kind: fact
+    validate: "{value, source}"
+    manual: true
+    writes: ["lb/vllm_lb/hardware/types/<hwtype>.yml facts.host_platform"]
+  - id: hwtype.bandwidth_counter
+    section: hwtype
+    per: hwtype
+    ask: "Can a DRAM-traffic counter be read on it (true/false/null + why)?"
+    why: "measured bandwidth vs modelled"
+    kind: fact
+    validate: "{value, source}"
+    manual: true
+    writes: ["lb/vllm_lb/hardware/types/<hwtype>.yml facts.bandwidth_counter"]
+  - id: hwtype.visible_gib
+    section: hwtype
+    per: hwtype
+    ask: "The total memory vLLM SEES at start, GiB, from a boot log on this card (null + why until one is measured)."
+    why: "vLLM's start check takes gpu_memory_utilization's share of it"
+    kind: fact
+    validate: "{value, source}: the boot log line and its date"
+    manual: true
+    writes: ["lb/vllm_lb/hardware/types/<hwtype>.yml facts.visible_gib"]
+  - id: hwtype.free_at_start_gib
+    section: hwtype
+    per: hwtype
+    ask: "The memory FREE on the idle card when that check runs, GiB, from the same boot log (null + why until measured)."
+    why: "a fraction above it is refused before anything loads"
+    kind: fact
+    validate: "{value, source}"
+    manual: true
+    writes: ["lb/vllm_lb/hardware/types/<hwtype>.yml facts.free_at_start_gib"]
+  - id: hwtype.mfu_patch_loads
+    section: hwtype
+    per: hwtype
+    ask: "Does the MFU byte-size patch load on its image (true/false/null + why)?"
+    why: "whether a modelopt_mixed checkpoint's FLOP/s can be counted there"
+    kind: fact
+    validate: "{value, source}"
+    manual: true
+    writes: ["lb/vllm_lb/hardware/types/<hwtype>.yml facts.mfu_patch_loads"]
+  # ── runtime ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+  - id: box.gpu_runtime
+    section: runtime
+    per: box
+    ask: "Which GPU driver stack does this machine have working: nvidia, rocm, or none (no GPU used here)?"
+    why: "a container attaches its card through it: render.py refuses a box whose stack is not its serving cards' accelerator's gpu_runtime"
+    kind: choice
+    choices_from: gpu_runtimes
+    extra_choices: [none]
+    validate: "the stack whose CLI answers on the box; `none` only for a box that serves nothing"
+    probe: "nvidia-smi -L 2>/dev/null; rocm-smi --showproductname 2>/dev/null"
+    writes: ["none — checked against the serving cards' types"]
+  - id: box.docker
+    section: runtime
+    per: box
+    ask: "Docker Engine with Compose v2 present (every machine: the gateway, nodes, ranks and telemetry senders are all containers) and usable by the user who will run it?"
+    why: "every service and every node is a container"
+    kind: choice
+    choices: [ready, missing]
+    validate: "`missing` stops setup on that machine until it is installed (the user installs it, not the agent)"
+    probe: "docker info --format '{{.ServerVersion}}'; docker compose version"
+    writes: ["none — a readiness gate"]
+  - id: box.container_toolkit
+    section: runtime
+    per: box
+    when: "box.gpu_runtime == nvidia and (box.roles has pair-rank or box.roles has node-local or box.roles has node-observed or box.roles has classic)"
+    ask: "Is the NVIDIA Container Toolkit installed (docker lists an nvidia runtime)?"
+    why: "a container cannot reach an NVIDIA card without it"
+    kind: choice
+    choices: [present, missing]
+    validate: "`missing` stops that machine's node or rank"
+    probe: "docker info --format '{{json .Runtimes}}'"
+    writes: ["none — a readiness gate"]
+  # ── broker ──────────────────────────────────────────────────────────────────────────────────────────────────────────
+  - id: broker.enabled
+    section: broker
+    ask: "Turn on broker_parrot (a separate job-fleet engine) so the gateway LEASES servers through its queue instead of dialling them directly? Off needs no broker checkout, no Postgres."
+    why: "on: leased-only routing; off: every live backend is routable as it stands"
+    kind: bool
+    values: {"true": "1", "false": null}
+    validate: "true or false"
+    writes: [lb/.env LB_BROKER_ENABLED]
+  - id: broker.checkout
+    section: broker
+    when: "broker.enabled == true"
+    ask: "The broker_parrot checkout the fleet runs (mounted read-only into the gateway)."
+    why: "the engine the gateway imports"
+    kind: path
+    validate: "an absolute path to a broker_parrot checkout"
+    probe: "git -C <dir> log -1 --oneline"
+    writes: [lb/.env LB_BROKER_CHECKOUT]
+  - id: broker.network
+    section: broker
+    when: "broker.enabled == true"
+    ask: "The broker project's Docker network, where its Postgres answers as `postgres`."
+    why: "the gateway joins it"
+    kind: text
+    pattern: "[A-Za-z0-9][A-Za-z0-9_.-]*"
+    validate: "an existing external network"
+    probe: "docker network ls --format '{{.Name}}'"
+    writes: [lb/.env LB_BROKER_NETWORK]
+  - id: broker.pg_user
+    section: broker
+    when: "broker.enabled == true"
+    ask: "The broker's Postgres user (the same as the broker project's own .env)."
+    why: "the gateway reads and writes leases there"
+    kind: text
+    validate: "a user name"
+    writes: [lb/.env PG_USER]
+  - id: broker.pg_pw
+    section: broker
+    when: "broker.enabled == true"
+    secret: true
+    ask: "The broker's Postgres password."
+    why: "the DB login"
+    kind: secret
+    validate: "the broker project's own; never echoed or committed"
+    writes: [lb/.env PG_PW]
+  - id: broker.pg_db
+    section: broker
+    when: "broker.enabled == true"
+    ask: "The broker's Postgres database name."
+    why: "the DB the leases live in"
+    kind: text
+    validate: "a database name"
+    writes: [lb/.env PG_DB]
+  - id: lb.client_network
+    section: broker
+    when: "broker.enabled == true"
+    required: false
+    ask: "OPTIONAL — an external network for client containers of ANOTHER project on this host to reach http://vllm-lb:8010. Leave unanswered for none."
+    why: "the gateway binds loopback only"
+    kind: text
+    pattern: "[A-Za-z0-9][A-Za-z0-9_.-]*"
+    validate: "a network you create once"
+    writes: [lb/.env LB_CLIENT_NETWORK]
+  # ── models ──────────────────────────────────────────────────────────────────────────────────────────────────────────
+  - id: models.task
+    section: models
+    ask: "What should the fleet answer: chat (/v1/chat/completions, /v1/messages), transcription (/v1/audio/transcriptions), or both?"
+    why: "a cluster serves one task; both means at least two clusters"
+    kind: multi
+    choices_from: tasks
+    validate: "one or both"
+    writes: ["none — narrows the library's models offered below"]
+  - id: models.engine
+    section: models
+    ask: "Do you need a particular engine? (any, or one of the engine library's: lb/vllm_lb/library/engines/.) Only engines that serve the model's format, architecture and quant format, on an accelerator that runs it, are offered for a model."
+    why: "narrows the models; a model's engine is its recipe's (library/recipes.json: node_engine, or its launch's engine)"
+    kind: choice
+    choices_from: engines
+    extra_choices: [any]
+    validate: "`any`, or an engine of the library"
+    writes: ["none — narrows the library's models offered below"]
+  - id: models.quantisation
+    section: models
+    ask: "Which weight quantisation do you want? (any, unquantised, or a quant_method a model of lb/vllm_lb/library/models.json states.)"
+    why: "a model IS one checkpoint at one quantisation; it decides memory and fit, and which accelerators run it (their quant_formats)"
+    kind: choice
+    choices_from: quant_methods
+    extra_choices: [any, unquantised]
+    validate: "`any`, `unquantised` or a quant_method of the model library"
+    writes: ["none — narrows the library's models offered below"]
+  - id: models.speculative
+    section: models
+    ask: "Speculative decoding (a draft model / MTP head)? required, not-wanted, or any. A drafter is part of a model's recipe (library/recipes.json), so this picks models, not a flag."
+    why: "recipes with a speculative_config decode faster at the cost of memory"
+    kind: choice
+    choices: [required, not-wanted, any]
+    validate: "one of the three"
+    writes: ["none — narrows the library's models offered below"]
+  - id: models.new
+    section: models
+    required: false
+    ask: "Any model to serve that is NOT in the model library (lb/vllm_lb/library/models.json)? Give each a new id; the sub-wizard below collects its facts, recipe and measurement. Leave unanswered if every model is in the library."
+    why: "a model the gateway can launch is library data — never code"
+    kind: list
+    pattern: "[a-z0-9][a-z0-9._-]{0,63}"
+    validate: "new ids (lowercase, digits, . _ -), not already in the library"
+    writes: ["none — opens the model sub-wizard per id"]
+  - id: models.staged
+    section: models
+    ask: "WHICH MODELS does this deployment STAGE — every model a cluster, node or Start of this fleet may load (its boot models, a node's choices, the pair's first model and what its panel offers)? Each gets its checkpoint folders in the storage section. A model not staged is not offered, and a Start of it is refused."
+    why: "the fleet's checkpoints block (lb/fleet.yml checkpoints.<id>): where a checkpoint sits is the deployment's, not the library's"
+    kind: multi
+    choices_from: library_models
+    also_from: models.new
+    validate: "model ids of the library (or new ones above), each once; filter them by the answers above and by what fits the cards"
+    prefill: model
+    prefill_as: add
+    writes: ["lb/fleet.yml checkpoints"]
+  # ── newmodel ────────────────────────────────────────────────────────────────────────────────────────────────────────
+  # A model is four things with four owners (docs/design/engines.md): its FACTS (library/models.json, read from its
+  # config.json by `python -m vllm_lb.model_facts`), its RECIPE (library/recipes.json: engine + build, parsers, drafter —
+  # never an image or a path), its MEASUREMENT (library/measurements.json, keyed engine × accelerator × TP) and WHERE it
+  # sits (the fleet's checkpoints: the storage section's checkpoint.* questions, once models.staged names it).
+  - id: newmodel.hf_repo
+    section: newmodel
+    per: newmodel
+    ask: "Its Hugging Face repo (org/name)."
+    why: "where the checkpoint is fetched from"
+    kind: text
+    pattern: "[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+"
+    validate: "org/name as on huggingface.co"
+    manual: true
+    writes: ["none — the stage wrapper's STAGE_REPO (deploy/stage-<model>.sh)"]
+  - id: newmodel.revision
+    section: newmodel
+    per: newmodel
+    ask: "The commit to pin it to (40 hex digits — never a branch, which moves under a verified copy)."
+    why: "a staged checkpoint is verified against that commit's manifest"
+    kind: text
+    pattern: "[0-9a-f]{40}"
+    validate: "a 40-hex commit sha"
+    probe: "curl -fsS https://huggingface.co/api/models/<org>/<name> | python3 -c 'import json,sys; print(json.load(sys.stdin)[\"sha\"])'"
+    manual: true
+    writes: ["none — the stage wrapper's STAGE_REV"]
+  - id: newmodel.gated
+    section: newmodel
+    per: newmodel
+    ask: "Is the repo gated (you had to accept a licence to download it)?"
+    why: "a gated download needs your Hugging Face token (asked in the download section)"
+    kind: bool
+    validate: "true or false"
+    writes: ["none — informs download.hf_token"]
+  - id: newmodel.label
+    section: newmodel
+    per: newmodel
+    ask: "Its display label on the panel (e.g. 'Qwen3 32B · AWQ')."
+    why: "the model's label"
+    kind: text
+    validate: "a short name"
+    manual: true
+    writes: ["lb/vllm_lb/library/models.json models[<newmodel>].label"]
+  - id: newmodel.facts
+    section: newmodel
+    per: newmodel
+    ask: "Its FACTS, read from the checkpoint's own files on a box that holds it: run `python -m vllm_lb.model_facts <checkpoint folder>` (in the vllm-lb image) and confirm its output — format, architectures, quant_method, quant_format and layer shape, each with its source. Never typed from a model card."
+    why: "an engine is checked against the format, architectures and quant format; an accelerator against the quant format; the estimate is computed from the shape"
+    kind: map
+    validate: "the tool's output as it printed it (it only reads the folder: mount it read-only); an unknown architecture is refused at Start, naming the tool"
+    manual: true
+    writes: ["lb/vllm_lb/library/models.json models[<newmodel>].format", "lb/vllm_lb/library/models.json models[<newmodel>].architectures", "lb/vllm_lb/library/models.json models[<newmodel>].quant_method", "lb/vllm_lb/library/models.json models[<newmodel>].quant_format", "lb/vllm_lb/library/models.json models[<newmodel>].shape"]
+  - id: newmodel.served_name
+    section: newmodel
+    per: newmodel
+    ask: "The name the engine serves it as (the API's model name, e.g. the repo id)."
+    why: "what the gateway rewrites a request's model to"
+    kind: text
+    validate: "one token"
+    manual: true
+    writes: ["lb/vllm_lb/library/models.json models[<newmodel>].served_name"]
+  - id: newmodel.size_gib
+    section: newmodel
+    per: newmodel
+    ask: "The checkpoint's size on disk, GiB."
+    why: "the free-space check on each models directory; an estimate's weights"
+    kind: number
+    min: 0.001
+    validate: "the sum of its files (the HF tree API's sizes, or `du -sh` of a staged copy)"
+    manual: true
+    writes: ["lb/vllm_lb/library/models.json models[<newmodel>].size_gib"]
+  - id: newmodel.task
+    section: newmodel
+    per: newmodel
+    ask: "Its task — chat or transcription — and the source that says it is served that way."
+    why: "the routing key"
+    kind: fact
+    validate: "{value, source} with value one of the tasks"
+    manual: true
+    writes: ["lb/vllm_lb/library/models.json models[<newmodel>].task"]
+  - id: newmodel.chat
+    section: newmodel
+    per: newmodel
+    ask: "Is it a chat model a chat client can use (true/false), and the source?"
+    why: "what a client lists"
+    kind: fact
+    validate: "{value, source}"
+    manual: true
+    writes: ["lb/vllm_lb/library/models.json models[<newmodel>].chat"]
+  - id: newmodel.max_model_len
+    section: newmodel
+    per: newmodel
+    ask: "Its longest context the checkpoint supports (config.json max_position_embeddings or the model card)."
+    why: "limits.max_model_len: no launch may ask for more"
+    kind: number
+    integer: true
+    min: 1
+    validate: "tokens, within the catalog's cap (catalog.MAX_MODEL_LEN_CAP)"
+    manual: true
+    writes: ["lb/vllm_lb/library/models.json models[<newmodel>].limits.max_model_len"]
+  - id: newmodel.max_num_seqs
+    section: newmodel
+    per: newmodel
+    ask: "The concurrency range it may be launched with: [lowest, highest] seats."
+    why: "limits.max_num_seqs"
+    kind: list
+    validate: "two whole numbers, low ≤ high, within the catalog's cap (catalog.MAX_NUM_SEQS_CAP)"
+    manual: true
+    writes: ["lb/vllm_lb/library/models.json models[<newmodel>].limits.max_num_seqs"]
+  - id: newmodel.node_engine
+    section: newmodel
+    per: newmodel
+    required: false
+    ask: "If a one-host node will run it: the engine its format needs (a HF transformer → vllm or sglang; CTranslate2 → faster-whisper; .nemo → nemo)."
+    why: "a node's server is the checkpoint's, never assumed"
+    kind: choice
+    choices_from: node_engines
+    validate: "required for a model a node launches"
+    manual: true
+    writes: ["lb/vllm_lb/library/recipes.json recipes[<newmodel>].node_engine"]
+  - id: newmodel.launch
+    section: newmodel
+    per: newmodel
+    ask: "How the gateway's own launchers may start it: cluster (the TP pair), classic (a broker-launched one-box server), or neither (only a fleet node launches it: its recipe's `launch: {}`)."
+    why: "a cluster or classic recipe names its engine and build; the image is the matrix's for the cards it lands on"
+    kind: multi
+    choices: [cluster, classic, neither]
+    validate: "`neither` alone, or cluster and/or classic"
+    manual: true
+    writes: ["lb/vllm_lb/library/recipes.json recipes[<newmodel>].launch"]
+  - id: newmodel.engine
+    section: newmodel
+    per: newmodel
+    when: "newmodel.launch has cluster or newmodel.launch has classic"
+    ask: "The engine its recipe launches it on (one tp-rank builds a command for)."
+    why: "the engine must serve its format, architectures and quant format (library/engines/<engine>.yml)"
+    kind: choice
+    choices_from: cluster_engines
+    validate: "an engine of the library that serves its facts"
+    manual: true
+    writes: ["lb/vllm_lb/library/recipes.json recipes[<newmodel>].launch.<mode>.engine"]
+  - id: newmodel.build
+    section: newmodel
+    per: newmodel
+    when: "newmodel.launch has cluster or newmodel.launch has classic"
+    ask: "Which BUILD of that engine its recipe names (one image recipe: base + patches, a `builds` key of lb/vllm_lb/library/images/<engine>.yml). The image is the matrix's entry for that build on your cards' accelerator × platform — never pinned in the recipe."
+    why: "no matrix entry for build × accelerator × platform: its Start is refused naming the missing combination"
+    kind: text
+    pattern: "[A-Za-z0-9][A-Za-z0-9._-]*"
+    validate: "a build the engine's image matrix lists, with an entry for your cards' accelerator and platform (or one you add to the matrix, with its deploy/images/<engine>/ recipe)"
+    manual: true
+    writes: ["lb/vllm_lb/library/recipes.json recipes[<newmodel>].launch.<mode>.build"]
+  - id: newmodel.measured
+    section: newmodel
+    per: newmodel
+    when: "newmodel.launch has cluster"
+    ask: "Has its memory been MEASURED on your cluster's engine × accelerator × TP (a real Start's footprint, engine memory and overhead)? measured — write its measurements.json entry (covers + memory) by hand with its source; estimate-only — no entry: each Start chooses the estimate explicitly until one is measured."
+    why: "an unmeasured model is refused at Start unless the operator chooses the estimate for that Start (docs/design/engines.md)"
+    kind: choice
+    choices: [measured, estimate-only]
+    validate: "measured: a covers entry {engine, accelerator, tp} and its memory block, each with its source"
+    manual: true
+    writes: ["lb/vllm_lb/library/measurements.json measurements[<newmodel>].covers", "lb/vllm_lb/library/measurements.json measurements[<newmodel>].memory"]
+  # ── clusters ────────────────────────────────────────────────────────────────────────────────────────────────────────
+  - id: clusters.names
+    section: clusters
+    required: false
+    ask: "Name each CLUSTER — one engine the gateway treats as a unit: a TP pair, or a one-host node (e.g. pair, node, stt). Leave unanswered if the gateway only dials classic servers."
+    why: "the fleet's clusters, keyed by name everywhere (state dir, panel card, POST /lb/clusters/<name>)"
+    kind: list
+    pattern: "[A-Za-z0-9][A-Za-z0-9._-]*"
+    validate: "unique names"
+    writes: ["lb/fleet.yml clusters"]
+  - id: cluster.control
+    section: clusters
+    per: cluster
+    ask: "How is it run? ssh — the gateway starts both ranks of a TP=2 pair over SSH; local — a one-host node the gateway requests and its host's applier runs; none — started by its own deployment, the gateway only routes and observes."
+    why: "decides every key below (a card's type must list the control)"
+    kind: choice
+    choices_from: controls
+    validate: "one of the controls"
+    writes: ["lb/fleet.yml clusters.<cluster>.control"]
+  - id: cluster.ranks
+    section: clusters
+    per: cluster
+    ask: "Its ranks, HEAD FIRST: each rank's box (and, for ssh, the address the ranks talk over on their direct link)."
+    why: "TP size is derived from the serving cards of these boxes"
+    kind: records
+    fields:
+      box: {kind: choice, also_from: machines.boxes}
+      interconnect: {kind: host, required: false}
+    validate: "ssh: exactly two, each with interconnect; local: one; a box holds one rank of a cluster"
+    probe: "ip -brief addr   # on each rank box: the direct link's address"
+    writes: ["lb/fleet.yml clusters.<cluster>.ranks"]
+  - id: cluster.blueprint
+    section: clusters
+    per: cluster
+    when: "cluster.control in [ssh, local]"
+    required: false
+    ask: "OPTIONAL — start from a REFERENCE BLUEPRINT? These are the project's own proven setups (lb/vllm_lb/library/blueprints, one per hardware type × model), offered only where the blueprint's target — accelerator × TP × control — is this cluster's answered cards and control (`render.py <answers.yml> --prefill` lists them). Choosing one PREFILLS this cluster's answers below — the model and choices, the launch block or first Start's figures, the KV dtypes, the parsers, the box's RAM tier, the staged checkpoint — each shown for the user to confirm or edit. Leave unanswered to answer each yourself."
+    why: "a setup that ran in production is a better start than a blank sheet, and its numbers carry their source; the rendered fleet holds the settings themselves, never the blueprint's id"
+    kind: choice
+    choices_from: blueprints
+    validate: "a shipped blueprint whose target is this cluster's: its control, its TP (the ranks' serving cards) and their accelerator — render.py refuses another, naming why"
+    writes: ["none — prefills this cluster's answers (render.py --prefill); the gateway never reads a blueprint"]
+  - id: cluster.url
+    section: clusters
+    per: cluster
+    ask: "The URL the gateway dials for its API: the head rank's (http://<head address>:8100 for a pair), or the node's (http://<container name>:8000 on the gateway's own box, http://<address>:<port> on another)."
+    why: "where its traffic goes"
+    kind: url
+    validate: "an http(s) URL reachable from the gateway's container"
+    writes: ["lb/fleet.yml clusters.<cluster>.url"]
+  - id: cluster.run_at_boot
+    section: clusters
+    per: cluster
+    when: "len(clusters.names) > 1"
+    ask: "Does it run when the gateway starts (true), or is it declared and activated from the panel's + tab (false)?"
+    why: "with several clusters each says so; two booted on one box must fit its memory together"
+    kind: bool
+    validate: "true or false"
+    writes: ["lb/fleet.yml clusters.<cluster>.run_at_boot"]
+  - id: cluster.default
+    section: clusters
+    per: cluster
+    when: "len(clusters.names) > 1"
+    required: false
+    ask: "Is it its task's DEFAULT — where a request naming no model, or a name no cluster serves, goes? Exactly one per task when a task has several clusters; leave unanswered when it is its task's only cluster."
+    why: "routing of unnamed requests"
+    kind: bool
+    validate: "exactly one true per task with several clusters"
+    writes: ["lb/fleet.yml clusters.<cluster>.default"]
+  - id: cluster.model
+    section: clusters
+    per: cluster
+    when: "cluster.control in [local, none]"
+    ask: "WHICH MODEL does it serve (its boot default)? A model of the library (lb/vllm_lb/library/models.json), optionally @uncensored where it has that twin — one you stage (models.staged), filtered by your task / engine / quantisation / speculative answers and by what fits its card."
+    why: "the node's checkpoint, served name and engine are that model's (its facts, its recipe, its checkpoints entry)"
+    kind: choice
+    choices_from: model_refs
+    also_from: models.new
+    validate: "a model id[@variant] you stage; its weights must fit the serving card (the fleet loader checks)"
+    prefill: ref
+    writes: ["lb/fleet.yml clusters.<cluster>.model"]
+  - id: cluster.choices
+    section: clusters
+    per: cluster
+    when: "cluster.control == ssh"
+    required: false
+    ask: "OPTIONAL — which staged models the pair's panel OFFERS (leave unanswered to offer every staged model its cards can run)."
+    why: "what a Start may pick"
+    kind: multi
+    choices_from: model_refs
+    also_from: models.new
+    validate: "model refs you stage, each once"
+    prefill: ref
+    prefill_as: list
+    writes: ["lb/fleet.yml clusters.<cluster>.choices"]
+  - id: cluster.first_model
+    section: clusters
+    per: cluster
+    when: "cluster.control == ssh"
+    ask: "WHICH MODEL should the pair load on its first Start, with how many concurrent seats (max_num_seqs)? The pair's model is the operator's Start, never the fleet file's."
+    why: "Phase 4's first POST /lb/clusters/<name>"
+    kind: choice
+    choices_from: model_refs
+    also_from: models.new
+    validate: "a staged model the pair offers, with a cluster recipe; seats within its limits (GET /lb/cluster/estimate sizes it first). In the vllm-lb image --check shows what it RESOLVES to on the pair's cards: engine/build, accelerator × platform × TP, the matrix's image, measured or not"
+    prefill: ref
+    writes: ["none — sent with the first Start in Phase 4"]
+  - id: cluster.first_start
+    section: clusters
+    per: cluster
+    when: "cluster.control == ssh"
+    required: false
+    ask: "ONLY where the first model is NOT MEASURED on the pair's engine × accelerator × TP (render.py --check in the vllm-lb image names it): measure-first — no Start until it is measured there (a measurements.json `covers` entry); or start-on-estimate — the first Start sized by the memory estimate, chosen explicitly (`estimated: true`). Not asked for a measured model."
+    why: "the gateway refuses an unmeasured model's Start unless the operator chooses the estimate for that Start — never sized by a guess it was not told to use (docs/design/engines.md)"
+    kind: choice
+    choices: [measure-first, start-on-estimate]
+    validate: "answered exactly when the first model is unmeasured there; start-on-estimate only where the estimate can be made (render.py asks the LB's catalog)"
+    prefill: estimated
+    prefill_values: {"true": start-on-estimate, "false": null}
+    writes: ["none — the first Start's `estimated` (POST /lb/clusters/<name> {\"model_choice\": …, \"estimated\": true}), or no Start until measured"]
+  - id: cluster.first_start_settings
+    section: clusters
+    per: cluster
+    when: "cluster.control == ssh"
+    required: false
+    ask: "OPTIONAL — the first Start's FIGURES beside its model: any of max_num_seqs, max_model_len, max_num_batched_tokens, num_speculative_tokens, kv_cache_dtype, kv_cache_memory (bytes or auto), ple_replicate, kv_offload_gib, long_prefill_token_threshold (null: the model's own). Leave unanswered to start at the model's own tuned figures."
+    why: "the pair's seats, context and pool are the operator's Start, never the fleet file's; a reference blueprint proposes the ones it ran with"
+    kind: map
+    validate: "keys of a cluster Start (lb/vllm_lb/blueprints.py CLUSTER_KNOBS); in the vllm-lb image --check holds them, with the first model, to the Start's own validator against the rendered fleet (cluster.DesiredStore.check)"
+    prefill: knobs
+    writes: ["none — sent with the first Start in Phase 4 (POST /lb/clusters/<name> {\"enabled\": true, \"model_choice\": …, …these})"]
+  - id: cluster.reserve
+    section: clusters
+    per: cluster
+    when: "broker.enabled == true and cluster.control == local"
+    required: false
+    ask: "OPTIONAL, broker on — should this node SHARE its box with the broker's own lane (reserve: false) instead of reserving the box? Leave unanswered to reserve it."
+    why: "with the broker on a local node reserves its box first"
+    kind: bool
+    validate: "only `false` is written"
+    values: {"true": null}
+    writes: ["lb/fleet.yml clusters.<cluster>.reserve"]
+  # ── pair ────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  - id: cluster.iface
+    section: pair
+    per: cluster
+    when: "cluster.control == ssh"
+    ask: "The network interface the ranks talk over on each box (NCCL_SOCKET_IFNAME), e.g. bond0 — the same name on both."
+    why: "the interconnect address must be on it"
+    kind: text
+    pattern: "[A-Za-z0-9][A-Za-z0-9._:@-]{0,14}"
+    validate: "a Linux interface name present on both boxes"
+    probe: "ip -brief link   # on each rank box"
+    writes: ["lb/fleet.yml clusters.<cluster>.iface"]
+  - id: cluster.link
+    section: pair
+    per: cluster
+    when: "cluster.control == ssh"
+    ask: "How are the ranks' GPUs joined? Across hosts: roce (NCCL over RDMA — a RoCE-capable NIC on both, e.g. a DGX Spark pair's ConnectX) or ethernet (NCCL over plain sockets). Within one host: pcie or nvlink."
+    why: "tp-rank opens /dev/infiniband and locks memory only for roce (CLUSTER_LINK) — a fact of your hardware, never assumed"
+    kind: choice
+    choices_from: links
+    validate: "one its topology takes: roce or ethernet for ranks on two hosts (the fleet loader checks)"
+    probe: "ls /sys/class/infiniband 2>/dev/null; ip -brief link   # on each rank box"
+    writes: ["lb/fleet.yml clusters.<cluster>.link"]
+  - id: cluster.ram_usable_fraction
+    section: pair
+    per: cluster
+    when: "cluster.control == ssh"
+    ask: "What share of each box's MemTotal may a Start take (e.g. 0.98)? The rest is the one reserve the start gate and the memory guard keep."
+    why: "tp-rank's start gate and memory guard"
+    kind: number
+    min: 0.01
+    max: 0.99
+    validate: "a number strictly between 0 and 1"
+    probe: "grep MemTotal /proc/meminfo   # on each rank box"
+    writes: ["lb/fleet.yml clusters.<cluster>.ram_usable_fraction"]
+  - id: cluster.max_num_batched_tokens
+    section: pair
+    per: cluster
+    when: "cluster.control == ssh"
+    ask: "The prefill budget a launch uses when neither the panel's knob nor the model's row says (vLLM --max-num-batched-tokens), e.g. 8192."
+    why: "the cluster's own number, never an env default"
+    kind: number
+    integer: true
+    min: 2048
+    max: 65536
+    validate: "whole tokens in 2048..65536"
+    writes: ["lb/fleet.yml clusters.<cluster>.max_num_batched_tokens"]
+  - id: cluster.kv_cache_dtypes
+    section: pair
+    per: cluster
+    when: "cluster.control == ssh"
+    required: false
+    ask: "OPTIONAL — the KV cache dtypes this pair runs (leave unanswered to run every one its images take). Every offered row's own dtype must be among them."
+    why: "the panel's KV dtype choices"
+    kind: multi
+    choices_from: kv_dtypes
+    validate: "dtypes of the library, each once"
+    prefill: knobs.kv_cache_dtype
+    prefill_as: list
+    writes: ["lb/fleet.yml clusters.<cluster>.kv_cache_dtypes"]
+  - id: pair.ssh_key
+    section: pair
+    when: "any(cluster.control == ssh)"
+    ask: "The gateway's SSH key for the pair: generate a new one at lb/cluster-ssh/id_ed25519 (gitignored) and authorise it on both boxes, or use an existing key you copy there?"
+    why: "tp-rank runs over SSH from the gateway's container, which mounts lb/cluster-ssh read-only"
+    kind: choice
+    choices: [generate, existing]
+    validate: "`existing`: the agent asks the path and copies it only after you confirm; it never reads ~/.ssh on its own"
+    writes: ["none — Phase 3 writes lb/cluster-ssh/id_ed25519 (+ .pub)"]
+  - id: pair.known_hosts
+    section: pair
+    when: "any(cluster.control == ssh)"
+    ask: "How are the boxes' host keys pinned in lb/cluster-ssh/known_hosts: copied from your own ~/.ssh/known_hosts, or scanned now and their fingerprints compared by you against each box's console?"
+    why: "the gateway never trusts a host key on first use"
+    kind: choice
+    choices: [from-my-known-hosts, scan-and-verify]
+    validate: "either; scanned keys are shown with fingerprints and written only after you confirm them"
+    writes: ["none — Phase 3 writes lb/cluster-ssh/known_hosts"]
+  - id: pair.images
+    section: pair
+    when: "any(cluster.control == ssh)"
+    ask: "Is the image the first model RESOLVES to — the image matrix's entry (lb/vllm_lb/library/images/<engine>.yml) for its recipe's engine × build on the pair's accelerator × platform, which --check in the vllm-lb image shows — already on both boxes, or should Phase 4 build it (deploy/images/build.sh <engine> <build> <accelerator> remote <box> …) — long, on the boxes?"
+    why: "a Start fails on a box without the resolved image; there is no other image it may run"
+    kind: choice
+    choices: [present, build]
+    validate: "either; `build` runs on the boxes after your go-ahead"
+    probe: "docker image ls --format '{{.Repository}}:{{.Tag}}'   # on each rank box"
+    writes: ["none — a Phase 4 step"]
+  - id: pair.roce
+    section: pair
+    when: "any(cluster.control == ssh)"
+    ask: "Will the pair run a TensorFold row whose engine_args use RoCE (roce 1)? Then name the bond's RDMA devices (e.g. mlx5_0,mlx5_1) and the GID index of their RoCE v2 IPv4 GID — the same on both boxes."
+    why: "a roce row is refused without them, never silently NCCL"
+    kind: bool
+    validate: "true or false"
+    writes: ["none — selects the two RoCE questions"]
+  - id: pair.ib_hca
+    section: pair
+    when: "pair.roce == true"
+    ask: "The RDMA device list (NCCL_IB_HCA), comma-separated."
+    why: "tp-rank sends it to every rank"
+    kind: text
+    pattern: "[A-Za-z0-9_]+(,[A-Za-z0-9_]+)*"
+    validate: "device names as `show_gids` / /sys/class/infiniband lists them"
+    probe: "ls /sys/class/infiniband"
+    writes: [lb/.env CLUSTER_IB_HCA]
+  - id: pair.ib_gid_index
+    section: pair
+    when: "pair.roce == true"
+    ask: "The GID index of their RoCE v2 IPv4 GID (NCCL_IB_GID_INDEX)."
+    why: "tp-rank sends it to every rank"
+    kind: number
+    integer: true
+    min: 0
+    validate: "the index whose gid_attrs/types entry says RoCE v2 and whose GID is the IPv4-mapped address"
+    probe: "show_gids 2>/dev/null"
+    writes: [lb/.env CLUSTER_IB_GID_INDEX]
+  - id: pair.worker_unit
+    section: pair
+    when: "any(cluster.control == ssh) and broker.enabled == true"
+    required: false
+    ask: "OPTIONAL — the systemd --user unit of a broker_parrot worker on each pair box, which tp-rank `heal` restarts after remounting NFS (e.g. my-worker.service). Leave unanswered if the boxes run none."
+    why: "unset, heal remounts and reports that no backstop was named"
+    kind: text
+    pattern: "[A-Za-z0-9@._-]+\\.service"
+    validate: "a unit name"
+    probe: "systemctl --user list-units --type=service   # on a pair box"
+    writes: [lb/.env CLUSTER_WORKER_UNIT]
+  # ── node ────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  - id: cluster.launch_known
+    section: node
+    per: cluster
+    when: "cluster.control == none"
+    ask: "Should the fleet record how that observed node is launched (its image, served name and figures)? Then the panel shows its settings and fit."
+    why: "control none takes an optional launch block"
+    kind: bool
+    validate: "true or false"
+    writes: ["none — selects the launch questions for this cluster"]
+  - id: cluster.image
+    section: node
+    per: cluster
+    when: "cluster.control == local or cluster.launch_known == true"
+    ask: "The node's engine image, PINNED: repo@sha256:<64 hex>, or a local build's image id sha256:<64 hex> — never a moving tag. When its choices run on several engines, one per engine."
+    why: "what the node runs; a tag would change under the deployment"
+    kind: image
+    validate: "a digest-pinned ref, or {engine: ref} naming exactly the engines its choices run"
+    probe: "docker image inspect --format '{{index .RepoDigests 0}}' <image:tag>   # after you pull the tag you chose"
+    writes: ["lb/fleet.yml clusters.<cluster>.launch.image"]
+  - id: cluster.served_name
+    section: node
+    per: cluster
+    when: "cluster.control == none and cluster.launch_known == true"
+    ask: "The model name that node serves its API as."
+    why: "an observed node's served name is its own deployment's"
+    kind: text
+    pattern: "[A-Za-z0-9][A-Za-z0-9._:/+-]*"
+    validate: "one token"
+    probe: "curl -s <cluster url>/v1/models"
+    writes: ["lb/fleet.yml clusters.<cluster>.launch.served_name"]
+  - id: cluster.launch_choices
+    section: node
+    per: cluster
+    when: "cluster.control == local"
+    ask: "Which models may the panel switch this node between? The boot model above must be among them; each must fit the card."
+    why: "the node's choices; each choice's served name is its library model's, its folder its checkpoints entry"
+    kind: multi
+    choices_from: model_refs
+    also_from: models.new
+    validate: "staged model refs including cluster.model, one task, each once"
+    prefill: ref
+    prefill_as: list
+    writes: ["lb/fleet.yml clusters.<cluster>.launch.choices"]
+  - id: cluster.max_model_len
+    section: node
+    per: cluster
+    when: "cluster.control == local or cluster.launch_known == true"
+    ask: "CONTEXT LENGTH: the longest prompt+answer, in tokens, the node is launched with (within the row's limits.max_model_len; longer costs KV memory)."
+    why: "vLLM/SGLang --max-model-len"
+    kind: number
+    integer: true
+    min: 1
+    validate: "within the model's catalog limit; the fit check sizes the KV for it"
+    prefill: knobs.max_model_len
+    writes: ["lb/fleet.yml clusters.<cluster>.launch.max_model_len"]
+  - id: cluster.max_num_seqs
+    section: node
+    per: cluster
+    when: "cluster.control == local or cluster.launch_known == true"
+    ask: "CONCURRENCY: how many requests it serves at once (seats)."
+    why: "--max-num-seqs; more seats, more KV"
+    kind: number
+    integer: true
+    min: 1
+    validate: "within the row's limits.max_num_seqs"
+    prefill: knobs.max_num_seqs
+    writes: ["lb/fleet.yml clusters.<cluster>.launch.max_num_seqs"]
+  - id: cluster.gpu_memory_utilization
+    section: node
+    per: cluster
+    when: "cluster.control == local or cluster.launch_known == true"
+    ask: "The share of the card's memory the engine may take (e.g. 0.9; on a unified-memory APU a share of the box's RAM, e.g. 0.10)."
+    why: "vLLM's start check refuses a share above the card's free memory"
+    kind: number
+    min: 0.01
+    max: 1
+    validate: "0 < x ≤ 1; × the type's visible_gib must be under its free_at_start_gib"
+    probe: "nvidia-smi --query-gpu=memory.used,memory.total --format=csv"
+    prefill: knobs.gpu_memory_utilization
+    writes: ["lb/fleet.yml clusters.<cluster>.launch.gpu_memory_utilization"]
+  - id: cluster.reasoning_parser
+    section: node
+    per: cluster
+    when: "cluster.control == local or cluster.launch_known == true"
+    required: false
+    ask: "OPTIONAL — the engine's reasoning parser for this model's thinking format (e.g. qwen3). Leave unanswered for a model with no thinking format (a parser would empty its answers)."
+    why: "--reasoning-parser"
+    kind: text
+    pattern: "[A-Za-z0-9][A-Za-z0-9._:/+-]*"
+    validate: "a parser name the image ships"
+    prefill: fixed.reasoning_parser
+    writes: ["lb/fleet.yml clusters.<cluster>.launch.reasoning_parser"]
+  - id: cluster.tool_call_parser
+    section: node
+    per: cluster
+    when: "cluster.control == local or cluster.launch_known == true"
+    required: false
+    ask: "The engine's tool-call parser (e.g. qwen3_coder, hermes) — REQUIRED for a chat node (clients send tools), absent for a transcription node."
+    why: "--tool-call-parser with auto tool choice"
+    kind: text
+    pattern: "[A-Za-z0-9][A-Za-z0-9._:/+-]*"
+    validate: "chat: required; transcription: leave unanswered (the fleet refuses it there)"
+    prefill: fixed.tool_call_parser
+    writes: ["lb/fleet.yml clusters.<cluster>.launch.tool_call_parser"]
+  - id: cluster.kv_cache_dtype
+    section: node
+    per: cluster
+    when: "cluster.control == local or cluster.launch_known == true"
+    required: false
+    ask: "OPTIONAL — the KV cache dtype (e.g. fp8_e4m3, nvfp4). Leave unanswered for the engine's own (the model's dtype). Must be one the node's IMAGE accepts."
+    why: "--kv-cache-dtype; halves or quarters KV memory"
+    kind: choice
+    choices_from: kv_dtypes
+    validate: "a dtype the image lists (lb/vllm_lb/kv_cache_dtypes.json, keyed by the pinned image)"
+    prefill: knobs.kv_cache_dtype
+    writes: ["lb/fleet.yml clusters.<cluster>.launch.kv_cache_dtype"]
+  - id: cluster.node_max_num_batched_tokens
+    section: node
+    per: cluster
+    when: "cluster.control == local or cluster.launch_known == true"
+    required: false
+    ask: "OPTIONAL — the node's prefill chunk (--max-num-batched-tokens). Leave unanswered for vLLM's own default for the card."
+    why: "a smaller chunk leaves the KV pool more of the card and prefills slower"
+    kind: number
+    integer: true
+    min: 1
+    validate: "whole tokens"
+    prefill: knobs.max_num_batched_tokens
+    writes: ["lb/fleet.yml clusters.<cluster>.launch.max_num_batched_tokens"]
+  - id: cluster.kv_cache_memory
+    section: node
+    per: cluster
+    when: "cluster.control == local or cluster.launch_known == true"
+    required: false
+    ask: "OPTIONAL — pin the KV pool in bytes (--kv-cache-memory-bytes). Leave unanswered to size it from the memory share."
+    why: "a measured pool, whatever the fraction"
+    kind: number
+    integer: true
+    min: 1
+    validate: "bytes, at most what the boot log says fully uses the card"
+    prefill: knobs.kv_cache_memory
+    writes: ["lb/fleet.yml clusters.<cluster>.launch.kv_cache_memory"]
+  - id: cluster.kv_offload_ram_gib
+    section: node
+    per: cluster
+    when: "cluster.control == local or cluster.launch_known == true"
+    required: false
+    ask: "OPTIONAL — a KV tier in the host's RAM, GiB (--kv-offloading-size). Leave unanswered for none. Needs the box's kv_offload_ram_max_gib."
+    why: "a preempted request's prompt KV is parked in RAM instead of recomputed"
+    kind: number
+    integer: true
+    min: 1
+    validate: "≤ the box's kv_offload_ram_max_gib"
+    prefill: knobs.kv_offload_ram_gib
+    writes: ["lb/fleet.yml clusters.<cluster>.launch.kv_offload_ram_gib"]
+  - id: cluster.max_queue
+    section: node
+    per: cluster
+    when: "cluster.control == local or cluster.launch_known == true"
+    required: false
+    ask: "OPTIONAL, faster-whisper / nemo only — realtime requests queued behind busy seats. Leave unanswered for a busy request answered 503 at once."
+    why: "the service's MAX_QUEUE_SIZE"
+    kind: number
+    integer: true
+    min: 1
+    validate: "only on a transcription engine that reads it"
+    writes: ["lb/fleet.yml clusters.<cluster>.launch.max_queue"]
+  - id: cluster.compute_type
+    section: node
+    per: cluster
+    when: "cluster.control == local or cluster.launch_known == true"
+    required: false
+    ask: "OPTIONAL, faster-whisper only — CTranslate2's compute type (float16, bfloat16, int8_float16, int8_bfloat16, int8). Leave unanswered for the image's own."
+    why: "COMPUTE_TYPE"
+    kind: choice
+    choices: [float16, bfloat16, int8_float16, int8_bfloat16, int8]
+    validate: "one of CTranslate2's types"
+    writes: ["lb/fleet.yml clusters.<cluster>.launch.compute_type"]
+  - id: cluster.server_file
+    section: node
+    per: cluster
+    when: "cluster.control == local"
+    ask: "The node's server file name in deploy/standalone/ on its box: `.env` for the one node of a standalone server (up.sh's default), `<name>.env` for each further node."
+    why: "up.sh and the node's applier read it (--env)"
+    kind: text
+    pattern: "[A-Za-z0-9_-]*\\.env"
+    validate: "`.env` or `<name>.env`, unique per box"
+    writes: ["none — names the file the lines below go to"]
+  - id: cluster.node_project
+    section: node
+    per: cluster
+    when: "cluster.control == local"
+    ask: "The node's compose project name — one per node on its box (vllm-standalone for a standalone server)."
+    why: "two nodes on one box are two projects"
+    kind: text
+    pattern: "[a-z0-9][a-z0-9_-]*"
+    validate: "lowercase, digits, _ or -"
+    writes: ["deploy/standalone/<cluster.server_file> EDGE_NODE_PROJECT"]
+  - id: cluster.node_name
+    section: node
+    per: cluster
+    when: "cluster.control == local"
+    ask: "The node's container name — also its name on the node network, where the gateway dials it on :8000."
+    why: "the cluster URL on the gateway's own box is http://<this>:8000"
+    kind: text
+    pattern: "[A-Za-z0-9][A-Za-z0-9_.-]*"
+    validate: "a container name free on that box"
+    probe: "docker ps -a --format '{{.Names}}'"
+    writes: ["deploy/standalone/<cluster.server_file> EDGE_NODE_NAME"]
+  - id: cluster.node_publish
+    section: node
+    per: cluster
+    when: "cluster.control == local"
+    ask: "The loopback host:port the node's API is ALSO published on, for checks on its box (e.g. 127.0.0.1:8000); with the node on another box's docker, that box's private-link address."
+    why: "nothing without sign-in may leave the box"
+    kind: bind
+    validate: "127.x / localhost / [::1] : a free port; a private address only with node_docker_host"
+    probe: "ss -ltnH"
+    writes: ["deploy/standalone/<cluster.server_file> EDGE_NODE_PUBLISH"]
+  - id: cluster.node_network
+    section: node
+    per: cluster
+    when: "cluster.control == local"
+    ask: "The docker network the node and the gateway share (up.sh creates it when missing)."
+    why: "the gateway reaches the node by container name on it"
+    kind: text
+    pattern: "[A-Za-z0-9][A-Za-z0-9_.-]*"
+    validate: "a network name"
+    probe: "docker network ls --format '{{.Name}}'"
+    writes: ["deploy/standalone/<cluster.server_file> EDGE_NODE_NETWORK"]
+  - id: cluster.node_models_dir
+    section: node
+    per: cluster
+    when: "cluster.control == local"
+    ask: "THE MODELS DIRECTORY on the node's box: the host folder holding its checkpoint folders (mounted read-only at /models)."
+    why: "the node loads <this>/<checkpoint.path>; on a standalone server the gateway's catalog searches it too"
+    kind: path
+    validate: "an absolute path that exists, readable by the container, with room for every choice (storage section)"
+    probe: "df -h <dir>; ls <dir>"
+    writes: ["deploy/standalone/<cluster.server_file> EDGE_MODELS_DIR"]
+  - id: cluster.node_docker_host
+    section: node
+    per: cluster
+    when: "cluster.control == local"
+    required: false
+    ask: "OPTIONAL — does the node run on ANOTHER box's docker (e.g. ssh://user@host)? Leave unanswered when it runs where its server file is."
+    why: "every docker call of up.sh and the applier then goes there"
+    kind: text
+    pattern: "(ssh|tcp|unix)://\\S+"
+    validate: "a DOCKER_HOST URL; only in a node-only server file"
+    writes: ["deploy/standalone/<cluster.server_file> EDGE_NODE_DOCKER_HOST"]
+  - id: cluster.video_gid
+    section: node
+    per: cluster
+    when: "cluster.control == local"
+    required: false
+    ask: "ROCm cards only — the host's numeric `video` group id (the node joins it to reach /dev/kfd and /dev/dri). Leave unanswered on NVIDIA."
+    why: "node-gpu.rocm.yml refuses the node without it"
+    kind: number
+    integer: true
+    min: 0
+    validate: "required exactly when the serving card's gpu_runtime is rocm"
+    probe: "getent group video"
+    writes: ["deploy/standalone/<cluster.server_file> EDGE_NODE_VIDEO_GID"]
+  - id: cluster.render_gid
+    section: node
+    per: cluster
+    when: "cluster.control == local"
+    required: false
+    ask: "ROCm cards only — the host's numeric `render` group id. Leave unanswered on NVIDIA."
+    why: "node-gpu.rocm.yml refuses the node without it"
+    kind: number
+    integer: true
+    min: 0
+    validate: "required exactly when the serving card's gpu_runtime is rocm"
+    probe: "getent group render"
+    writes: ["deploy/standalone/<cluster.server_file> EDGE_NODE_RENDER_GID"]
+  - id: standalone.box
+    section: node
+    when: "shape.kind == standalone"
+    ask: "Which box is this standalone server (its name in the fleet)?"
+    why: "the bench runner reports \"runner on <box>\""
+    kind: choice
+    also_from: machines.boxes
+    validate: "one of the boxes"
+    writes: [deploy/standalone/.env EDGE_BOX]
+  - id: standalone.lb_publish
+    section: node
+    when: "shape.kind == standalone"
+    ask: "The loopback host:port the gateway is published on for this standalone server (e.g. 127.0.0.1:8010)."
+    why: "replaces lb/'s fixed publish; also the Connect dialog's ssh -L route"
+    kind: bind
+    validate: "loopback host:port, free"
+    probe: "ss -ltnH"
+    writes: [deploy/standalone/.env EDGE_LB_PUBLISH]
+  - id: standalone.lb_proxy_hosts
+    section: node
+    when: "shape.kind == standalone"
+    ask: "What does YOUR reverse proxy present as Host when it forwards to that address (your domain; no port behind nginx's `proxy_set_header Host $host`)? Answer [none] if nothing but this box, its containers and the signed-in edge reach it — up.sh adds those itself."
+    why: "up.sh derives the LB's LB_ALLOWED_HOSTS from it: every other Host is refused 421 (the DNS-rebinding guard)"
+    kind: list
+    env_format: csv
+    pattern: '(\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9]([A-Za-z0-9_.-]*[A-Za-z0-9])?)(:[0-9]{1,5})?'
+    validate: "host[:port] names (no scheme, no path), or the one word none alone"
+    writes: [deploy/standalone/.env EDGE_LB_PROXY_HOSTS]
+  - id: standalone.searxng_publish
+    section: node
+    when: "shape.kind == standalone"
+    ask: "The loopback host:port SearXNG is published on (e.g. 127.0.0.1:8811)."
+    why: "searxng is internal; loopback only"
+    kind: bind
+    validate: "loopback host:port, free"
+    probe: "ss -ltnH"
+    writes: [deploy/standalone/.env EDGE_SEARXNG_PUBLISH]
+  - id: standalone.searxng_container
+    section: node
+    when: "shape.kind == standalone"
+    ask: "SearXNG's container name (a shared box may already run one called `searxng`)."
+    why: "two containers cannot share a name"
+    kind: text
+    pattern: "[A-Za-z0-9][A-Za-z0-9_.-]*"
+    validate: "a free container name"
+    probe: "docker ps -a --format '{{.Names}}'"
+    writes: [deploy/standalone/.env EDGE_SEARXNG_CONTAINER]
+  - id: lb.node_network
+    section: node
+    when: "broker.enabled == true and any(cluster.control == local)"
+    required: false
+    ask: "With the broker on, a node on the GATEWAY'S OWN box is reached on that node's network: its name (the node's EDGE_NODE_NETWORK). Leave unanswered if no node runs on the gateway's box."
+    why: "loopback publishes are out of the container's reach"
+    kind: text
+    pattern: "[A-Za-z0-9][A-Za-z0-9_.-]*"
+    validate: "the node's network"
+    writes: [lb/.env LB_NODE_NETWORK]
+  # ── backends ────────────────────────────────────────────────────────────────────────────────────────────────────────
+  - id: box.backend_url
+    section: backends
+    per: box
+    when: "box.roles has classic"
+    ask: "The URL of the plain server already running on this box's serving cards (e.g. http://<address>:8000) — vLLM or SGLang's OpenAI API."
+    why: "a classic backend the gateway dials, named by the box's label"
+    kind: url
+    validate: "an http(s) URL; GET <url>/v1/models answers"
+    probe: "curl -s <url>/v1/models"
+    writes: ["lb/fleet.yml backends.<box>.url"]
+  # ── storage ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+  - id: box.models_dir
+    section: storage
+    per: box
+    when: "box.roles has pair-rank or box.roles has node-local or box.roles has classic"
+    ask: "THE MODELS DIRECTORY on this machine: the host path where checkpoints live (fast local disk preferred). For a pair box, the folder its rank loads from."
+    why: "where the engine reads weights; the pair searches the dirs below in order"
+    kind: path
+    validate: "an absolute path (or ~/… on a pair box: the BOX's home) that exists"
+    probe: "df -h <dir>; ls <dir>"
+    writes: ["none — for a node: its EDGE_MODELS_DIR (node section); for a pair: an entry of models.search_dirs"]
+  - id: box.models_free_gib
+    section: storage
+    per: box
+    when: "box.roles has pair-rank or box.roles has node-local or box.roles has classic"
+    ask: "Free space in that directory, GiB — enough for every model it will hold (library/models.json size_gib of each staged model it serves; a pair box holds the whole checkpoint)?"
+    why: "a download that fills the disk fails half-way"
+    kind: number
+    min: 0
+    validate: "≥ the sum of size_gib of the models this box serves, plus a margin you choose"
+    probe: "df -BG --output=avail <dir>"
+    writes: ["none — a readiness gate"]
+  - id: box.models_owner
+    section: storage
+    per: box
+    when: "box.roles has pair-rank or box.roles has node-local or box.roles has classic"
+    ask: "Who owns it, and can the engine container read it (it is mounted read-only)?"
+    why: "a checkpoint the container cannot read is a failed start"
+    kind: text
+    validate: "user:group and mode as `stat` shows them; world- or group-readable for the container's uid"
+    probe: "stat -c '%U:%G %a' <dir>"
+    writes: ["none — a readiness gate"]
+  - id: models.shared_dir
+    section: storage
+    when: "any(cluster.control == ssh)"
+    ask: "For the pair: does each box keep its own copy, or does the worker read the head's copy over an NFS share?"
+    why: "staging copies to the head's fast disk; the worker then needs that path or its own copy"
+    kind: choice
+    choices: [own-copy-each, nfs-from-head]
+    validate: "nfs-from-head: the export is mounted at the same path on the worker"
+    probe: "findmnt -t nfs,nfs4   # on the worker"
+    writes: ["none — informs models.search_dirs and the stage step"]
+  - id: models.search_dirs
+    section: storage
+    when: "shape.kind != standalone"
+    ask: "Where each box looks for a checkpoint, best first, `:`-separated (`~` is the BOX's home). The first entry is where staging copies to."
+    why: "the gateway sends tp-rank each model's checkpoint folder (checkpoint.path) under each; the catalog does not load without it"
+    kind: list
+    env_format: colon
+    validate: "absolute or ~/ paths, each existing on the boxes that serve"
+    writes: [lb/.env MODELS_SEARCH_DIRS]
+  # WHERE EACH STAGED MODEL SITS (lb/fleet.yml checkpoints.<id>), relative to the models roots above (a node's: its
+  # EDGE_MODELS_DIR). The library says what a model IS and how it launches; where you staged it is yours, so it is asked
+  # per deployment and never shipped in the library (docs/design/engines.md).
+  - id: checkpoint.path
+    section: storage
+    per: checkpoint
+    ask: "Its checkpoint folder, RELATIVE to the models directory (e.g. Qwen3.8-27B-NVFP4, or a group/folder, or a Hugging Face cache snapshot path)."
+    why: "the engine loads <models root>/<this>; a model with no folder is not staged and its Start is refused naming checkpoints.<id>.path"
+    kind: text
+    pattern: "[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)*"
+    validate: "a relative path of [A-Za-z0-9_.-] segments that exists under the models root(s)"
+    probe: "ls <models dir>"
+    writes: ["lb/fleet.yml checkpoints.<checkpoint>.path"]
+  - id: checkpoint.uncensored
+    section: storage
+    per: checkpoint
+    when: "checkpoint in @uncensored_models"
+    required: false
+    ask: "OPTIONAL, only for a model whose library row has an uncensored (abliterated) twin — its folder, relative to the models directory. Leave unanswered if the twin is not staged: the model then launches from its original only."
+    why: "where the twin is staged it is the model's default (`@uncensored`)"
+    kind: text
+    pattern: "[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)*"
+    validate: "a relative path beside the original"
+    probe: "ls <models dir>"
+    writes: ["lb/fleet.yml checkpoints.<checkpoint>.uncensored"]
+  - id: checkpoint.draft
+    section: storage
+    per: checkpoint
+    when: "checkpoint in @draft_models"
+    ask: "Only for a model whose recipe drafts with a SEPARATE checkpoint (a DFlash2 drafter): the drafter's folder, relative to the models directory."
+    why: "the catalog refuses the model without it: its recipe's drafter is its own checkpoint"
+    kind: text
+    pattern: "[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)*"
+    validate: "a relative path holding the drafter"
+    probe: "ls <models dir>"
+    writes: ["lb/fleet.yml checkpoints.<checkpoint>.draft"]
+  # ── download ────────────────────────────────────────────────────────────────────────────────────────────────────────
+  - id: download.mode
+    section: download
+    ask: "Are the checkpoints already in place on the boxes (staged), or should setup download them now (download-now)? A download writes tens to hundreds of GiB."
+    why: "a download writes tens to hundreds of GiB"
+    kind: choice
+    choices: [staged, download-now]
+    validate: "either"
+    writes: ["none — gates the download step"]
+  - id: models.download_dir
+    section: download
+    when: "shape.kind != standalone and download.mode == download-now"
+    ask: "Where checkpoints are DOWNLOADED to and kept on the gateway's host (the deploy/stage-* scripts write here; a big slow disk is fine)."
+    why: "the internet download never loads a serving box"
+    kind: path
+    validate: "an absolute path with room for every download"
+    probe: "df -h <dir>"
+    writes: [lb/.env MODELS_DIR]
+  - id: download.which
+    section: download
+    when: "download.mode == download-now"
+    ask: "Which checkpoints to fetch now: the deploy/stage-<model>.sh wrappers (each pins repo + commit), or the new rows' repos."
+    why: "each fetch is verified file by file against the pinned commit's manifest"
+    kind: list
+    validate: "wrapper names that exist, or new model ids from the sub-wizard"
+    writes: ["none — the Phase 4 download step"]
+  - id: download.gated
+    section: download
+    when: "download.mode == download-now"
+    ask: "Is any of them gated on Hugging Face (needs your account's token)?"
+    why: "an anonymous fetch of a gated repo is refused"
+    kind: bool
+    validate: "true or false"
+    writes: ["none — selects the token question"]
+  - id: download.hf_token
+    section: download
+    when: "download.gated == true"
+    secret: true
+    ask: "Your Hugging Face read token for the gated repos. It is used once, in the download step's shell environment, and written nowhere."
+    why: "the download step's Authorization header"
+    kind: secret
+    validate: "a token starting hf_; never echoed, never written to a file, never committed"
+    writes: ["none — exported only for the download command"]
+  # ── network ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+  - id: network.lb_ports_free
+    section: network
+    when: "shape.kind != standalone"
+    ask: "lb/ publishes 127.0.0.1:8010 (the gateway) and 127.0.0.1:8811 (SearXNG), and UDP 48291 on all interfaces for telemetry (set below). Are 8010 and 8811 free on the gateway host?"
+    why: "lb/docker-compose.yml fixes these two (SETUP.md Open items)"
+    kind: choice
+    choices: [free, taken]
+    validate: "`taken` stops the gateway until the other listener moves"
+    probe: "ss -ltnH '( sport = :8010 or sport = :8811 )'"
+    writes: ["none — a readiness gate"]
+  # ── exposure ────────────────────────────────────────────────────────────────────────────────────────────────────────
+  - id: exposure.scope
+    section: exposure
+    ask: "Who will reach the gateway? localhost — only this machine (and ssh -L tunnels); lan — other machines on your network; internet — through a domain."
+    why: "the gateway has NO authentication of its own: anything wider than localhost needs a sign-in in front"
+    kind: choice
+    choices: [localhost, lan, internet]
+    validate: "lan / internet require the proxy, auth and (internet) domain + TLS questions"
+    writes: ["none — selects the questions below"]
+  - id: exposure.allowed_hosts
+    section: exposure
+    when: "shape.kind != standalone"
+    ask: "Which names does the gateway answer to beyond its own loopback names (127.0.0.1:8010, localhost:8010, [::1]:8010)? The Host your proxy or tunnel presents (your domain, no port behind nginx's `proxy_set_header Host $host`), vllm-lb:8010 if containers call it by its docker name (a chat front-end, the clients network), lb:8010 if the sealed swarm runner runs, host.docker.internal:8010 for the legacy dashboard, 127.0.0.1:<port> for an ssh -L to another local port. Answer [loopback] for none of them."
+    why: "the DNS-rebinding guard: every other Host is refused 421 (lb/vllm_lb/host_guard.py)"
+    kind: list
+    env_format: csv
+    pattern: '(\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9]([A-Za-z0-9_.-]*[A-Za-z0-9])?)(:[0-9]{1,5})?'
+    validate: "host[:port] names (no scheme, no path), or the one word loopback alone"
+    writes: [lb/.env LB_ALLOWED_HOSTS]
+  - id: exposure.tunnel_route
+    section: exposure
+    when: "exposure.scope == localhost and shape.kind != standalone"
+    required: false
+    ask: "OPTIONAL — offer an `ssh -N -L` route in the panel's Connect dialog? Then give the gateway's address ON ITS HOST (127.0.0.1:8010)."
+    why: "the dialog offers that route only when told"
+    kind: bind
+    validate: "host:port as compose publishes it"
+    writes: [lb/.env LB_CONNECT_TUNNEL]
+  - id: exposure.proxy
+    section: exposure
+    when: "exposure.scope in [lan, internet]"
+    ask: "Which authenticating reverse proxy will front :8010 (nginx, Caddy, Traefik, a cloud tunnel …)? This repository ships none; deploy/nginx-edge-power.example.conf shows the pattern the power panel uses."
+    why: "the proxy is the only door"
+    kind: text
+    validate: "a proxy you run and control"
+    writes: ["none — the last Phase 4 step configures it"]
+  - id: exposure.auth
+    section: exposure
+    when: "exposure.scope in [lan, internet]"
+    ask: "What sign-in does it put in front? (http-basic, an SSO/OIDC login, mutual TLS, or VPN-only reachability.) There is no `none`: without one, setup stops at localhost."
+    why: "the gateway's control endpoints change what runs on your GPUs"
+    kind: choice
+    choices: [http-basic, oidc-sso, mtls, vpn-only]
+    validate: "one of these; exposing without one is refused"
+    writes: ["none — the proxy configuration's auth block"]
+  - id: exposure.basic_for_api
+    section: exposure
+    when: "exposure.auth == http-basic"
+    required: false
+    ask: "OPTIONAL — does that proxy also take HTTP Basic on GET /v1/models and POST /v1/* (so API clients can pass credentials)? Answer true to let the Connect dialog offer it."
+    why: "the dialog offers only what the edge answers"
+    kind: bool
+    values: {"true": "1", "false": null}
+    validate: "true only if the proxy really does"
+    writes: [lb/.env LB_CONNECT_BASIC]
+  - id: exposure.domain
+    section: exposure
+    when: "exposure.scope == internet"
+    ask: "The public domain the gateway is served on (e.g. llm.example.com)."
+    why: "the proxy's vhost and the TLS certificate"
+    kind: host
+    validate: "a DNS name you control, pointing at the proxy"
+    probe: "getent hosts <domain>"
+    writes: ["none — the proxy's server_name"]
+  - id: exposure.tls
+    section: exposure
+    when: "exposure.scope == internet"
+    ask: "How is TLS terminated: an ACME certificate on the proxy (e.g. certbot), an existing certificate you have, or the tunnel provider's?"
+    why: "never plain http on the internet"
+    kind: choice
+    choices: [acme, existing-cert, tunnel-provider]
+    validate: "one of these"
+    writes: ["none — the proxy configuration"]
+  - id: exposure.frp
+    section: exposure
+    when: "exposure.scope == internet"
+    ask: "Does the public edge reach this host through an frp tunnel (the frpc clients in frpc/ and power/), or does it reach :8010 another way?"
+    why: "frpc needs the frps address and token in the repo-root .env"
+    kind: choice
+    choices: [frp, other]
+    validate: "either"
+    writes: ["none — selects the frp questions"]
+  - id: exposure.frp_server
+    section: exposure
+    when: "exposure.frp == frp"
+    ask: "The frps server address the frpc clients dial."
+    why: "frpc's serverAddr"
+    kind: host
+    validate: "a host or IP"
+    writes: [.env FRP_SERVER]
+  - id: exposure.frp_token
+    section: exposure
+    when: "exposure.frp == frp"
+    secret: true
+    ask: "The frps auth token (must match frps.toml on the server)."
+    why: "frpc's auth.token"
+    kind: secret
+    validate: "the server's token; never echoed or committed"
+    writes: [.env FRP_TOKEN]
+  # ── search ──────────────────────────────────────────────────────────────────────────────────────────────────────────
+  - id: search.searxng_secret
+    section: search
+    secret: true
+    ask: "The secret SearXNG signs with. The agent proposes generating one (openssl rand -hex 32) — confirm, or give your own."
+    why: "compose refuses to start without it; a committed default would be a committed secret"
+    kind: secret
+    validate: "a fresh random string; never echoed or committed"
+    probe: "openssl rand -hex 32   # generates a proposal; shown masked"
+    writes: [lb/.env SEARXNG_SECRET]
+  - id: search.enabled
+    section: search
+    ask: "Should the gateway perform Claude Code's WebSearch tool against its bundled SearXNG (true), or forward such requests unchanged (false)?"
+    why: "WebSearch is a server-side tool no LLM backend can run"
+    kind: bool
+    values: {"true": null, "false": ""}
+    validate: "true or false"
+    writes: [lb/.env LB_SEARCH_URL]
+  # ── power ───────────────────────────────────────────────────────────────────────────────────────────────────────────
+  - id: power.enabled
+    section: power
+    ask: "Set up the power panel (power/: Wake-on-LAN and shutdown of the boxes, GPU clock caps)?"
+    why: "it can power machines off; dry-run until you say otherwise"
+    kind: bool
+    validate: "true or false"
+    writes: ["none — selects the power questions"]
+  - id: power.origin
+    section: power
+    when: "power.enabled == true"
+    ask: "The public origin of the page the power buttons live on (https://…, exact, no path) — the CSRF check."
+    why: "every request from another origin is refused"
+    kind: url
+    validate: "an https origin"
+    writes: [power/.env POWER_ORIGINS]
+  - id: power.allowed_hosts
+    section: power
+    when: "power.enabled == true"
+    ask: "The Host the edge's proxy presents when it forwards /power/ through the tunnel (the page's domain, no port behind nginx's `proxy_set_header Host $host`). Answer [loopback] if only this box reaches the panel."
+    why: "the DNS-rebinding guard: every other Host is refused 421 (power/fleet_power/host_guard.py)"
+    kind: list
+    env_format: csv
+    pattern: '(\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9]([A-Za-z0-9_.-]*[A-Za-z0-9])?)(:[0-9]{1,5})?'
+    validate: "host[:port] names (no scheme, no path), or the one word loopback alone"
+    writes: [power/.env POWER_ALLOWED_HOSTS]
+  - id: power.dry_run
+    section: power
+    when: "power.enabled == true"
+    ask: "Keep it in DRY RUN (true: the forced command powers nothing off), or go live (false)?"
+    why: "going live is a decision, not a default"
+    kind: bool
+    values: {"true": "1", "false": "0"}
+    validate: "true or false"
+    writes: [power/.env POWER_DRY_RUN]
+  - id: power.gate_secret
+    section: power
+    when: "power.enabled == true"
+    ask: "The power service answers only requests carrying the front proxy's X-Power-Gate secret, read from ~/.config/fleet-power/gate_secret (OUTSIDE the repo). May the agent generate it there and show you the proxy line that sends it?"
+    why: "missing = every request refused"
+    kind: choice
+    choices: [generate-there, i-will-do-it]
+    validate: "either; nothing outside the repo is written without this yes"
+    writes: ["none — ~/.config/fleet-power/gate_secret (outside the repo, after this yes)"]
+  - id: power.boxes
+    section: power
+    when: "power.enabled == true"
+    ask: "Which machines may it act on? (Names; the host it runs on may be one.)"
+    why: "the allowlist; a machine not named is refused"
+    kind: list
+    pattern: "[A-Za-z0-9][A-Za-z0-9._-]*"
+    validate: "names, each once"
+    writes: [power/.env POWER_BOXES]
+  - id: power_box.ssh_host
+    section: power
+    per: power_box
+    when: "power.enabled == true"
+    ask: "Its address on its DIRECT cable from the power host (127.0.0.1 for the host itself)."
+    why: "the keys are pinned from= that cable's host end"
+    kind: host
+    validate: "an IPv4 address or name"
+    writes: ["power/.env POWER_BOXES[<power_box>].ssh_host"]
+  - id: power_box.ssh_port
+    section: power
+    per: power_box
+    when: "power.enabled == true"
+    required: false
+    ask: "OPTIONAL — its SSH port if not 22."
+    why: "the forced-command login"
+    kind: port
+    validate: "1-65535"
+    writes: ["power/.env POWER_BOXES[<power_box>].ssh_port"]
+  - id: power_box.ssh_user
+    section: power
+    per: power_box
+    when: "power.enabled == true"
+    required: false
+    ask: "OPTIONAL — the login user if not fleet-power (the user power/install/host-setup.sh creates)."
+    why: "the forced-command login"
+    kind: text
+    validate: "a user name"
+    writes: ["power/.env POWER_BOXES[<power_box>].ssh_user"]
+  - id: power_box.in_cluster
+    section: power
+    per: power_box
+    when: "power.enabled == true"
+    required: false
+    ask: "Does powering it off drop a cluster it belongs to (true: the panel asks first)?"
+    why: "the panel's warning"
+    kind: bool
+    validate: "true or false"
+    writes: ["power/.env POWER_BOXES[<power_box>].in_cluster"]
+  - id: power_box.gpu_clock
+    section: power
+    per: power_box
+    when: "power.enabled == true"
+    required: false
+    ask: "May the panel cap this machine's NVIDIA GPU clock (true: host-setup.sh --gpu installs the clock keys)?"
+    why: "the clock buttons"
+    kind: bool
+    validate: "true or false"
+    writes: ["power/.env POWER_BOXES[<power_box>].gpu_clock"]
+  - id: power_box.default_gpu_clock_mhz
+    section: power
+    per: power_box
+    when: "power.enabled == true and power_box.gpu_clock == true"
+    required: false
+    ask: "OPTIONAL — the cap the service keeps on the GPU and re-applies when the box comes back; leave unanswered to keep it released."
+    why: "a clock lock does not survive a reboot"
+    kind: choice
+    choices_from: power_clock_caps
+    validate: "one of the caps the service has a key for"
+    writes: ["power/.env POWER_BOXES[<power_box>].default_gpu_clock_mhz"]
+  - id: power_box.wol_mac
+    section: power
+    per: power_box
+    when: "power.enabled == true"
+    required: false
+    ask: "Wake-on-LAN: the MAC of its NIC on the direct cable. Leave unanswered if the service cannot power it on (then say how in the note)."
+    why: "the magic packet's target"
+    kind: text
+    pattern: "([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}"
+    validate: "aa:bb:cc:dd:ee:ff"
+    probe: "ip -brief link   # on that machine"
+    writes: ["power/.env POWER_BOXES[<power_box>].wol.mac"]
+  - id: power_box.wol_iface
+    section: power
+    per: power_box
+    when: "power.enabled == true and power_box.wol_mac"
+    ask: "The power host's interface on that cable (the packet may leave by no other)."
+    why: "WoL is sent on that NIC only"
+    kind: text
+    validate: "an interface name on the power host"
+    probe: "ip -brief link"
+    writes: ["power/.env POWER_BOXES[<power_box>].wol.iface"]
+  - id: power_box.wol_broadcast
+    section: power
+    per: power_box
+    when: "power.enabled == true and power_box.wol_mac"
+    ask: "That cable's broadcast address (a /30's broadcast)."
+    why: "where the packet is sent"
+    kind: host
+    validate: "an IPv4 broadcast address"
+    probe: "ip -brief addr"
+    writes: ["power/.env POWER_BOXES[<power_box>].wol.broadcast"]
+  - id: power_box.power_on_note
+    section: power
+    per: power_box
+    when: "power.enabled == true"
+    ask: "The panel's words for how this machine is powered on (e.g. 'Wake-on-LAN over the direct cable', or 'press its button')."
+    why: "shown beside its power button"
+    kind: text
+    validate: "a short sentence"
+    writes: ["power/.env POWER_BOXES[<power_box>].power_on_note"]
+  - id: power_box.consequence
+    section: power
+    per: power_box
+    when: "power.enabled == true"
+    ask: "The panel's words for what powering it off takes down."
+    why: "shown in the confirmation"
+    kind: text
+    validate: "a short sentence"
+    writes: ["power/.env POWER_BOXES[<power_box>].consequence"]
+  # ── telemetry ───────────────────────────────────────────────────────────────────────────────────────────────────────
+  - id: telemetry.enabled
+    section: telemetry
+    ask: "Draw live hardware numbers (GPU, memory, power) on the panel? Each GPU box then runs a small sender to the gateway's UDP intake (published on all interfaces, display-only)."
+    why: "off closes the one port published beyond loopback"
+    kind: bool
+    values: {"true": null, "false": "0"}
+    validate: "true or false"
+    writes: [lb/.env LB_HW_PORT]
+  - id: telemetry.port
+    section: telemetry
+    when: "telemetry.enabled == true"
+    ask: "The UDP port the senders send to (the gateway's intake; 48291 is the documented one — say it if you keep it)."
+    why: "LB_HW_PORT and every sender's HW_SENDER_PORT must agree"
+    kind: port
+    validate: "a free UDP port on the gateway host"
+    probe: "ss -lunH"
+    writes: [lb/.env LB_HW_PORT, "hosts/<sender>/lb/hw_sender/.env HW_SENDER_PORT"]
+  - id: telemetry.boxes
+    section: telemetry
+    when: "telemetry.enabled == true"
+    ask: "Which machines run a sender?"
+    why: "each gets its own lb/hw_sender/.env in its checkout"
+    kind: multi
+    also_from: machines.boxes
+    validate: "fleet boxes (a sample is matched by its box's hostname)"
+    writes: ["none — the sender instances below"]
+  - id: sender.gpu_kind
+    section: telemetry
+    per: sender
+    when: "telemetry.enabled == true"
+    ask: "Its GPU kind for the sender (exactly one)."
+    why: "selects lb/hw_sender/gpu-<kind>.yml"
+    kind: choice
+    choices_from: sender_gpu_kinds
+    validate: "the kind whose CLI answers on that box"
+    probe: "nvidia-smi -L 2>/dev/null; rocm-smi --showproductname 2>/dev/null"
+    writes: ["none — the sender's COMPOSE_FILE (derived)"]
+  - id: sender.bridged
+    section: telemetry
+    per: sender
+    when: "telemetry.enabled == true"
+    ask: "Does the gateway run on this same machine and should the LAN NOT hear its broadcast (send on the gateway's docker network only)?"
+    why: "bridged.yml; then the sender needs the gateway's network name"
+    kind: bool
+    validate: "true only on the gateway's own box"
+    writes: ["none — the sender's COMPOSE_FILE (derived)"]
+  - id: sender.docker_root
+    section: telemetry
+    per: sender
+    when: "telemetry.enabled == true"
+    ask: "Docker's data root on that machine (its containers/ directory is read, read-only, for the flight recorder's container names)."
+    why: "the sender lists the box's containers by name, image and RAM without the docker socket"
+    kind: path
+    validate: "an existing directory with a containers/ subdirectory"
+    probe: "docker info --format '{{.DockerRootDir}}'"
+    writes: ["hosts/<sender>/lb/hw_sender/.env HW_SENDER_DOCKER_ROOT"]
+  - id: sender.lb_network
+    section: telemetry
+    per: sender
+    when: "telemetry.enabled == true and sender.bridged == true"
+    ask: "The docker network the vllm-lb container is on (lb_default for a plain `cd lb && docker compose up`)."
+    why: "bridged.yml joins it"
+    kind: text
+    pattern: "[A-Za-z0-9][A-Za-z0-9_.-]*"
+    validate: "a network vllm-lb is attached to"
+    probe: "docker inspect vllm-lb --format '{{json .NetworkSettings.Networks}}'"
+    writes: ["hosts/<sender>/lb/hw_sender/.env HW_SENDER_LB_NETWORK"]
+  # ── bench ───────────────────────────────────────────────────────────────────────────────────────────────────────────
+  - id: bench.enabled
+    section: bench
+    when: "shape.kind != standalone"
+    ask: "Set up the sealed swarm runner (the panel's \"Start test swarm\") here? (A standalone server derives it from its server file.)"
+    why: "a benchmark harness, sealed off the internet"
+    kind: bool
+    validate: "true or false"
+    writes: ["none — selects the bench questions"]
+  - id: lb.bench_network
+    section: bench
+    when: "broker.enabled == true and bench.enabled == true"
+    ask: "With the broker on the sealed swarm runner needs its OWN external network (docker network create --subnet <a free private /28> <name>): its name."
+    why: "the broker's network is the gateway's only one then"
+    kind: text
+    pattern: "[A-Za-z0-9][A-Za-z0-9_.-]*"
+    validate: "a network you create once; the bench runner names the same"
+    writes: [lb/.env LB_BENCH_NETWORK]
+  - id: bench.box
+    section: bench
+    when: "bench.enabled == true"
+    ask: "The box name the runner reports (\"runner on <box>\")."
+    why: "the panel's label"
+    kind: text
+    validate: "the box it runs on"
+    writes: [lb/bench_runner/.env BENCH_BOX]
+  - id: bench.state_dir
+    section: bench
+    when: "bench.enabled == true"
+    ask: "The gateway's swarm directory on this host, absolute (the checkout's lb/state/benchq)."
+    why: "where the runner reads its queue"
+    kind: path
+    validate: "an absolute path"
+    writes: [lb/bench_runner/.env BENCH_STATE_DIR]
+  - id: bench.upstream_network
+    section: bench
+    when: "bench.enabled == true"
+    ask: "The docker network where the runner's egress reaches the gateway and the engine (the gateway's; with the broker on, lb.bench_network)."
+    why: "the only way out of the sealed network"
+    kind: text
+    pattern: "[A-Za-z0-9][A-Za-z0-9_.-]*"
+    validate: "an existing network"
+    writes: [lb/bench_runner/.env BENCH_UPSTREAM_NETWORK]
+  - id: bench.lb_target
+    section: bench
+    when: "bench.enabled == true"
+    ask: "The gateway's API as host:port from that network (vllm-lb:8010)."
+    why: "the swarm's target"
+    kind: bind
+    validate: "host:port"
+    writes: [lb/bench_runner/.env BENCH_LB_TARGET]
+  - id: bench.engine_target
+    section: bench
+    when: "bench.enabled == true"
+    ask: "The engine's own API host:port whose /metrics the session guard reads (the head rank's, or the node container's) — a private address."
+    why: "guard C"
+    kind: bind
+    validate: "host:port on a private address"
+    writes: [lb/bench_runner/.env BENCH_ENGINE_TARGET]
+  - id: bench.sealed_subnet
+    section: bench
+    when: "bench.enabled == true"
+    required: false
+    ask: "ONLY if this host's docker has no free address pool (compose said \"fully subnetted\"): the subnet for the sealed network. Leave unanswered otherwise."
+    why: "subnet.yml puts the sealed network there"
+    kind: text
+    pattern: "[0-9.]+/[0-9]+"
+    validate: "a free private CIDR"
+    writes: [lb/bench_runner/.env BENCH_SEALED_SUBNET]
+  # ── extras ──────────────────────────────────────────────────────────────────────────────────────────────────────────
+  - id: extras.usage_mcp
+    section: extras
+    ask: "Build usage-mcp (the fleet's usage data as read-only MCP tools) and register it with your MCP client? Registering changes your client's config, outside this repo."
+    why: "an agent can then ask the fleet instead of curling it"
+    kind: choice
+    choices: [skip, build-only, build-and-register]
+    validate: "register only with this explicit answer"
+    writes: ["none — `docker compose build` in usage-mcp/; the `claude mcp add` line is run only after this yes"]
+  - id: extras.crawl
+    section: extras
+    ask: "Run the Crawl4AI scraper service (crawl/) on this host?"
+    why: "an optional page → Markdown API for agents"
+    kind: bool
+    validate: "true or false"
+    writes: ["none — selects the crawl questions"]
+  - id: crawl.port
+    section: extras
+    when: "extras.crawl == true"
+    ask: "The loopback port its API is published on."
+    why: "CRAWL_PORT"
+    kind: port
+    validate: "a free port"
+    probe: "ss -ltnH"
+    writes: [crawl/.env CRAWL_PORT]
+  - id: crawl.token
+    section: extras
+    when: "extras.crawl == true"
+    secret: true
+    ask: "Its API token (the agent proposes openssl rand -hex 32)."
+    why: "Crawl4AI refuses to serve on a reachable interface without one"
+    kind: secret
+    validate: "a fresh random token; never echoed or committed"
+    writes: [crawl/.env CRAWL_API_TOKEN]
+  - id: extras.dashboard
+    section: extras
+    ask: "Run the LEGACY dashboard (dashboard/: polls servers directly)? Most setups answer false: the gateway's own page replaces it."
+    why: "it needs its own three settings"
+    kind: bool
+    validate: "true or false"
+    writes: ["none — selects the dashboard questions"]
+  - id: dashboard.servers
+    section: extras
+    when: "extras.dashboard == true"
+    ask: "The vLLM servers it polls (URLs)."
+    why: "VLLM_SERVERS"
+    kind: list
+    env_format: csv
+    validate: "http(s) URLs"
+    writes: [.env VLLM_SERVERS]
+  - id: dashboard.lb_url
+    section: extras
+    when: "extras.dashboard == true"
+    ask: "The gateway as its container reaches it (e.g. http://host.docker.internal:8010)."
+    why: "LB_URL"
+    kind: url
+    validate: "an http(s) URL"
+    writes: [.env LB_URL]
+  - id: dashboard.chat_model
+    section: extras
+    when: "extras.dashboard == true"
+    ask: "The model name its panel labels and sends."
+    why: "CHAT_MODEL"
+    kind: text
+    validate: "a served model name"
+    writes: [.env CHAT_MODEL]
+  # ── tuning ──────────────────────────────────────────────────────────────────────────────────────────────────────────
+  - id: lb.tuning
+    section: tuning
+    required: false
+    ask: "Change any gateway knob from the value lb/.env.example documents (idle release, probe intervals, timeouts, perf log …)? Give KEY: value pairs; leave unanswered to keep every documented behaviour."
+    why: "a deliberate change, never a guess"
+    kind: map
+    validate: "keys documented in lb/.env.example, not RETIRED and not written by another question"
+    writes: ["lb/.env * — any knob lb/.env.example documents"]
+  # ── clients ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+  - id: clients.kinds
+    section: clients
+    ask: "Which clients will connect? (claude-code: ANTHROPIC_BASE_URL; openai-sdk / anthropic-sdk; curl; other.)"
+    why: "Phase 4 streams one completion through each API they use"
+    kind: multi
+    choices: [claude-code, openai-sdk, anthropic-sdk, curl, other]
+    validate: "one or more"
+    writes: ["none — the smoke test"]
+  - id: clients.where
+    section: clients
+    ask: "Where do they run: on this host, or on other machines?"
+    why: "other machines need exposure beyond localhost (with its sign-in) or an ssh -L tunnel"
+    kind: choice
+    choices: [this-host, other-machines-via-tunnel, other-machines-via-proxy]
+    validate: "via-proxy requires exposure.scope lan or internet"
+    writes: ["none — the smoke test's base URL"]

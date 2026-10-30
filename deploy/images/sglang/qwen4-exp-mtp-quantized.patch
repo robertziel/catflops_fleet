@@ -1,0 +1,50 @@
+Keep the drafter quantized when the checkpoint says it is
+
+`_mtp_quant_config` disables quantization for every `modelopt_mixed` checkpoint on the
+grounds that "Serialized Qwen3.5 ModelOpt checkpoints keep embedded MTP weights in BF16".
+That holds for the Qwen3.5 exports it was written against. It does not hold for
+Qwen3.8-Flash-Next, whose own quantization_config names the drafter's experts:
+
+    mtp.layers.0.mlp.experts.up_proj -> {"quant_algo": "NVFP4", "group_size": 16}
+
+So the MTP module is built unquantized at full hidden size while the loader hands it the
+NVFP4 tensor-parallel shard, and a TP=2 start dies before it serves:
+
+    eagle_worker_v2.py:203  -> qwen3_5_mtp.py load_weights
+      -> fused_moe_triton/layer.py _load_w13  expert_data.copy_(loaded_weight)
+    RuntimeError: The size of tensor a (2560) must match the size of tensor b (1280)
+                  at non-singleton dimension 1
+
+Reproduced on generations 149, 160 and 163 of a two-box GB10 pair, and the same code is
+unchanged at upstream f70e8c68 (2026-10-05), so no image bump avoids it.
+
+The fix asks the checkpoint instead of assuming: if its own `quantized_layers` cover any
+`mtp.*` entry, the drafter is quantized and must be built that way. This mirrors the Quark
+branch immediately below, which already detects per checkpoint rather than per scheme —
+there by reading the exclude list, here by reading the include list. A checkpoint that
+really does ship a BF16 drafter names no `mtp.*` layer and still takes the old path.
+
+--- a/python/sglang/srt/models/qwen3_5_mtp.py
++++ b/python/sglang/srt/models/qwen3_5_mtp.py
+@@ -55,6 +55,21 @@
+     quantized; the loader's fusion gate has to see the same normalization the
+     constructor applies, or it would answer for the target's quantization.
+     """
++    # ASK THE CHECKPOINT BEFORE ASSUMING THE DRAFTER IS BF16. The branch below is right for
++    # the Qwen3.5 exports it was written for and wrong for Qwen3.8-Flash-Next, which names
++    # its drafter's experts in its own quantization_config:
++    #   mtp.layers.0.mlp.experts.up_proj -> {"quant_algo": "NVFP4", "group_size": 16}
++    # Building that unquantized allocates full hidden size while the loader supplies the TP
++    # shard, and the start dies in _load_w13 on 2560 against 1280 at TP=2 before it serves.
++    # Same shape of check as the Quark branch below: per checkpoint, not per scheme.
++    if quant_config is not None:
++        quantized_layers = getattr(quant_config, "quantized_layers", None) or {}
++        if any(
++            isinstance(name, str) and (name.startswith("mtp.") or ".mtp." in name)
++            for name in quantized_layers
++        ):
++            return quant_config
++
+     # Serialized Qwen3.5 ModelOpt checkpoints keep embedded MTP weights in
+     # BF16. Disable quantization for those checkpoints; non-serialized
+     # modelopt_fp4 still converts MoE expert weights on load.

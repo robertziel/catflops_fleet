@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CatFlops Fleet</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22><rect width=%2264%22 height=%2264%22 rx=%2214%22 fill=%22%230D1117%22/><g transform=%22translate(4 4) scale(0.875)%22><path fill=%22%23818A94%22 fill-opacity=%22.55%22 d=%22M10 52h12v6H10zM26 52h22v6H26z%22/><path fill=%22%231B2129%22 stroke=%22%23818A94%22 stroke-width=%222%22 fill-rule=%22evenodd%22 d=%22M7 38H49a3 3 0 0 1 3 3V49a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V41a3 3 0 0 1 3-3ZM40 45a4 4 0 1 0 8 0a4 4 0 1 0-8 0Z%22/><rect fill=%22%238B949E%22 fill-opacity=%22.5%22 x=%228%22 y=%2242.5%22 width=%225%22 height=%225%22 rx=%221%22/><rect fill=%22%2378F9E5%22 x=%2214%22 y=%2242.5%22 width=%225%22 height=%225%22 rx=%221%22/><rect fill=%22%238B949E%22 fill-opacity=%22.5%22 x=%2220%22 y=%2242.5%22 width=%225%22 height=%225%22 rx=%221%22/><rect fill=%22%233FF27A%22 x=%2226%22 y=%2242.5%22 width=%225%22 height=%225%22 rx=%221%22/><rect fill=%22%238B949E%22 fill-opacity=%22.5%22 x=%2232%22 y=%2242.5%22 width=%225%22 height=%225%22 rx=%221%22/><rect fill=%22%23B1B8C0%22 x=%228%22 y=%2224%22 width=%2244%22 height=%2211%22 rx=%225.5%22/><circle fill=%22%23B1B8C0%22 cx=%2214%22 cy=%2228%22 r=%227%22/><path fill=%22%23B1B8C0%22 d=%22M8 25V17l7 5zM15 22l7-5v9z%22/><path fill=%22none%22 stroke=%22%23B1B8C0%22 stroke-width=%224%22 stroke-linecap=%22round%22 d=%22M50 29C57 29 59 33 59 38V47%22/><path fill=%22%2378F9E5%22 d=%22M33 7l1.5 3.5 3.5 1.5-3.5 1.5L33 17l-1.5-3.5-3.5-1.5 3.5-1.5z%22/><path fill=%22%233FF27A%22 d=%22M43 14.5l1.1 2.4 2.4 1.1-2.4 1.1L43 21.5l-1.1-2.4-2.4-1.1 2.4-1.1z%22/></g></svg>">
+  <link rel="stylesheet" href="/gateway.css">
+  <link rel="stylesheet" href="/layout.css">
+  <link rel="stylesheet" href="/recorder.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <!-- No links here: performance, sessions and connect are a SERVER's (its card's row, scoped to it); nothing
+           fleet-wide has a page of its own. -->
+      <!-- The fleet's brand: catflops' card-flop mark (catflops app/views/layouts/_mark.html.erb), in silver and the
+           idle CPU's colours (gateway.css --mark-*). -->
+      <h1><svg class="mark" viewBox="0 0 64 64" width="26" height="26" aria-hidden="true"><path class="mark-pins" d="M10 52h12v6H10zM26 52h22v6H26z"/><path class="mark-card" fill-rule="evenodd" d="M7 38H49a3 3 0 0 1 3 3V49a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V41a3 3 0 0 1 3-3ZM40 45a4 4 0 1 0 8 0a4 4 0 1 0-8 0Z"/><rect class="mark-core-idle" x="8" y="42.5" width="5" height="5" rx="1"/><rect class="mark-core-cyan" x="14" y="42.5" width="5" height="5" rx="1"/><rect class="mark-core-idle" x="20" y="42.5" width="5" height="5" rx="1"/><rect class="mark-core-green" x="26" y="42.5" width="5" height="5" rx="1"/><rect class="mark-core-idle" x="32" y="42.5" width="5" height="5" rx="1"/><rect class="mark-cat" x="8" y="24" width="44" height="11" rx="5.5"/><circle class="mark-cat" cx="14" cy="28" r="7"/><path class="mark-cat" d="M8 25V17l7 5zM15 22l7-5v9z"/><path class="mark-tail" d="M50 29C57 29 59 33 59 38V47"/><path class="mark-box-a-cyan" d="M33 7l1.5 3.5 3.5 1.5-3.5 1.5L33 17l-1.5-3.5-3.5-1.5 3.5-1.5z"/><path class="mark-box-a-green" d="M43 14.5l1.1 2.4 2.4 1.1-2.4 1.1L43 21.5l-1.1-2.4-2.4-1.1 2.4-1.1z"/></svg><span class="wordmark"><span class="wm-cat">Cat</span><span class="wm-flops">Flops</span> <span class="wm-fleet">Fleet</span></span></h1>
+    </div>
+    <div class="top-right">
+      <!-- THE LAYOUT (layout.js): which template this browser shows and whether it was arranged here; the menu picks a
+           template, opens edit mode, resets, exports and imports. The state is this browser's alone (localStorage):
+           the server stores no layout. -->
+      <button id="layout-button" class="ly-open" type="button" aria-haspopup="dialog" aria-controls="layout-menu" aria-expanded="false"><span class="ly-word">Layout &middot; </span><b id="layout-name">&hellip;</b></button>
+      <div id="connection-status" class="conn">
+        <span class="dot"></span>
+        <span id="status-text">connecting&hellip;</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- What stops the LB serving — broker_parrot's DB unreachable, a failing control tick — in the
+       LB's own words. Shown only while /lb/status says so. -->
+  <div id="lb-alert" class="alert" role="alert" hidden></div>
+  <!-- THE LAYOUT'S NOTICES (layout.js `say`): an element a stored or pasted layout names that this panel lacks, an
+       element new to the panel, a browser that keeps nothing, a template that did not load — each a line with its
+       action; never a silent drop. -->
+  <div id="layout-notice" class="ly-notice" role="status" hidden></div>
+  <!-- EDIT MODE'S BAR: shown while arranging. Done prunes empty room and keeps the arrangement in this browser. -->
+  <div id="layout-tools" class="ly-tools" hidden>
+    <span>arranging &middot; <b id="layout-tools-name"></b> &middot; drag a tile's grip, or its arrows; Esc = done</span>
+    <span class="ly-grow"></span>
+    <button type="button" class="ly-act" data-tools="addrow" title="a new row at the foot">+ row</button>
+    <button type="button" class="ly-act" data-tools="reset" title="back to the template as shipped">Reset to template</button>
+    <button type="button" class="ly-act ly-primary" data-tools="done">Done</button>
+  </div>
+
+  <!-- THE PANEL'S ELEMENTS, each a host carrying `data-ly` — THE REGISTRY of what a layout may place (layout.js reads
+       it from here; tests/test_layouts.py checks every template against it). Document order here is the `default`
+       template's order. layout.js wraps each host in a tile and moves the tiles into the rows and columns the
+       browser's layout says; gateway.js keeps drawing into the hosts by id, wherever they stand. -->
+  <main id="layout" class="layout" aria-label="the panel">
+  <!-- Leases still waiting for a server: above everything, because a turn sent now waits on them. -->
+  <section id="lb-queued" data-ly="queued" data-ly-label="Queued leases" class="queued" aria-label="leases waiting for a server" hidden></section>
+
+  <!-- THE CLUSTER — the operator's word for the hardware: every box of this fleet, one card each (cores · CPU · GPU ·
+       MEM rings with the memory figures, then the three histories), tagged with the server whose rank it holds, the
+       selected server's cards marked (gateway.js `renderMachines`). Over the server tabs (operator, 2026-10-18): the
+       fleet first, then the server the tab selects; NOT switched by the tabs. The power control (/power/button.js) is
+       added to these cards' heads. -->
+  <details id="cluster-section" data-ly="cluster" data-ly-label="Cluster" class="section" open>
+    <summary><h2>Cluster</h2></summary>
+    <section id="lb-backends" class="machines" aria-label="the boxes of this fleet"></section>
+  </details>
+
+  <!-- THE SERVER TABS (clusters.js; worklog/parallel-clusters.md, "Servers, not clusters"): one tab per server in this
+       run (clusters.js draws them from /lb/status.clusters) — a tab only SELECTS which server the server card, the
+       engine, the requests and the saturation show — and "+", the one tab with a panel: the fleet's declared servers,
+       to activate one for this run. WAI-ARIA tablist: arrow keys move and select; the hash keeps the selection. To the
+       operator an engine is a SERVER; the boxes are the CLUSTER (the section above). Ids and API fields keep `cluster`
+       for the engine (the domain's name). The tabs and the + panel move as one tile. -->
+  <div id="server-tabs" data-ly="tabs" data-ly-label="Server tabs">
+  <nav class="tabs">
+    <div id="tablist" role="tablist" aria-label="servers">
+      <button id="tab-btn-add" role="tab" type="button" aria-selected="false" aria-controls="tab-add" tabindex="-1" aria-label="declared servers">+<span id="tab-n-add" class="tab-n" aria-hidden="true"></span></button>
+    </div>
+  </nav>
+
+  <!-- THE FLEET'S DECLARED SERVERS (clusters.js `renderAdd`, from /lb/status.declared): activate an available one for
+       this run (in memory: gone after a restart; never written to the fleet file), see why a blocked one cannot run,
+       deactivate an off one. -->
+  <section id="tab-add" class="tabpanel" role="tabpanel" aria-labelledby="tab-btn-add" tabindex="0" hidden>
+    <p id="add-empty" class="tab-empty" hidden>no server declared</p>
+    <div id="add-panel" class="clusters" aria-label="the servers this fleet declares"></div>
+  </section>
+  </div>
+
+  <!-- THE SELECTED SERVER, and only it (operator, 2026-10-17: "Upper section contains only Pair running and stats from
+       the server and requests, all data server running related"): its card with the one hold control, its head's
+       engine card, its requests, its saturation — four tiles; a server tab controls the card (the tab's panel). The
+       `default` layout keeps the card in a side column with the three beside it, as the page was. -->
+    <!-- The SELECTED server, as ONE card. Static markup on purpose: a poll re-renders its state
+         every 3 s, and rebuilding the inputs would reset a number the operator is half-way through
+         typing. Hidden until /lb/status says this LB has a server at all. -->
+    <section id="cluster-panel" data-ly="server" data-ly-label="Server" class="cluster" role="tabpanel" aria-labelledby="cluster-title" hidden>
+      <!-- Written per poll (gateway.js `renderClusterHead`): titled by the selected server's fleet name; its TP and
+           boxes from `topology`; its own pages — performance and sessions scoped to it (`?server=`), connect for its
+           served model (gateway.js `openConnect(server)`). -->
+      <div class="cluster-head">
+        <h2 id="cluster-title">Server</h2>
+        <span id="cluster-sub" class="sub"></span>
+        <nav id="cluster-links" class="cl-links" aria-label="this server's pages">
+          <a id="cluster-perf" href="/benchmarks">performance</a> &middot; <a id="cluster-sessions" href="/sessions">sessions</a>
+          &middot; <button type="button" id="cluster-connect" class="cn-open" aria-haspopup="dialog" aria-controls="connect">connect</button>
+        </nav>
+      </div>
+      <!-- The state word with its diode, the planner's detail, the start (or stop) sequence and the
+           current step's own facts. The age sits beside the headline but OUTSIDE the live region: it
+           changes on every poll, and a screen reader must not be told so every three seconds. -->
+      <div class="cp-state">
+        <div id="cluster-state" class="cluster-state" aria-live="polite"></div>
+        <span id="cluster-since" class="cp-since" hidden></span>
+      </div>
+      <!-- Every step the head rank has printed, oldest first, and how long it has been on the last
+           one. Outside the live region for the same reason the age is: the clock on the last row
+           changes on every poll, and a screen reader must not be told so every three seconds. -->
+      <div id="cluster-startup" class="cp-startup" hidden></div>
+      <!-- The model served, or being brought up, with its launch facts and the concurrency. Left out
+           while Start is offered: the choosers below say what a Start loads. -->
+      <div id="cluster-model-line" class="cp-model" hidden></div>
+      <!-- A node this LB only observes whose fleet file and own report DISAGREE: every such key, the fleet's value then
+           the node's — loud, outside the folded settings, never resolved (gateway.js `renderMismatch`). -->
+      <p id="cluster-mismatch" class="cp-mismatch" hidden></p>
+      <!-- A node the LB requests (fleet control `local`): who on its host applies the panel's intent, and what it last
+           did — in its own words when it failed, with the node's last log lines (gateway.js `renderApplier`). -->
+      <div id="cluster-applier" class="cp-applier" hidden></div>
+      <!-- What the ranks' KV pool actually holds, measured — the page offers this concurrency when
+           the operator has chosen none, so it must be able to say where the number came from. Also
+           where a clamped write explains itself, whether or not the settings are folded away. -->
+      <span id="cluster-recommended" class="cluster-hint" hidden></span>
+
+      <!-- THE ENGINE SETTINGS the pair is launched with, one field per vLLM variable: its value, its
+           default and — while a pair runs — what it RUNS with when that differs from what is stored
+           (`cluster.effective` vs `cluster.desired`). A switched-on cluster applies a change by restarting
+           the pair in place; a stopped one saves it for its next Start. The notes under the fields are
+           data — the default, what the running pair has; a warning under a pick the start's memory check
+           would refuse is numbers too (the cost per unit, where it is checked), with the sentence it
+           replaced in its `title`.
+
+           Open while Start is offered — model and concurrency are the app's two choosers — and folded
+           behind its summary while the cluster is on. Every field is in this one flat group, in reading
+           order: nothing is a disclosure further in (gateway.js `renderSettingsDisclosure`).
+
+           PICKING ANOTHER MODEL FILLS THIS WHOLE GROUP with that model's own measured-best start input
+           (library/measurements.json `launch.cluster.tuned`, 2026-10-05) — its concurrency, context, prefill budget,
+           drafter depth, pool and PLE placement — and each note says "measured" with the run it came from
+           in its `title`. A model nobody has A/B'd shows the gateway's configured defaults, as every model
+           did before. -->
+      <details id="cluster-settings" class="cluster-settings" open>
+        <summary id="cluster-settings-summary">Next start</summary>
+        <div class="choosers">
+          <!-- THE MODEL PICKER is a select-only combobox (WAI-ARIA APG), not a native <select>: the trigger
+               shows the picked checkpoint — name, engine and twin badges, its figures as chips — and the
+               listbox under it the rows grouped by model family, the ✓ row, the row the pair RUNS, and a
+               row missing on a box greyed with the box named (operator, 2026-10-10: "Let's not use standard
+               select, use UX UI"; a native dropdown held nine 120-character lines). The <select> STAYS, read
+               by a screen reader never (aria-hidden, out of the tab order) and by the page always: it is the
+               state holder — value `<id>` or `<id>@uncensored`, the 'change' event, dataset.dirty — so
+               pickedRow, clusterChanges and the Start body read exactly what they read before (gateway.js
+               `renderModelChoice`, `pickerKeydown`). One accessible control, the combobox, carries the label. -->
+          <div class="chooser cs-model">
+            <label id="cluster-model-label" for="cluster-model-button">Model</label>
+            <div id="cluster-model-picker" class="model-picker">
+              <button id="cluster-model-button" class="mp-button" type="button" role="combobox" aria-haspopup="listbox"
+                      aria-expanded="false" aria-controls="cluster-model-list" aria-labelledby="cluster-model-label"
+                      aria-describedby="cluster-model-note"></button>
+              <div id="cluster-model-list" class="mp-list" role="listbox" aria-labelledby="cluster-model-label" hidden></div>
+            </div>
+            <select id="cluster-model" class="vh" aria-hidden="true" tabindex="-1"></select>
+            <span id="cluster-model-note" class="cs-note" hidden></span>
+            <!-- THE ESTIMATE, the operator's explicit choice (docs/design/engines.md): shown only for a model never
+                 measured on these cards, unchecked on every pick; a Start sends `estimated: true` only when checked. -->
+            <label id="cluster-estimated-row" class="cs-note" hidden><input id="cluster-estimated" type="checkbox">
+              start sized by the estimate — <span id="cluster-estimated-why"></span></label>
+          </div>
+          <!-- The scheduler's four, joined: one block, a hairline between rows. -->
+          <div class="cs-group">
+          <div class="chooser cs-field">
+            <div class="cs-head"><label for="cluster-seqs">Concurrency</label> <span class="cs-var">max_num_seqs</span></div>
+            <div class="cs-control">
+              <select id="cluster-seqs" aria-describedby="cluster-seqs-note cluster-recommended cluster-seqs-warn"></select>
+              <input id="cluster-seqs-custom" class="cs-custom" type="number" inputmode="numeric" min="1" max="48" step="1"
+                     aria-label="custom value for seqs" hidden>
+              <span class="cs-unit">seqs</span>
+            </div>
+            <span id="cluster-seqs-note" class="cs-note"></span>
+            <!-- What the start gate charges per seat above the model's own anchor: words AND tooltip are written
+                 by gateway.js from the estimate of the model in the picker ("not measured" for one nobody
+                 calibrated) — the same for the prefill budget and the PLE split below. -->
+            <span id="cluster-seqs-warn" class="cs-warn" hidden></span>
+          </div>
+          <div class="chooser cs-field">
+            <div class="cs-head"><label for="cluster-batched">Prefill budget</label> <span class="cs-var">max_num_batched_tokens</span></div>
+            <div class="cs-control">
+              <select id="cluster-batched" aria-describedby="cluster-batched-note cluster-batched-warn"></select>
+              <input id="cluster-batched-custom" class="cs-custom" type="number" inputmode="numeric" min="2048" max="65536" step="1"
+                     aria-label="custom value for batched" hidden>
+              <span class="cs-unit">tokens/step</span>
+            </div>
+            <span id="cluster-batched-note" class="cs-note"></span>
+            <span id="cluster-batched-warn" class="cs-warn" hidden></span>
+          </div>
+          <div class="chooser cs-field">
+            <div class="cs-head"><label for="cluster-context">Context</label> <span class="cs-var">max_model_len</span></div>
+            <div class="cs-control">
+              <select id="cluster-context" aria-describedby="cluster-context-note cluster-context-warn"></select>
+              <span class="cs-unit">tokens</span>
+            </div>
+            <span id="cluster-context-note" class="cs-note"></span>
+            <!-- A node whose window is not the one its fleet file declares: the fleet's, beside the node's. -->
+            <span id="cluster-context-warn" class="cs-warn" hidden></span>
+          </div>
+          <!-- A node the LB requests sets the share of its card vLLM may take; the pair pins its KV pool instead. -->
+          <div id="cluster-util-row" class="chooser cs-field" hidden>
+            <div class="cs-head"><label for="cluster-util">GPU memory</label> <span class="cs-var">gpu_memory_utilization</span></div>
+            <div class="cs-control">
+              <select id="cluster-util" aria-describedby="cluster-util-note cluster-fit"></select>
+              <span class="cs-unit">of the card</span>
+            </div>
+            <span id="cluster-util-note" class="cs-note"></span>
+          </div>
+          <div class="chooser cs-field">
+            <div class="cs-head"><label for="cluster-spec">Speculative tokens</label> <span class="cs-var">num_speculative_tokens</span></div>
+            <div class="cs-control">
+              <select id="cluster-spec" aria-describedby="cluster-spec-note"></select>
+              <span class="cs-unit">drafts/step</span>
+            </div>
+            <span id="cluster-spec-note" class="cs-note"></span>
+          </div>
+          </div>
+          <!-- The memory's three, joined the same way: the pool, where the PLE table sits, the disk tier. -->
+          <div class="cs-group">
+          <div class="chooser cs-field">
+            <div class="cs-head"><label for="cluster-kv">KV pool</label> <span class="cs-var">kv_cache_memory</span></div>
+            <div class="cs-control">
+              <select id="cluster-kv" aria-describedby="cluster-kv-note cluster-kv-warn"
+                      title="the KV pool per rank, pinned at launch; auto is sized at each Start to the RAM the boxes have left, keeping broker_parrot's floor under load"></select>
+              <span id="cluster-kv-unit" class="cs-unit">per rank</span>
+            </div>
+            <span id="cluster-kv-note" class="cs-note"></span>
+            <span id="cluster-kv-warn" class="cs-warn" hidden
+                  title="the pool is pinned and allocated up front, so every extra GiB is one the box must have free at launch; the estimate beside each box says what this pool needs and what the box has">pinned at launch &middot; must be free on every box</span>
+          </div>
+          <!-- The pool's element type (kv_cache_dtype): the options are what THIS server's engine image runs on its cards
+               (cluster.kv_cache_dtypes), a refused one disabled with the image's words; hidden for an LB that publishes none. -->
+          <div class="chooser cs-field" id="cluster-dtype-row" hidden>
+            <div class="cs-head"><label for="cluster-dtype">KV type</label> <span class="cs-var">kv_cache_dtype</span></div>
+            <div class="cs-control">
+              <select id="cluster-dtype" aria-describedby="cluster-dtype-note"
+                      title="the KV cache's element type: what the engine image accepts on this server's cards; applied by a restart"></select>
+            </div>
+            <span id="cluster-dtype-note" class="cs-note"></span>
+          </div>
+          <div class="chooser cs-field">
+            <div class="cs-head"><label for="cluster-ple">PLE table</label> <span class="cs-var">ple_replicate</span></div>
+            <div class="cs-control">
+              <select id="cluster-ple" aria-describedby="cluster-ple-note cluster-ple-warn"></select>
+            </div>
+            <span id="cluster-ple-note" class="cs-note"></span>
+            <span id="cluster-ple-warn" class="cs-warn" hidden></span>
+          </div>
+          <div class="chooser cs-field">
+            <div class="cs-head"><label for="cluster-offload">KV offload</label> <span id="cluster-offload-var" class="cs-var">kv_offload_gib</span></div>
+            <div class="cs-control">
+              <select id="cluster-offload" aria-describedby="cluster-offload-note cluster-offload-warn"></select>
+              <span id="cluster-offload-unit" class="cs-unit">NVMe</span>
+            </div>
+            <span id="cluster-offload-note" class="cs-note"></span>
+            <span id="cluster-offload-warn" class="cs-warn" hidden
+                  title="untested on this fleet: the config parses and the disk is writable, but no engine has ever started with it; if it fails at init BOTH ranks fail and the pair does not come up, which is why off is the default"><b>untested on this fleet</b> &middot; an init failure takes both ranks down</span>
+          </div>
+          </div>
+          <!-- The settings only an engine's declaration names (fleet.py NodeEngine; gateway.js renderDeclaredRows). -->
+          <div id="cluster-engine-fields" class="cs-group" hidden></div>
+        </div>
+        <!-- A node this LB only observes: what it says it runs with that has no field above — its engine, GPU memory
+             fraction, KV cache dtype, prefix caching, checkpoint and served name, each marked against its fleet file
+             where that declares it too — and what only the fleet file says (image, parsers), under those words
+             (gateway.js `renderObservedSettings`). -->
+        <!-- A node the LB requests: what the selection needs on the card, in the fleet's numbers — or its refusal. -->
+        <p id="cluster-fit" class="cs-facts cs-fit" aria-live="polite" hidden></p>
+        <p id="cluster-node-facts" class="cs-facts" hidden></p>
+        <p id="cluster-node-declared" class="cs-facts" hidden></p>
+        <!-- What the selection costs on each GB10 box, while it can still be changed (M8) — under the
+             choosers, as in the app; once the pair has launched, what each box really gave up beside it. -->
+        <div id="cluster-estimate" class="cluster-estimate" aria-live="polite"
+             aria-label="estimated memory per GB10 box for this selection" hidden></div>
+        <!-- Apply & restart while the cluster is switched on, Save for next start while it is off: the
+             button says which, and the line beside it lists exactly what it would send. -->
+        <div class="cs-actions">
+          <button id="cluster-apply" class="cluster-apply" type="button" hidden disabled>Apply &amp; restart</button>
+          <!-- Fills the fields with their defaults, as an edit: nothing is sent until the button above is. -->
+          <button id="cluster-defaults" class="cs-defaults" type="button" hidden disabled>Use defaults</button>
+          <span id="cluster-changes" class="cs-changes" aria-live="polite"></span>
+        </div>
+        <!-- A restart drops what the pair is serving and costs a cold start, so it is confirmed in words
+             that say so — inline, so the panel keeps polling underneath. -->
+        <div id="cluster-confirm" class="cluster-confirm" role="alertdialog" aria-modal="false"
+             aria-labelledby="cluster-confirm-title" aria-describedby="cluster-confirm-text" hidden>
+          <b id="cluster-confirm-title">Restart the pair at these settings?</b>
+          <p id="cluster-confirm-text"></p>
+          <div class="cc-buttons">
+            <button id="cluster-confirm-go" class="cc-go" type="button">Restart the pair</button>
+            <button id="cluster-confirm-cancel" class="cc-cancel" type="button">Cancel</button>
+          </div>
+        </div>
+        <span id="cluster-hint" class="cluster-hint" hidden>locked until off</span>
+      </details>
+
+      <!-- THE ONE PRIMARY ACTION for the state: Stop exactly while the switch is on, Start otherwise.
+           Press and HOLD for five seconds — the track along its bottom fills, then it is sent; let go
+           earlier and nothing is (gateway.js `holdButton`). Its label and tint are set per poll. -->
+      <div class="cp-action">
+        <!-- A local node's RAM estimate beside a running pair (cluster_run `_beside_problem`): an alert, Start proceeds. -->
+        <p id="cluster-alert" class="cp-alert" role="status" hidden></p>
+        <button id="cluster-toggle" class="hold start" type="button">
+          <span class="hold-fill" aria-hidden="true"></span>
+          <i class="hold-icon" aria-hidden="true"></i>
+          <span class="hold-label">Start server</span>
+          <span class="hold-pill">hold 5 s</span>
+          <span class="hold-track" aria-hidden="true"><i></i></span>
+        </button>
+        <p id="cluster-caption" class="cp-caption" hidden></p>
+        <!-- A node the LB requests that is finishing what it serves before a restart or a stop: send the same wish now,
+             cutting those requests (`force`). -->
+        <button id="cluster-force" class="cs-force" type="button" hidden>Cut them now</button>
+        <div id="cluster-error" class="cluster-error" role="alert" hidden></div>
+      </div>
+
+      <!-- THE TEST SWARM (benchswarm.py), as one row: a three-second hold asks for ONE deep-research
+           session against the model ALREADY LOADED — nothing is restarted, no setting is changed. The
+           gateway cannot start a host process, so a completed hold records a REQUEST that
+           the swarm runner (lb/bench_queue_runner.py, sealed in lb/bench_runner) performs; the lines under the button are data — the request
+           and its age until that runner answers, the running session's label and pids, how the last one
+           ended (minutes, exit code, counts). What a swarm IS, and what it never does, is the button's
+           title (gateway.js `renderSwarmControls`): the paragraph that stood here was prose under a
+           control. HOW LONG it runs is the chooser below, sent with the request (`cap_min`), and the track
+           along the button's bottom is that session's own clock against ITS OWN cap while one is up — a
+           two-hour run crawls where a quarter-hour one fills.
+           Whether a session PROCESS exists is the host runner's to say — a container cannot see
+           one, so this row never claims one on its own. The thirty-run matrix is NOT here and has no
+           control on this page: it restarts the pair per configuration for thirteen hours, and it is
+           started at the keyboard. Hidden until /lb/status carries a `swarm` block. -->
+      <div id="swarm" class="swarm" hidden>
+        <!-- HOW LONG, in minutes. Fifteen stays the default — it is what the host runner uses for a
+             request that names no duration — and the list offers the longer stretches beside it, with
+             `custom…` for any whole number this gateway accepts. THE RANGE IS NOT IN THIS MARKUP: the
+             min/max below are only what a page draws before its first poll lands, and gateway.js
+             `renderSwarmCap` resets them from /lb/status (`swarm.cap_min_range`), so the page can never
+             offer a duration the LB would refuse — the same way the cluster's knobs are offered from
+             `cluster.limits`. Locked while a swarm is up: the cap belongs to the session that is
+             running, and a field moving under one would say something untrue about it. -->
+        <div class="chooser cs-field">
+          <div class="cs-head"><label for="swarm-cap">Duration</label> <span class="cs-var">cap_min</span></div>
+          <div class="cs-control">
+            <select id="swarm-cap" aria-describedby="swarm-cap-note"></select>
+            <input id="swarm-cap-custom" class="cs-custom" type="number" inputmode="numeric" min="5" max="240" step="5"
+                   aria-label="custom duration in minutes" hidden>
+            <span class="cs-unit">min</span>
+          </div>
+          <span id="swarm-cap-note" class="cs-note"></span>
+        </div>
+        <button id="swarm-start" class="hold swarm" type="button">
+          <span class="hold-fill" aria-hidden="true"></span>
+          <i class="hold-icon" aria-hidden="true"></i>
+          <span class="hold-label">Start test swarm</span>
+          <span class="hold-pill">hold 3 s</span>
+          <span class="hold-track" aria-hidden="true"><i></i></span>
+        </button>
+        <p id="swarm-why" class="swarm-why" hidden></p>
+        <div id="swarm-state" class="swarm-state" aria-live="polite"></div>
+        <div id="swarm-error" class="swarm-error" role="alert" hidden></div>
+      </div>
+
+      <!-- Everything the planner sees on each GB10 box: its reservation, fleet jobs, broker vLLM, free
+           memory, its rank and its GPU's clock, power and temperature, and what is in its way. The
+           current step's facts above are the short of it; this is the whole of it. -->
+      <details id="cluster-boxes-more" class="cp-more">
+        <summary title="the planner's reading of each rank's box: reservation, broker jobs, free memory, rank, GPU clock; the hardware rings of every box are the section below">Planner &middot; per rank</summary>
+        <div id="cluster-boxes" class="cluster-boxes" aria-label="what the planner sees on each GB10 box"></div>
+      </details>
+    </section>
+
+      <!-- The selected server's head engine: generated, prompt and queue side by side, memory bandwidth and
+           compute under them, then the engine's figures (gateway.js `renderServers`). -->
+      <section id="lb-servers" data-ly="engine" data-ly-label="Throughput" class="servers" aria-label="the selected server's engine: throughput"></section>
+      <!-- REQUESTS (gateway.js `renderRequests`, /lb/status `queue`, scoped to the selected server's head by each row's
+           `backend` — `scopeQueue`): one row per turn the ENGINE is working on —
+           streaming, then prefill, then queued — as one dense table: state and time in it, why a queued turn waits
+           (request_queue.admission), client · session, model, messages / tools, prompt tokens · cached share, TTFT
+           (queue + prefill), decode events · rate, the thinking
+           share and tool_use blocks, the last byte, the box, one line of the prompt (shrinks first). Held turns
+           (sent to no server yet) and the finished are counts; the finished fold open from theirs. Hidden until
+           /lb/status has a `queue`. -->
+      <section id="lb-requests" data-ly="requests" data-ly-label="Requests" class="card requests" aria-labelledby="requests-title" hidden>
+        <div class="card-head rq-top">
+          <h2 id="requests-title" class="rq-title">Requests</h2>
+          <div id="requests-counts" class="rq-counts"></div>
+        </div>
+        <!-- Why the gateway's count and the engine's differ (gateway.js `engineGap`): one muted line, its slot always
+             drawn so the table under it never moves when the two agree again. -->
+        <p id="requests-gap" class="rq-gap"></p>
+        <!-- Each live row starts with a red × (gateway.js `newRequestRow`): HOLD it 1 s to kill that request
+             (POST /lb/requests/<id>/kill). What the kill did is said here for a screen reader, and in the row. -->
+        <p id="requests-kill-say" class="vh" role="status" aria-live="polite"></p>
+        <div class="rq-scroll">
+          <div id="requests-live" class="rq-table" aria-label="requests the engine is working on">
+            <div class="rq-row rq-head" aria-hidden="true"><span class="rq-state">state</span><span title="why a queued turn waits: seats full, KV full, deferred by the engine — or — when its figures prove none">wait</span><span>client</span><span class="rq-model">model</span><span class="rq-msgs" title="messages / tools">msg/tool</span><span title="prompt tokens · cached share">prompt</span><span title="time to first byte: queue + prefill">ttft</span><span title="≈ tok/s: derived — the engine's generated tok/s over its probe window, apportioned by each turn's content events in it · Δ ev: content events since message_start (not tokens)">decode</span><span class="rq-split" title="thinking share · tool_use blocks">split</span><span title="since the last byte · keepalives">last byte</span><span class="rq-box">box</span><span>text</span></div>
+          </div>
+        </div>
+        <details id="requests-recent" class="rq-recent" hidden>
+          <summary id="requests-recent-sum"></summary>
+          <div class="rq-scroll"><div id="requests-recent-list" class="rq-table rq-finished" aria-label="finished requests"></div></div>
+        </details>
+      </section>
+
+      <!-- IS THERE HEADROOM: the verdict word, then the readings it is made of, left to right — what each
+           box's GPU is doing, what the engine is producing in tokens, and the bandwidth and compute that costs.
+           The LB's reasoning (`because`) and what each group measures are titles on the verdict and the
+           groups, never rows. Hidden until the SELECTED server's view carries a `saturation` block — its own
+           figures (/lb/status.clusters[name], gateway.js `figureOf`), never another server's. The operator was once misled by a
+           96 % GPU tile, so this panel never states a ceiling it has not measured — it says which one is missing. -->
+      <details id="sat-section" data-ly="saturation" data-ly-label="Saturation" class="section" open hidden>
+        <summary><h2>Saturation</h2></summary>
+        <div id="cluster-saturation" class="sat" aria-live="polite"
+             aria-label="whether this server is saturated, and against which ceiling" hidden></div>
+      </details>
+
+    <!-- THE TRAY: a tile the layout hides is parked here, in the DOM, so what gateway.js draws into it keeps landing;
+         shown while arranging, each with its `show`. -->
+    <div id="layout-hidden" class="ly-hidden" hidden></div>
+  </main>
+
+  <!-- THE LAYOUT MENU (layout.js `openMenu`, built on first open): the templates /layouts/index.json names, Arrange,
+       Reset to template, Export (the state as JSON, to download or copy), Import (paste one). Non-modal: the page
+       keeps polling under it. -->
+  <dialog id="layout-menu" class="ly-menu" aria-label="layout"></dialog>
+
+  <!-- CONNECT AN AGENT: a modal dialog (Esc closes, focus stays inside), built by gateway.js on first open from the
+       page's own origin, the LB's live /v1/models, what /auth/session answers here and /lb/status `connect`. -->
+  <dialog id="connect" class="cn" aria-labelledby="connect-title"></dialog>
+
+  <script src="/clusters.js"></script>
+  <script src="/gateway.js"></script>
+  <script src="/recorder.js"></script>
+  <script src="/layout.js"></script>
+</body>
+</html>

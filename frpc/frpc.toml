@@ -1,0 +1,28 @@
+# vllm.example.com → the vLLM Gateway, served BY the LB on box-c:8010.
+#
+# A SEPARATE frp client from every other one on this box, registering exactly ONE subdomain,
+# so it cannot disturb an existing tunnel. Same rule every other frpc client on the box keeps.
+#
+# The token comes from the environment (frp's Go-template env support); no secret in this file.
+# frps routes by Host header (subdomain_host = example.com, vhost_http_port 8082), and
+# nginx on the edge fronts this hostname with basic auth — that auth is the ONLY thing between the
+# internet and a gateway that drives the fleet's GPUs, so it goes up BEFORE this tunnel does.
+
+serverAddr = "{{ .Envs.FRP_SERVER }}"
+serverPort = 7000
+auth.token = "{{ .Envs.FRP_TOKEN }}"
+loginFailExit = false
+
+# network_mode: host, so 127.0.0.1 here is the BOX. The LB publishes on 127.0.0.1:8010 (it
+# did NOT until this was fixed — it was on 0.0.0.0, i.e. the LAN and the tailnet) and
+# now serves the UI itself, so there is no second container and no relay: the browser and the
+# proxy are one process. The LB has NO authentication of its own, which is exactly why the
+# basic-auth vhost on the edge in front of this tunnel is load-bearing and must stay.
+# frp's http proxy passes the edge's Host through unchanged (no hostHeaderRewrite): the LB sees the public name, which
+# must be in its LB_ALLOWED_HOSTS (lb/.env), or it answers 421 (lb/vllm_lb/host_guard.py, the DNS-rebinding guard).
+[[proxies]]
+name = "vllm-gateway"
+type = "http"
+localIP = "127.0.0.1"
+localPort = 8010
+subdomain = "vllm"

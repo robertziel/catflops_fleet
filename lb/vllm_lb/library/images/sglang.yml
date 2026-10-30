@@ -1,0 +1,12 @@
+# THE IMAGE MATRIX for SGLang (vllm_lb/images.py): which image runs a BUILD of this engine on an ACCELERATOR for a CPU
+# PLATFORM. A recipe names its build; the resolver picks the image for the cluster's accelerator and platform, or
+# REFUSES naming the missing combination. ONE ENTRY PER LINE in this key order (deploy build scripts read it by grep).
+#
+# Each build is SGLang 708f51e + this project's patches (deploy/images/sglang: BASE + PATCHES build args), at the
+# patch generation its tag names: fleet.2 is the 27B DFlash2 row's, fleet.4 adds the QSA fp8 KV patch (Flash-Next).
+builds:
+  fleet.2: {source: "deploy/images/sglang at patch generation 2: SGLang 708f51e44bc6 (2026-09-09), image f6a09bc91a2e (kv_cache_dtypes.json)"}
+  fleet.4: {source: "deploy/images/sglang at patch generation 4: -fleet.3 + the qsa-fp8-kv patch (kv_cache_dtypes.json)"}
+images:
+  - {build: fleet.2, accelerator: nvidia-sm121, platform: linux/arm64, image: "myllmbox/sglang-27b-tp2:708f51e-fleet.2", source: "the catalog's pin for qwen3.8-27b-sglang-dflash2 until 2026-10-30; built on the pair from the GB10 arm64 base lmsysorg/sglang@sha256:00205b89 (deploy/images/build.sh sglang fleet.4 nvidia-sm121)"}
+  - {build: fleet.4, accelerator: nvidia-sm121, platform: linux/arm64, image: "myllmbox/sglang-27b-tp2:708f51e-fleet.4", source: "the catalog's pin for qwen3.8-flash-next-sglang until 2026-10-30; built on the pair from the GB10 arm64 base lmsysorg/sglang@sha256:00205b89 (deploy/images/build.sh sglang fleet.4 nvidia-sm121)"}

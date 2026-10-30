@@ -1,0 +1,8 @@
+# TensorFold — an ENGINE's capabilities (vllm_lb/engine_library.py): what checkpoints it serves, as data. Its BEHAVIOUR
+# is code: catalog.py ENGINE_REFUSES[tensorfold] / TENSORFOLD_*, tp-rank `tensorfold_cmd`. Its KV dtypes are its
+# images' (kv_cache_dtypes.json). Every figure {value, source}.
+name: TensorFold
+facts:
+  formats: {value: [hf], source: "TensorFold reads a Hugging Face folder's config.json and safetensors itself (the mia-ai recipe: 'the engine reads the format from config.json'; worklog/tensorfold-spike.md)"}
+  architectures: {value: [Qwen4ExpForConditionalGeneration], source: "TensorFold zig-flashnext (db281878) is the Qwen3.8 Flash-Next engine — its native server implements that one model family (worklog/tensorfold-spike.md, the recipe's scripts/config.sh), and 0.6.6 serves the same family's MLX build; Flash-Next's config.json names Qwen4ExpForConditionalGeneration (worklog/vllm-cluster-ram-headroom.md)"}
+  quant_formats: {value: [modelopt, mlx], source: "each served on this project's pair 2026-10-29 (worklog/tensorfold-spike.md): modelopt (nvidia/Qwen3.8-Flash-Next-NVFP4 on the native engine), mlx (TensorFold/Qwen3.8-Flash-Next-MLX-4bit-MTP on 0.6.6)"}

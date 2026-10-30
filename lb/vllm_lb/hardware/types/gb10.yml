@@ -1,0 +1,27 @@
+# NVIDIA GB10 — the DGX Spark superchip: a Blackwell GPU beside 20 Arm cores on ONE pool of LPDDR5X they share.
+# A hardware TYPE (vllm_lb/hardware/profiles.py loads it): every figure is {value, source} — value null means no
+# source states it, and the source then says why. Peaks are one GPU's, DENSE, at the precision named.
+name: NVIDIA GB10 (DGX Spark)
+# The behaviour family (profiles.py): the GPU's memory IS the box's RAM — nvidia-smi has no VRAM of its own to
+# report ([N/A]), and the box's MemAvailable is the GPU's free memory.
+memory: unified
+# What its kernels target (vllm_lb/hardware/accelerators/<key>.yml): its arch and gpu_runtime are the
+# accelerator's, one place per value — shared with every product of its architecture.
+accelerator: nvidia-sm121
+# The cluster control methods proven on it (the fleet file's `clusters.<name>.control`): lb/cluster/tp-rank is
+# written for DGX Spark pairs — arm64 images, sm_121a kernels, each box's MemAvailable as its GPU's memory. local: a
+# one-host node (deploy/standalone/up.sh node) — a Parakeet node on NeMo (2026-10-24).
+controls: [ssh, local]
+facts:
+  memory_gb: {value: 128, source: "NVIDIA DGX Spark User Guide, Hardware Overview (docs.nvidia.com/dgx/dgx-spark/hardware.html): '128 GB LPDDR5x unified system memory' (the product page also lists a 64 GB OEM configuration)"}
+  cuda_cores: {value: 6144, source: "NVIDIA DGX Spark User Guide, Hardware Overview (docs.nvidia.com/dgx/dgx-spark/hardware.html): CUDA cores '6,144'"}
+  peak_gbps: {value: 273, source: "NVIDIA DGX Spark User Guide, Hardware Overview (docs.nvidia.com/dgx/dgx-spark/hardware.html): '256-bit interface, 4266 MHz, 273 GB/s bandwidth' — a nameplate, not a measurement"}
+  host_platform: {value: linux/arm64, source: "NVIDIA DGX Spark User Guide, Hardware Overview (docs.nvidia.com/dgx/dgx-spark/hardware.html): '20-core Arm processor (10 Cortex-X925 + 10 Cortex-A725)' — the GB10 superchip carries the box's CPU, so its images are arm64"}
+  bandwidth_counter: {value: false, source: "vllm_lb/saturation.py: 'a GB10 has no DRAM counter' — and nvidia-smi's memory duty, the one memory reading it has, measured 0 at 96 % SM fill on both boxes of this project's pair (2026-09-29)"}
+  visible_gib: {value: null, source: "not measured: no vLLM boot log on a GB10 in this project has printed its start check (the pair is launched by tp-rank, and a one-card start check is not run on it here)"}
+  free_at_start_gib: {value: null, source: "no constant of the type: on unified memory vLLM reads the free memory at start as the box's available RAM at that moment (psutil virtual_memory().available, vllm/utils/mem_utils.py:143-151 @2eb491e) — the box's, not the chip's"}
+  mfu_patch_loads: {value: true, source: "lb/cluster/tp-rank injects the modelopt_mixed byte size into each rank's vLLM (CLUSTER_MFU_QUANT_FIX=1, tp-rank:93-99, its heredoc) on every pair start on a GB10 pair since 2026-10 — the FLOP/s and GB/s the panel reads off them"}
+  peak_tflops:
+    bf16: {value: 96.5, source: "measured on ONE idle GB10 of this project's pair, 2026-09-30, the pair stopped: torch.matmul bf16, 96.5 TFLOP/s per GPU (lb/docker-compose.yml SATURATION note, the measurement that set LB_GPU_PEAK_TFLOPS)"}
+    fp8: {value: 188.3, source: "measured on ONE idle GB10 of this project's pair, 2026-09-30, the pair stopped: torch._scaled_mm fp8, 188.3 TFLOP/s per GPU (lb/docker-compose.yml SATURATION note)"}
+    nvfp4: {value: 323.2, source: "measured on ONE idle GB10 of this project's pair, 2026-09-30, the pair stopped: flashinfer.mm_fp4 (CUTLASS) at 4096^3, 323.2 TFLOP/s per GPU (worklog/bench/prefill_probe.py NVFP4_PEAK_TFLOPS; lb/docker-compose.yml SATURATION note) — NVIDIA states only 'up to 1 PFLOP at FP4 precision with sparsity' (DGX Spark User Guide)"}

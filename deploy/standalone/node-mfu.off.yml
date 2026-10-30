@@ -1,0 +1,5 @@
+# deploy/standalone/node-mfu.off.yml -- the node WITHOUT the MFU byte-size patch (EDGE_NODE_MFU_PATCH=off): its
+# checkpoint's quant method needs no byte size vLLM lacks, so nothing is mounted and the image's own PYTHONPATH stands.
+# See node-mfu.on.yml.
+services:
+  node: {}

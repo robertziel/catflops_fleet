@@ -1,0 +1,23 @@
+# TYPE transcription_requests_running gauge
+transcription_requests_running 4
+# TYPE transcription_requests_waiting gauge
+transcription_requests_waiting 0
+# TYPE transcription_seats gauge
+transcription_seats 4
+# TYPE transcription_queue_capacity gauge
+transcription_queue_capacity 10
+# TYPE transcription_requests_total counter
+transcription_requests_total{outcome="ok"} 7
+transcription_requests_total{outcome="silence"} 0
+transcription_requests_total{outcome="failed"} 0
+transcription_requests_total{outcome="rejected_busy"} 2
+transcription_requests_total{outcome="rejected_queue_full"} 0
+transcription_requests_total{outcome="rejected_deferred"} 0
+# TYPE transcription_audio_seconds_total counter
+transcription_audio_seconds_total 2913.604
+# TYPE transcription_processing_seconds summary
+transcription_processing_seconds_sum 79.97054028511047
+transcription_processing_seconds_count 7
+# TYPE transcription_gpu_memory_bytes gauge
+transcription_gpu_memory_bytes{region="gtt"} 2920800256
+transcription_gpu_memory_bytes{region="vram"} 1376256

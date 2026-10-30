@@ -1,0 +1,27 @@
+# deploy/standalone/node-gpu.rocm.yml -- the node's card attached the ROCm way. up.sh adds this file when the node's
+# EDGE_NODE_GPU_RUNTIME is `rocm` (the serving card's hardware type states it: lb/vllm_lb/hardware/types/*.yml
+# `gpu_runtime`; `python -m vllm_lb.fleet node-env` renders it). Never started on its own.
+#
+# AMD ROCm documentation, "Running ROCm Docker containers" (rocm.docs.amd.com/projects/install-on-linux/en/latest/
+# how-to/docker.html, read 2026-10-17): a container reaches AMD GPUs through /dev/kfd (the compute interface, shared
+# by all GPUs) and /dev/dri (one DRI render node per GPU), run with seccomp unconfined. The host's device nodes are
+# owned by its video and render groups, which the container's user joins BY NUMERIC GID (EDGE_NODE_VIDEO_GID,
+# EDGE_NODE_RENDER_GID: the host's own, per host) — by name docker resolves the group in the IMAGE's /etc/group, and
+# rocm/vllm's has no `render` ("Unable to find group render", 2026-10-17). Which card the engine computes on is
+# ROCR_VISIBLE_DEVICES, the card's index (the fleet's), as EDGE_NODE_GPU carries it.
+#
+# PROVEN 2026-10-17 on a gfx1151 (Radeon 8060S): rocm/vllm@sha256:394194d3… (vLLM 0.19.1, AMD's gfx1151 build) served
+# a 2B Qwen3-VL with these devices, these groups, seccomp unconfined and no HSA_OVERRIDE_GFX_VERSION.
+# The image is the fleet's `launch.image` (EDGE_NODE_IMAGE) -- a ROCm build, pinned by digest -- never chosen here.
+services:
+  node:
+    devices:
+      - /dev/kfd
+      - /dev/dri
+    group_add:
+      - "${EDGE_NODE_VIDEO_GID:?set in deploy/standalone/.env: the host's numeric video gid (getent group video)}"
+      - "${EDGE_NODE_RENDER_GID:?set in deploy/standalone/.env: the host's numeric render gid (getent group render)}"
+    security_opt:
+      - seccomp=unconfined
+    environment:
+      ROCR_VISIBLE_DEVICES: "${EDGE_NODE_GPU:?set in deploy/standalone/.env}"

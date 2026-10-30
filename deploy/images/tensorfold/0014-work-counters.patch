@@ -1,0 +1,758 @@
+diff --git a/zig/src/core/engine_api.zig b/zig/src/core/engine_api.zig
+index ec26b4a9..3f47a52c 100644
+--- a/zig/src/core/engine_api.zig
++++ b/zig/src/core/engine_api.zig
+@@ -148,6 +148,9 @@ pub const Opened = struct { engine: Engine, close: *const fn (ctx: *anyopaque) v
+ 
+ pub const Memory = struct { active: u64 = 0, cache: u64 = 0, peak: u64 = 0 };
+ 
++/// What a backend's counter saw (core/lanes/counting.zig, fleet patch 0014).
++pub const Work = lanes.Work;
++
+ pub const Status = struct {
+     /// Requests in prefill or decode, and those waiting for a lane.
+     running: u32 = 0,
+@@ -161,6 +164,8 @@ pub const Status = struct {
+     streams: usize = 0,
+     /// Generated tokens held by live streams, excluding their prompts.
+     generation_tokens: u64 = 0,
++    /// The backend's passes, rows, prompt tokens and busy time so far (fleet patch 0014); null when nothing counts them.
++    work: ?lanes.Work = null,
+ };
+ 
+ pub const SubmitError = error{ Closed, Busy };
+diff --git a/zig/src/core/lane_host.zig b/zig/src/core/lane_host.zig
+index 5f873844..8118333c 100644
+--- a/zig/src/core/lane_host.zig
++++ b/zig/src/core/lane_host.zig
+@@ -37,6 +37,7 @@ pub const LaneHost = struct {
+     lone: ?api.Lone = null, // the backend's driver for a lone greedy stream; null: every stream in the lane core
+     lone_job: ?*Job = null, // the job that driver holds now
+     cache: ?*pc.Store = null, // kept prompt states (engine thread only); the backend restores and saves them
++    work: ?*const lanes.Counting = null, // the core's backend wrapped in a counter (native/cuda.zig): /metrics reads it
+ 
+     const Mark = struct { at: i96, tokens: u64 };
+     const window_ns: i96 = 2 * std.time.ns_per_s;
+@@ -172,6 +173,7 @@ pub const LaneHost = struct {
+             .preemptions = 0,
+             .streams = n,
+             .generation_tokens = h.live_generated,
++            .work = if (h.work) |c| c.work() else null,
+         };
+     }
+ 
+diff --git a/zig/src/core/lanes/backend.zig b/zig/src/core/lanes/backend.zig
+index 0cc0ad4b..ba73a585 100644
+--- a/zig/src/core/lanes/backend.zig
++++ b/zig/src/core/lanes/backend.zig
+@@ -7,6 +7,10 @@ const Held = @import("stream.zig").Held;
+ /// A filling stream's state after a prefill_step.
+ pub const FillState = enum { filling, done, cancelled };
+ 
++/// The prompt work a backend did since it loaded (fleet patch 0014): its prompt chunks, each one forward of the target
++/// over the chunk's rows, and the prompt tokens they computed (restored states excluded). Cumulative.
++pub const PromptWork = struct { passes: u64 = 0, tokens: u64 = 0 };
++
+ /// A token to feed: one the backend drew and holds (a handle), or a host value (forced or pending).
+ pub const Feed = union(enum) { handle: u64, value: u32 };
+ 
+@@ -85,6 +89,8 @@ pub const Backend = struct {
+         /// `prefill` does it, ending at the same state; the core then joins each. `error.BurstRefused`: nothing ran
+         /// (a stream was refused or the burst does not fit one pass), prefill them one at a time.
+         prefill_many: ?*const fn (ptr: *anyopaque, streams: []const *Stream) anyerror!void = null,
++        /// The backend's prompt work so far (null: it keeps no count); read on the engine thread after a prompt call.
++        prompt_work: ?*const fn (ptr: *anyopaque) PromptWork = null,
+     };
+ 
+     pub fn prefill(b: Backend, s: *Stream) !void {
+diff --git a/zig/src/core/lanes/counting.zig b/zig/src/core/lanes/counting.zig
+new file mode 100644
+index 00000000..6b3fe383
+--- /dev/null
++++ b/zig/src/core/lanes/counting.zig
+@@ -0,0 +1,337 @@
++//! The work a backend did, counted where the round loop hands it over (fleet patch 0014): forward passes of each kind,
++//! the rows a decode pass verified and the context it attended to, the prompt tokens computed and restored, and the
++//! seconds the loop spent inside the backend. `Counting` wraps any backend and forwards every call unchanged; the
++//! HTTP threads read `work()` while the engine thread counts (atomics: no lock on the round's path).
++const std = @import("std");
++const be = @import("backend.zig");
++const Stream = @import("stream.zig").Stream;
++
++/// What /metrics publishes (server/metrics.zig). `prompt_passes`/`prompt_tokens` are the backend's own count of its
++/// prompt chunks (`backend.PromptWork`), null when it keeps none: a chunk is the backend's, not the loop's, to see.
++pub const Work = struct {
++    /// verify and one-token rounds: each is one forward of the target over every stream's window
++    decode_passes: u64 = 0,
++    /// rows those forwards verified (a stream's pending token and its drafts), summed over streams
++    verify_rows: u64 = 0,
++    /// the last decode pass: its streams, the rows it verified and the context tokens they attend to (summed)
++    last_streams: u64 = 0,
++    last_rows: u64 = 0,
++    last_context: u64 = 0,
++    /// prompt chunks run (each a full forward over its rows) and the prompt tokens they computed
++    prompt_passes: ?u64 = null,
++    prompt_tokens: ?u64 = null,
++    /// prompt tokens restored from kept states instead of computed (each stream's `cached` at its prompt pass)
++    cached_tokens: u64 = 0,
++    /// wall seconds the round loop spent inside the backend's calls (the GPU's work and the host's around it)
++    busy_seconds: f64 = 0,
++};
++
++const A = std.atomic.Value(u64);
++
++pub const Counting = struct {
++    inner: be.Backend,
++    vtable: be.Backend.VTable = undefined,
++    decode_passes: A = .init(0),
++    verify_rows: A = .init(0),
++    last_streams: A = .init(0),
++    last_rows: A = .init(0),
++    last_context: A = .init(0),
++    prompt_passes: A = .init(0),
++    prompt_tokens: A = .init(0),
++    cached_tokens: A = .init(0),
++    busy_ns: A = .init(0),
++
++    pub fn init(inner: be.Backend) Counting {
++        return .{ .inner = inner };
++    }
++
++    /// The counts so far, safe from any thread.
++    pub fn work(c: *const Counting) Work {
++        const known = c.inner.vtable.prompt_work != null;
++        return .{
++            .decode_passes = c.decode_passes.load(.monotonic),
++            .verify_rows = c.verify_rows.load(.monotonic),
++            .last_streams = c.last_streams.load(.monotonic),
++            .last_rows = c.last_rows.load(.monotonic),
++            .last_context = c.last_context.load(.monotonic),
++            .prompt_passes = if (known) c.prompt_passes.load(.monotonic) else null,
++            .prompt_tokens = if (known) c.prompt_tokens.load(.monotonic) else null,
++            .cached_tokens = c.cached_tokens.load(.monotonic),
++            .busy_seconds = @as(f64, @floatFromInt(c.busy_ns.load(.monotonic))) / 1e9,
++        };
++    }
++
++    /// The wrapped backend: every call forwarded as is, the optional ones only where the inner one has them.
++    pub fn backend(c: *Counting) be.Backend {
++        const v = c.inner.vtable;
++        c.vtable = .{
++            .prefill = prefill,
++            .first = first,
++            .queue = queue,
++            .read = read,
++            .verify = verify,
++            .keep = keep,
++            .draft = draft,
++            .unspeculate = if (v.unspeculate != null) unspeculate else null,
++            .probabilities = if (v.probabilities != null) probabilities else null,
++            .tree = if (v.tree != null) tree else null,
++            .alternatives = if (v.alternatives != null) alternatives else null,
++            .release = release,
++            .prefill_begin = if (v.prefill_begin != null) prefillBegin else null,
++            .prefill_step = if (v.prefill_step != null) prefillStep else null,
++            .prefill_many = if (v.prefill_many != null) prefillMany else null,
++            .prompt_work = v.prompt_work,
++        };
++        return .{ .ptr = c, .vtable = &c.vtable };
++    }
++
++    fn of(p: *anyopaque) *Counting {
++        return @ptrCast(@alignCast(p));
++    }
++
++    fn now() u64 {
++        var ts: std.c.timespec = undefined;
++        if (std.c.clock_gettime(.MONOTONIC, &ts) != 0) return 0;
++        return @as(u64, @intCast(ts.sec)) * std.time.ns_per_s + @as(u64, @intCast(ts.nsec));
++    }
++
++    fn since(c: *Counting, t0: u64) void {
++        const t1 = now();
++        if (t1 > t0 and t0 > 0) _ = c.busy_ns.fetchAdd(t1 - t0, .monotonic);
++    }
++
++    /// The backend's own prompt-chunk count, copied after each prompt call (on the engine thread, so never torn).
++    fn notePrompt(c: *Counting) void {
++        const pw = c.inner.vtable.prompt_work orelse return;
++        const w = pw(c.inner.ptr);
++        c.prompt_passes.store(w.passes, .monotonic);
++        c.prompt_tokens.store(w.tokens, .monotonic);
++    }
++
++    fn noteDecode(c: *Counting, streams: u64, rows: u64, context: u64) void {
++        _ = c.decode_passes.fetchAdd(1, .monotonic);
++        _ = c.verify_rows.fetchAdd(rows, .monotonic);
++        c.last_streams.store(streams, .monotonic);
++        c.last_rows.store(rows, .monotonic);
++        c.last_context.store(context, .monotonic);
++    }
++
++    fn prefill(p: *anyopaque, s: *Stream) anyerror!void {
++        const c = of(p);
++        const t0 = now();
++        defer c.since(t0);
++        defer c.notePrompt();
++        try c.inner.vtable.prefill(c.inner.ptr, s);
++        _ = c.cached_tokens.fetchAdd(s.cached, .monotonic);
++    }
++
++    fn prefillBegin(p: *anyopaque, s: *Stream) anyerror!void {
++        const c = of(p);
++        const t0 = now();
++        defer c.since(t0);
++        defer c.notePrompt();
++        try c.inner.vtable.prefill_begin.?(c.inner.ptr, s);
++        _ = c.cached_tokens.fetchAdd(s.cached, .monotonic);
++    }
++
++    fn prefillStep(p: *anyopaque, ss: []const *Stream, states: []be.FillState) anyerror!void {
++        const c = of(p);
++        const t0 = now();
++        defer c.since(t0);
++        defer c.notePrompt();
++        return c.inner.vtable.prefill_step.?(c.inner.ptr, ss, states);
++    }
++
++    fn prefillMany(p: *anyopaque, ss: []const *Stream) anyerror!void {
++        const c = of(p);
++        const t0 = now();
++        defer c.since(t0);
++        defer c.notePrompt();
++        try c.inner.vtable.prefill_many.?(c.inner.ptr, ss);
++        for (ss) |s| _ = c.cached_tokens.fetchAdd(s.cached, .monotonic);
++    }
++
++    fn first(p: *anyopaque, s: *Stream, position: u64) anyerror!u64 {
++        const c = of(p);
++        const t0 = now();
++        defer c.since(t0);
++        return c.inner.vtable.first(c.inner.ptr, s, position);
++    }
++
++    /// A one-token round: one row for this stream, attending to its cache.
++    fn queue(p: *anyopaque, s: *Stream, feed: be.Feed, position: u64) anyerror!u64 {
++        const c = of(p);
++        const t0 = now();
++        defer c.since(t0);
++        const h = try c.inner.vtable.queue(c.inner.ptr, s, feed, position);
++        c.noteDecode(1, 1, s.cache_len);
++        return h;
++    }
++
++    fn read(p: *anyopaque, handle: u64) anyerror!u32 {
++        const c = of(p);
++        const t0 = now();
++        defer c.since(t0);
++        return c.inner.vtable.read(c.inner.ptr, handle);
++    }
++
++    /// One forward over every window: the decode pass.
++    fn verify(p: *anyopaque, windows: []const be.Window, out: []be.Verified) anyerror!void {
++        const c = of(p);
++        const t0 = now();
++        defer c.since(t0);
++        try c.inner.vtable.verify(c.inner.ptr, windows, out);
++        var rows: u64 = 0;
++        var context: u64 = 0;
++        for (windows) |w| {
++            rows += w.rows();
++            context += w.stream.cache_len;
++        }
++        c.noteDecode(windows.len, rows, context);
++    }
++
++    fn keep(p: *anyopaque, windows: []const be.Window, paths: []const []const u32) anyerror!void {
++        const c = of(p);
++        const t0 = now();
++        defer c.since(t0);
++        return c.inner.vtable.keep(c.inner.ptr, windows, paths);
++    }
++
++    fn draft(p: *anyopaque, requests: []const be.DraftRequest) anyerror!void {
++        const c = of(p);
++        const t0 = now();
++        defer c.since(t0);
++        return c.inner.vtable.draft(c.inner.ptr, requests);
++    }
++
++    fn unspeculate(p: *anyopaque, s: *Stream) anyerror!void {
++        const c = of(p);
++        return c.inner.vtable.unspeculate.?(c.inner.ptr, s);
++    }
++
++    fn release(p: *anyopaque, s: *Stream) void {
++        const c = of(p);
++        c.inner.vtable.release(c.inner.ptr, s);
++    }
++
++    fn probabilities(p: *anyopaque, s: *Stream, out: []f64) anyerror!bool {
++        const c = of(p);
++        return c.inner.vtable.probabilities.?(c.inner.ptr, s, out);
++    }
++
++    fn tree(p: *anyopaque, s: *Stream, gpa: std.mem.Allocator) anyerror!?@import("stream.zig").Held {
++        const c = of(p);
++        return c.inner.vtable.tree.?(c.inner.ptr, s, gpa);
++    }
++
++    fn alternatives(p: *anyopaque, s: *Stream, out: []be.Alternative) anyerror!usize {
++        const c = of(p);
++        return c.inner.vtable.alternatives.?(c.inner.ptr, s, out);
++    }
++};
++
++/// A backend that only records what reached it, with a prompt-chunk count of its own.
++const Stub = struct {
++    verified: usize = 0,
++    prompt: be.PromptWork = .{},
++    with_prompt_work: bool = true,
++
++    fn of(p: *anyopaque) *Stub {
++        return @ptrCast(@alignCast(p));
++    }
++    fn prefill(p: *anyopaque, s: *Stream) anyerror!void {
++        const st = of(p);
++        s.cached = 2;
++        st.prompt.passes += 2;
++        st.prompt.tokens += s.prompt_len - 2;
++    }
++    fn first(_: *anyopaque, _: *Stream, _: u64) anyerror!u64 {
++        return 0;
++    }
++    fn queue(_: *anyopaque, _: *Stream, _: be.Feed, _: u64) anyerror!u64 {
++        return 1;
++    }
++    fn read(_: *anyopaque, _: u64) anyerror!u32 {
++        return 7;
++    }
++    fn verify(p: *anyopaque, _: []const be.Window, _: []be.Verified) anyerror!void {
++        of(p).verified += 1;
++    }
++    fn keep(_: *anyopaque, _: []const be.Window, _: []const []const u32) anyerror!void {}
++    fn draft(_: *anyopaque, _: []const be.DraftRequest) anyerror!void {}
++    fn release(_: *anyopaque, _: *Stream) void {}
++    fn promptWork(p: *anyopaque) be.PromptWork {
++        return of(p).prompt;
++    }
++    const with_vt: be.Backend.VTable = .{ .prefill = prefill, .first = first, .queue = queue, .read = read, .verify = verify, .keep = keep, .draft = draft, .release = release, .prompt_work = promptWork };
++    const without_vt: be.Backend.VTable = .{ .prefill = prefill, .first = first, .queue = queue, .read = read, .verify = verify, .keep = keep, .draft = draft, .release = release };
++    fn backend(st: *Stub) be.Backend {
++        return .{ .ptr = st, .vtable = if (st.with_prompt_work) &with_vt else &without_vt };
++    }
++};
++
++test "counting forwards every call and counts passes, rows, context and prompt work" {
++    const gpa = std.testing.allocator;
++    var stub: Stub = .{};
++    var c = Counting.init(stub.backend());
++    const b = c.backend();
++    var s = try Stream.init(gpa, .{ .id = "a", .prompt = &.{ 1, 2, 3, 4, 5, 6 }, .max_new = 4 });
++    defer s.deinit(gpa);
++    var t = try Stream.init(gpa, .{ .id = "b", .prompt = &.{ 1, 2, 3 }, .max_new = 4 });
++    defer t.deinit(gpa);
++    try b.prefill(&s);
++    try std.testing.expectEqual(@as(u32, 2), s.cached);
++    s.cache_len = 6;
++    t.cache_len = 3;
++    const ws = [_]be.Window{
++        .{ .stream = &s, .pending = 0, .held = 2, .tokens = &.{}, .parents = null, .positions = &.{} },
++        .{ .stream = &t, .pending = 0, .held = 0, .tokens = &.{9}, .parents = null, .positions = &.{} },
++    };
++    var out: [2]be.Verified = undefined;
++    try b.verify(&ws, &out);
++    try std.testing.expectEqual(@as(usize, 1), stub.verified);
++    try std.testing.expectEqual(@as(u32, 7), try b.read(try b.queue(&t, .{ .value = 1 }, 3)));
++    const w = c.work();
++    try std.testing.expectEqual(@as(u64, 2), w.decode_passes); // the verify and the one-token round
++    try std.testing.expectEqual(@as(u64, 3 + 2 + 1), w.verify_rows);
++    try std.testing.expectEqual(@as(u64, 1), w.last_streams);
++    try std.testing.expectEqual(@as(u64, 1), w.last_rows);
++    try std.testing.expectEqual(@as(u64, 3), w.last_context);
++    try std.testing.expectEqual(@as(?u64, 2), w.prompt_passes);
++    try std.testing.expectEqual(@as(?u64, 4), w.prompt_tokens);
++    try std.testing.expectEqual(@as(u64, 2), w.cached_tokens);
++    try std.testing.expect(w.busy_seconds >= 0);
++}
++
++test "a verify's gauges are that pass's: streams, rows and summed context" {
++    const gpa = std.testing.allocator;
++    var stub: Stub = .{};
++    var c = Counting.init(stub.backend());
++    const b = c.backend();
++    var s = try Stream.init(gpa, .{ .id = "a", .prompt = &.{ 1, 2 }, .max_new = 4 });
++    defer s.deinit(gpa);
++    s.cache_len = 100;
++    var t = try Stream.init(gpa, .{ .id = "b", .prompt = &.{ 1, 2 }, .max_new = 4 });
++    defer t.deinit(gpa);
++    t.cache_len = 50;
++    const ws = [_]be.Window{
++        .{ .stream = &s, .pending = 0, .held = 3, .tokens = &.{}, .parents = null, .positions = &.{} },
++        .{ .stream = &t, .pending = 0, .held = 1, .tokens = &.{}, .parents = null, .positions = &.{} },
++    };
++    var out: [2]be.Verified = undefined;
++    try b.verify(&ws, &out);
++    const w = c.work();
++    try std.testing.expectEqual(@as(u64, 2), w.last_streams);
++    try std.testing.expectEqual(@as(u64, 4 + 2), w.last_rows);
++    try std.testing.expectEqual(@as(u64, 150), w.last_context);
++}
++
++test "a backend that counts no prompt chunks leaves them unknown, not zero" {
++    var stub: Stub = .{ .with_prompt_work = false };
++    var c = Counting.init(stub.backend());
++    const b = c.backend();
++    try std.testing.expect(b.vtable.prompt_work == null);
++    const w = c.work();
++    try std.testing.expectEqual(@as(?u64, null), w.prompt_passes);
++    try std.testing.expectEqual(@as(?u64, null), w.prompt_tokens);
++}
+diff --git a/zig/src/core/lanes/lanes.zig b/zig/src/core/lanes/lanes.zig
+index c524d81a..8decc2d1 100644
+--- a/zig/src/core/lanes/lanes.zig
++++ b/zig/src/core/lanes/lanes.zig
+@@ -20,6 +20,7 @@ pub const windows = @import("windows.zig");
+ pub const trail = @import("trail.zig");
+ pub const engine = @import("engine.zig");
+ pub const fake = @import("fake.zig");
++pub const counting = @import("counting.zig");
+ 
+ pub const Engine = engine.Engine;
+ pub const Config = config.Config;
+@@ -28,9 +29,12 @@ pub const Stream = stream.Stream;
+ pub const Media = stream.Media;
+ pub const Sampling = sampling.Sampling;
+ pub const SuffixLookup = proposer.SuffixLookup;
++pub const Counting = counting.Counting;
++pub const Work = counting.Work;
+ 
+ test {
+     std.testing.refAllDecls(@This());
+     _ = @import("engine_test.zig");
+     _ = @import("gpu_full_test.zig");
++    _ = @import("counting.zig");
+ }
+diff --git a/zig/src/families/flashnext/cuda_engine.zig b/zig/src/families/flashnext/cuda_engine.zig
+index 9f2ec3a3..f04ec49f 100644
+--- a/zig/src/families/flashnext/cuda_engine.zig
++++ b/zig/src/families/flashnext/cuda_engine.zig
+@@ -345,6 +345,8 @@ pub const Engine = struct {
+     vm: ?vmm.Vmm = null,
+     /// the fill whose chunk holds the prompt buffers between slices (one at a time; prefill waits for it)
+     pfill: ?*const Fill = null,
++    /// prompt chunks run and the prompt tokens they computed (fleet patch 0014: /metrics, via the lane backend)
++    prompt_work: lanes.backend.PromptWork = .{},
+     graphs: std.AutoHashMapUnmanaged(GraphKey, cuda.graph.Exec) = .empty,
+     captures: usize = 0,
+     /// a failed capture, instantiate or upload is not fatal: that round runs eagerly (the same bits) and captures
+@@ -968,6 +970,7 @@ pub const Engine = struct {
+                 }
+             }
+             try e.f.commit(seq, pb, R, R);
++            e.notePromptChunk(R);
+             if (o.keep_at) |k| if (end == k and kept == null) {
+                 // the MTP head's length one short: a resume absorbs the next prompt's own token at row k - 1
+                 const snap = try e.snapshot(seq, if (use_mtp and !final) seq.st.mtp_len - 1 else seq.st.mtp_len, seq.last_streams.?.ptr);
+@@ -994,6 +997,12 @@ pub const Engine = struct {
+         return .{ .first = first[0], .kept = kept };
+     }
+ 
++    /// One prompt chunk committed: a forward of the target over `rows` prompt tokens.
++    fn notePromptChunk(e: *Engine, rows: usize) void {
++        e.prompt_work.passes += 1;
++        e.prompt_work.tokens += rows;
++    }
++
+     /// Where a prompt chunk from `start` ends: prefill_rows on, or the prompt's end when that is at most
+     /// prefill_tail rows further.
+     fn chunkEnd(e: *const Engine, start: usize, len: usize) usize {
+@@ -1067,6 +1076,9 @@ pub const Engine = struct {
+             }
+         }
+         for (prompts, segs[0..n]) |p, sg| try e.f.commitAt(p.seq, pb, sg.a1 - sg.a0, sg.a1 - sg.a0, sg.a0);
++        var burst_rows: usize = 0;
++        for (segs[0..n]) |sg| burst_rows += sg.a1 - sg.a0;
++        e.notePromptChunk(burst_rows); // one pass over every prompt's rows
+         for (prompts, 0..) |p, i| {
+             const s: ?lanes.Sampling = if (p.sampling) |x| (if (x.temperature > 0) x else null) else null;
+             try e.drawRows(lg, pb.b.cand_all, n, i, 1, p.prompt.len, s, firsts[i .. i + 1]);
+@@ -1171,6 +1183,7 @@ pub const Engine = struct {
+                 try e.f.setMtpLen(&seq.st, seq.st.mtp_len + nxt.len);
+             }
+             try e.f.commit(seq, pb, R, R);
++            e.notePromptChunk(R);
+             if (fl.keep_at) |k| if (fl.end == k and fl.kept == null) {
+                 const snap = try e.snapshot(seq, if (fl.use_mtp and !final) seq.st.mtp_len - 1 else seq.st.mtp_len, seq.last_streams.?.ptr);
+                 fl.kept = snap;
+diff --git a/zig/src/families/flashnext/cuda_lanes.zig b/zig/src/families/flashnext/cuda_lanes.zig
+index d6408c95..1a6b28f0 100644
+--- a/zig/src/families/flashnext/cuda_lanes.zig
++++ b/zig/src/families/flashnext/cuda_lanes.zig
+@@ -197,6 +197,7 @@ pub fn Lanes(comptime E: type) type {
+                 .release = releaseFn,
+                 .prefill_begin = prefillBeginFn,
+                 .prefill_step = prefillStepFn,
++                .prompt_work = if (@hasField(E, "prompt_work")) promptWorkFn else null,
+             } };
+             return .{ .ptr = self, .vtable = &.{
+                 .prefill = prefillFn,
+@@ -209,9 +210,15 @@ pub fn Lanes(comptime E: type) type {
+                 .tree = heldFn,
+                 .release = releaseFn,
+                 .prefill_many = if (@hasDecl(E, "prefillMany")) prefillManyFn else null,
++                .prompt_work = if (@hasField(E, "prompt_work")) promptWorkFn else null,
+             } };
+         }
+ 
++        /// The engine's prompt chunks so far (fleet patch 0014): /metrics reads them through the lane core's counter.
++        fn promptWorkFn(ptr: *anyopaque) be.PromptWork {
++            return of(ptr).e.prompt_work;
++        }
++
+         // -- prompts filling between rounds (the lanes core's prefill_begin / prefill_step) --------------------
+ 
+         /// The prefill's admission and agreements, its resume made, the first segment's fill started.
+diff --git a/zig/src/families/flashnext/cuda_mirror.zig b/zig/src/families/flashnext/cuda_mirror.zig
+index 82c257a3..b6b107b6 100644
+--- a/zig/src/families/flashnext/cuda_mirror.zig
++++ b/zig/src/families/flashnext/cuda_mirror.zig
+@@ -983,6 +983,7 @@ pub const Leader = struct {
+             .prefill_step = if (v.prefill_begin != null and v.prefill_step != null) prefillStepFn else null,
+             .prefill_many = if (v.prefill_many != null) prefillManyFn else null,
+             .release = releaseFn,
++            .prompt_work = if (v.prompt_work != null) promptWorkFn else null,
+         };
+         return .{ .ptr = self, .vtable = &self.vtable };
+     }
+@@ -1007,6 +1008,12 @@ pub const Leader = struct {
+         };
+     }
+ 
++    /// A read of this rank's own count: nothing goes to rank 1 (fleet patch 0014).
++    fn promptWorkFn(p: *anyopaque) be.PromptWork {
++        const self = of(p);
++        return self.inner.vtable.prompt_work.?(self.inner.ptr);
++    }
++
+     fn prefillBeginFn(p: *anyopaque, s: *Stream) anyerror!void {
+         const self = of(p);
+         try self.open.put(self.gpa, keyOf(s), {});
+diff --git a/zig/src/native/cuda.zig b/zig/src/native/cuda.zig
+index f1af70cd..cf4671cf 100644
+--- a/zig/src/native/cuda.zig
++++ b/zig/src/native/cuda.zig
+@@ -73,6 +73,8 @@ const Host = struct {
+     clock: lanes.backend.WallClock,
+     core: lanes.Engine,
+     host: api.LaneHost,
++    /// the core's backend wrapped in a counter (fleet patch 0014): its passes, rows and busy time reach /metrics
++    counting: lanes.Counting,
+     /// kept prompt states, for families whose backend keeps them (Loaded.cache)
+     store: ?api.prompt_cache.Store = null,
+     store_vt: api.prompt_cache.Snapshots.VTable = undefined,
+@@ -198,6 +200,12 @@ const Host = struct {
+                     return x.inner.vtable.prefill_many.?(x.inner.ptr, ss);
+                 }
+             }.f else null,
++            .prompt_work = if (v.prompt_work != null) struct {
++                fn f(p: *anyopaque) lanes.backend.PromptWork {
++                    const x: *Host = @ptrCast(@alignCast(p));
++                    return x.inner.vtable.prompt_work.?(x.inner.ptr);
++                }
++            }.f else null,
+         };
+         return .{ .ptr = h, .vtable = &h.vtable };
+     }
+@@ -283,9 +291,11 @@ fn openWith(comptime F: type, a: Allocator, gpa: Allocator, io: std.Io, o: api.O
+     h.cfg = try lanes.Config.init(gpa, loaded.facts, loaded.rows, loaded.rows - 1);
+     errdefer h.cfg.deinit(gpa);
+     h.clock = .{ .io = io };
+-    h.core = lanes.Engine.init(gpa, &h.cfg, h.backend(), h.clock.clock());
++    h.counting = lanes.Counting.init(h.backend());
++    h.core = lanes.Engine.init(gpa, &h.cfg, h.counting.backend(), h.clock.clock());
+     errdefer h.core.deinit();
+     h.host = api.LaneHost.init(gpa, io, &h.core, .{ .lanes = o.lanes, .context_window = @intCast(window), .prefill_step = F.prefill_step, .call_gates = true, .media = @hasDecl(F, "media") and F.media });
++    h.host.work = &h.counting;
+     h.store = null;
+     if (@hasField(@TypeOf(loaded), "cache")) if (loaded.cache) |c| if (c.budget > 0) {
+         // the family keeps and restores the states; the store picks them (exact reuse, core/prompt_cache.zig)
+diff --git a/zig/src/server/chat.zig b/zig/src/server/chat.zig
+index 81b63c16..be8ca9a2 100644
+--- a/zig/src/server/chat.zig
++++ b/zig/src/server/chat.zig
+@@ -232,7 +232,7 @@ pub fn generate(srv: *Server, cx: *Cx, prepared: Prepared, sink: ?Sink, gone: an
+     release(srv, preparing); // a background request waits only while a foreground one prepares
+     preparing = false;
+     var gen: Generation = .{ .srv = srv, .a = a, .box = &box, .id = id, .reply_id = input.id, .sink = sink, .thinking = thinking or reply_text.isChannel(srv.markers), .stops = .{ .strings = stops_opt.strings }, .ignore_eos = stops_opt.ignore_eos, .max_tokens = request.max_tokens, .tools = input.tools };
+-    defer srv.noteRequest(prepared.prompt_len, gen.collected.items.len, box.stats.drafted, box.stats.accepted, box.stats.rounds, received, gen.first_ns, gen.last_ns, box.stats.prefill_seconds);
++    defer srv.noteRequest(prepared.prompt_len, box.cached orelse 0, gen.collected.items.len, box.stats.drafted, box.stats.accepted, box.stats.rounds, received, gen.first_ns, gen.last_ns, box.stats.prefill_seconds);
+     errdefer if (!gen.engine_done) gen.cancel(); // the engine writes to the mailbox until it says finished
+     const result: Failure!Reply = blk: {
+         if (sink != null and input.tools.len > 0) gen.calls = tool_stream.Streamer.init(a, input.tools) catch |e| break :blk e;
+diff --git a/zig/src/server/metrics.zig b/zig/src/server/metrics.zig
+index 4b6e8dc9..bcf2753d 100644
+--- a/zig/src/server/metrics.zig
++++ b/zig/src/server/metrics.zig
+@@ -36,6 +36,8 @@ pub const Metrics = struct {
+     gpa: std.mem.Allocator,
+     mutex: std.Io.Mutex = .init,
+     prompt: u64 = 0,
++    /// prompt tokens computed by finished requests whose prompt pass was timed (`prefill`): restored ones excluded
++    prefill_computed: u64 = 0,
+     generation: u64 = 0,
+     drafted: u64 = 0,
+     accepted: u64 = 0,
+@@ -48,7 +50,7 @@ pub const Metrics = struct {
+     tpot: TpotHistogram = .{},
+     requests: std.ArrayList(struct { key: []const u8, status: u16, count: u64 }) = .empty,
+ 
+-    pub fn note(m: *Metrics, io: std.Io, prompt: usize, generation: usize, drafted: u64, accepted: u64, rounds: u64, latency: f64, ttft: ?f64, decode: ?f64, prefill: ?f64, tpot: ?f64) void {
++    pub fn note(m: *Metrics, io: std.Io, prompt: usize, cached: usize, generation: usize, drafted: u64, accepted: u64, rounds: u64, latency: f64, ttft: ?f64, decode: ?f64, prefill: ?f64, tpot: ?f64) void {
+         m.mutex.lockUncancelable(io);
+         defer m.mutex.unlock(io);
+         m.prompt += prompt;
+@@ -59,7 +61,10 @@ pub const Metrics = struct {
+         m.latency.observe(latency);
+         if (ttft) |t| m.ttft.observe(t);
+         if (decode) |d| m.decode.observe(d);
+-        if (prefill) |p| m.prefill.observe(p);
++        if (prefill) |p| {
++            m.prefill.observe(p);
++            m.prefill_computed += prompt -| cached;
++        }
+         if (tpot) |t| m.tpot.observe(t);
+     }
+ 
+@@ -125,6 +130,8 @@ pub const Metrics = struct {
+         try histogram(w, "request_time_per_output_token_seconds", "Seconds from the first generated token to the last, divided by the tokens less one.", snap.tpot);
+         try gauge(w, "decode_rounds_total", "counter", "Decode rounds used by finished requests.", snap.rounds);
+         try histogram(w, "request_prefill_seconds", "Seconds a finished request's prompt pass took.", snap.prefill);
++        try gauge(w, "request_prefill_computed_tokens_total", "counter", "Prompt tokens computed (restored ones excluded) by the finished requests request_prefill_seconds timed.", snap.prefill_computed);
++        if (status.work) |work| try renderWork(w, work);
+         if (footprint()) |bytes| try gauge(w, "process_footprint_bytes", "gauge", "This process's physical footprint as the OS counts it, Metal buffers included; only where the platform reports one (macOS).", bytes);
+         try gauge(w, "num_requests_running", "gauge", "Requests in prefill or decode. A mirror of tensorfold:requests_running.", status.running);
+         try gauge(w, "num_requests_waiting", "gauge", "Requests queued or held until a lane is free. A mirror of tensorfold:requests_waiting.", status.waiting);
+@@ -140,6 +147,24 @@ pub const Metrics = struct {
+     }
+ };
+ 
++/// The backend's own work (fleet patch 0014, core/lanes/counting.zig): passes of each kind, what the last decode pass
++/// carried, prompt tokens computed and restored, busy seconds. A count the backend does not keep is left out, never 0.
++fn renderWork(w: *std.Io.Writer, work: api.Work) !void {
++    try gauge(w, "decode_passes_total", "counter", "Decode forwards: verify rounds over every stream's window, and one-token rounds.", work.decode_passes);
++    if (work.prompt_passes) |n| try gauge(w, "prompt_passes_total", "counter", "Prompt chunks run, each one forward of the target over its rows.", n);
++    if (work.prompt_tokens) |n| try gauge(w, "prompt_tokens_computed_total", "counter", "Prompt tokens those chunks computed (restored states excluded).", n);
++    try gauge(w, "prompt_tokens_cached_total", "counter", "Prompt tokens restored from kept states instead of computed.", work.cached_tokens);
++    try gauge(w, "verify_rows_total", "counter", "Rows the decode forwards verified (each stream's pending token and drafts), summed over streams.", work.verify_rows);
++    try gauge(w, "decode_streams", "gauge", "Streams in the last decode forward.", work.last_streams);
++    try gauge(w, "decode_context_tokens", "gauge", "Context tokens the last decode forward's streams attend to, summed.", work.last_context);
++    var buf: [40]u8 = undefined;
++    const width: f64 = if (work.last_streams == 0) 0 else @as(f64, @floatFromInt(work.last_rows)) / @as(f64, @floatFromInt(work.last_streams));
++    try family(w, "verify_width", "gauge", "Rows a stream carried in the last decode forward (its pending token and drafts), averaged over its streams.");
++    try w.print("{s}verify_width {s}\n", .{ prefix, num(&buf, width) });
++    try family(w, "busy_seconds_total", "counter", "Seconds the round loop spent inside the backend's calls.");
++    try w.print("{s}busy_seconds_total {s}\n", .{ prefix, num(&buf, work.busy_seconds) });
++}
++
+ fn family(w: *std.Io.Writer, name: []const u8, kind: []const u8, help: []const u8) !void {
+     try w.print("# HELP {s}{s} {s}\n# TYPE {s}{s} {s}\n", .{ prefix, name, help, prefix, name, kind });
+ }
+@@ -205,7 +230,7 @@ test "edges and numbers" {
+ test "metrics record rounds prefill and per-token timing" {
+     const gpa = std.testing.allocator;
+     var m: Metrics = .{ .gpa = gpa };
+-    m.note(std.testing.io, 10, 3, 0, 0, 2, 1.0, null, null, 0.25, m.tpotValue(1_000_000_000, 1_024_000_000, 3));
++    m.note(std.testing.io, 10, 4, 3, 0, 0, 2, 1.0, null, null, 0.25, m.tpotValue(1_000_000_000, 1_024_000_000, 3));
+     try std.testing.expectEqual(@as(u64, 2), m.rounds);
+     try std.testing.expectEqual(@as(u64, 1), m.prefill.n);
+     try std.testing.expectEqual(@as(u64, 1), m.tpot.n);
+@@ -242,7 +267,7 @@ const RenderStub = struct {
+ test "render exposes live counters, rounds, prefill and TPOT without cache family" {
+     const gpa = std.testing.allocator;
+     var m: Metrics = .{ .gpa = gpa };
+-    m.note(std.testing.io, 10, 3, 0, 0, 2, 1.0, null, null, 0.25, m.tpotValue(1_000_000_000, 3_000_000_000, 3));
++    m.note(std.testing.io, 10, 4, 3, 0, 0, 2, 1.0, null, null, 0.25, m.tpotValue(1_000_000_000, 3_000_000_000, 3));
+     var stub: RenderStub = .{};
+     var out: std.Io.Writer.Allocating = .init(gpa);
+     defer out.deinit();
+@@ -279,7 +304,7 @@ test "metrics snapshot allocation failure releases the mutex" {
+     try std.testing.expect(failing.has_induced_failure);
+     failing.fail_index = std.math.maxInt(usize);
+     m.httpRequest(io, "client", 200);
+-    m.note(io, 10, 3, 0, 0, 2, 1.0, null, null, 0.25, null);
++    m.note(io, 10, 4, 3, 0, 0, 2, 1.0, null, null, 0.25, null);
+     try m.render(io, &out.writer, stub.engine(), 4096);
+     try std.testing.expect(std.mem.indexOf(u8, out.written(), "requests_total{key=\"client\",status=\"200\"} 2") != null);
+     try std.testing.expect(std.mem.indexOf(u8, out.written(), "prompt_tokens_total 10") != null);
+@@ -310,3 +335,53 @@ test "request counter append failure frees its label" {
+     try std.testing.expectEqual(@as(u64, 2), m.requests.items[0].count);
+     try std.testing.expectEqual(allocations, failing.allocations);
+ }
++
++test "render publishes the backend's work when it counts it, and the requests' computed prompt" {
++    const gpa = std.testing.allocator;
++    var m: Metrics = .{ .gpa = gpa };
++    m.note(std.testing.io, 10, 4, 3, 0, 0, 2, 1.0, null, null, 0.25, null);
++    m.note(std.testing.io, 50, 0, 3, 0, 0, 2, 1.0, null, null, null, null); // untimed prompt pass: not in the sum
++    var stub: RenderStub = .{};
++    stub.status_value.work = .{ .decode_passes = 7, .verify_rows = 30, .last_streams = 2, .last_rows = 5, .last_context = 900, .prompt_passes = 3, .prompt_tokens = 6000, .cached_tokens = 128, .busy_seconds = 1.5 };
++    var out: std.Io.Writer.Allocating = .init(gpa);
++    defer out.deinit();
++    try m.render(std.testing.io, &out.writer, stub.engine(), 4096);
++    const body = out.written();
++    for ([_][]const u8{
++        "tensorfold:request_prefill_computed_tokens_total 6\n",
++        "tensorfold:decode_passes_total 7\n",
++        "tensorfold:prompt_passes_total 3\n",
++        "tensorfold:prompt_tokens_computed_total 6000\n",
++        "tensorfold:prompt_tokens_cached_total 128\n",
++        "tensorfold:verify_rows_total 30\n",
++        "tensorfold:decode_streams 2\n",
++        "tensorfold:decode_context_tokens 900\n",
++        "tensorfold:verify_width 2.5\n",
++        "tensorfold:busy_seconds_total 1.5\n",
++    }) |want| try std.testing.expect(std.mem.indexOf(u8, body, want) != null);
++}
++
++test "render leaves out a work count the backend does not keep" {
++    const gpa = std.testing.allocator;
++    var m: Metrics = .{ .gpa = gpa };
++    var stub: RenderStub = .{};
++    stub.status_value.work = .{ .decode_passes = 1 };
++    var out: std.Io.Writer.Allocating = .init(gpa);
++    defer out.deinit();
++    try m.render(std.testing.io, &out.writer, stub.engine(), 4096);
++    const body = out.written();
++    try std.testing.expect(std.mem.indexOf(u8, body, "tensorfold:decode_passes_total 1\n") != null);
++    try std.testing.expect(std.mem.indexOf(u8, body, "prompt_passes_total") == null);
++    try std.testing.expect(std.mem.indexOf(u8, body, "prompt_tokens_computed_total") == null);
++}
++
++test "an engine that counts no work publishes no work family" {
++    const gpa = std.testing.allocator;
++    var m: Metrics = .{ .gpa = gpa };
++    var stub: RenderStub = .{};
++    var out: std.Io.Writer.Allocating = .init(gpa);
++    defer out.deinit();
++    try m.render(std.testing.io, &out.writer, stub.engine(), 4096);
++    try std.testing.expect(std.mem.indexOf(u8, out.written(), "decode_passes_total") == null);
++    try std.testing.expect(std.mem.indexOf(u8, out.written(), "busy_seconds_total") == null);
++}
+diff --git a/zig/src/server/server.zig b/zig/src/server/server.zig
+index d383b628..85e4c0c8 100644
+--- a/zig/src/server/server.zig
++++ b/zig/src/server/server.zig
+@@ -200,10 +200,10 @@ pub const Server = struct {
+     }
+ 
+     /// Counts one finished request for /metrics.
+-    pub fn noteRequest(srv: *Server, prompt_len: usize, generated: usize, drafted: u64, accepted: u64, rounds: u64, received: i96, first: ?i96, last: ?i96, prefill: ?f64) void {
++    pub fn noteRequest(srv: *Server, prompt_len: usize, cached: usize, generated: usize, drafted: u64, accepted: u64, rounds: u64, received: i96, first: ?i96, last: ?i96, prefill: ?f64) void {
+         const now = clock.nowNs(srv.io);
+         const tpot = srv.metrics.tpotValue(first, last, generated);
+-        srv.metrics.note(srv.io, prompt_len, generated, drafted, accepted, rounds, @max(0, clock.seconds(now - received)), if (first) |f| clock.seconds(f - received) else null, if (first) |f| @max(0, clock.seconds(now - f)) else null, prefill, tpot);
++        srv.metrics.note(srv.io, prompt_len, cached, generated, drafted, accepted, rounds, @max(0, clock.seconds(now - received)), if (first) |f| clock.seconds(f - received) else null, if (first) |f| @max(0, clock.seconds(now - f)) else null, prefill, tpot);
+     }
+ 
+     /// Accepts connections until ``stop`` is set, each on its own thread.

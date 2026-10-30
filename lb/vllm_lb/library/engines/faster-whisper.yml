@@ -1,0 +1,7 @@
+# faster-whisper — an ENGINE's capabilities (vllm_lb/engine_library.py): what checkpoints it serves, as data. Its
+# BEHAVIOUR is code: fleet.py FasterWhisperEngine. Every figure {value, source}.
+name: faster-whisper
+facts:
+  formats: {value: [ctranslate2], source: "faster-whisper loads a CTranslate2 conversion (model.bin + config.json with no `architectures`; github.com/SYSTRAN/faster-whisper README, 'converted with ct2-transformers-converter') — read 2026-10-30 in faster-whisper-large-v3-turbo's own folder"}
+  architectures: {value: [], source: "a CTranslate2 conversion names no Hugging Face architecture (its config.json carries alignment_heads, lang_ids … and no `architectures`): the format is what faster-whisper is checked against"}
+  quant_formats: {value: [none], source: "the CTranslate2 checkpoints served on this fleet are unquantised (float16 weights); the compute type is the launch's own (fleet.py COMPUTE), not a checkpoint format"}

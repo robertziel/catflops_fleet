@@ -1,0 +1,10 @@
+# NVIDIA Blackwell at compute capability 12.0 — the GeForce RTX 50-series (RTX 5090). An ACCELERATOR
+# (vllm_lb/hardware/accelerators.py): what an engine's KERNELS are compiled for and can run, shared by every card type
+# that names it. Every figure is {value, source}; value null = no source states it, and the source says why.
+name: NVIDIA Blackwell, compute capability 12.0 (sm_120)
+facts:
+  arch: {value: sm_120, source: "NVIDIA, CUDA GPUs compute capability list (developer.nvidia.com/cuda-gpus): 'GeForce RTX 5090 … 12.0'; the product page: 'CUDA Capability 12.0'. Not sm_121: an image compiled for 12.1a (this repo's GB10 images) does not run here (CUDA C++ Programming Guide, Feature Availability)"}
+  gpu_runtime: {value: nvidia, source: "an NVIDIA CUDA GPU: a container reaches it through Docker's NVIDIA device reservation (the NVIDIA Container Toolkit) — deploy/standalone/node-gpu.nvidia.yml, the reservation this repo's one-card node has run with since its first start"}
+  platforms: {value: [linux/amd64], source: "the hosts this accelerator has run in on this project: the standalone RTX 5090 node is an x86-64 box (lb/fleet.one-host.example.yml `platform: linux/amd64`, the node's vllm/vllm-openai amd64 image since 2026-10-11). A discrete card in an Arm host is not established here: add linux/arm64 with its source when one runs"}
+  precisions: {value: [bf16, fp16, fp8, nvfp4], source: "NVIDIA RTX Blackwell GPU Architecture whitepaper v1.1 (2025), Appendix A, Table 3: Peak BF16 / FP8 / FP4 Tensor TFLOPS 209.5 / 419 / 1676 (dense) for the RTX 5090; fp16 is the Tensor Cores' base type (CUDA C++ Programming Guide, Warp Matrix Functions)"}
+  quant_formats: {value: [none, modelopt_mixed], source: "each served on this project's RTX 5090 node: modelopt_mixed (Qwen3.8-27B NVFP4, vllm/vllm-openai 2eb491e, since ab270fe 2026-10-11), none (unquantised: MAI-UI-2B and Whisper large-v3-turbo on vLLM, faster-whisper's CTranslate2 checkpoints, 2026-10-17..24). Other formats are not established on this card"}

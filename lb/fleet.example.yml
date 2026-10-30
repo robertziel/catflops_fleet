@@ -1,0 +1,82 @@
+# THE FLEET FILE — what this deployment IS: its boxes, every card in each, which cards serve, its clusters and its
+# plain classic servers. vllm_lb/fleet.py validates it at start and REFUSES the start, naming the value, on anything
+# missing, unknown or inconsistent: no defaults, no auto-detection.
+#
+#   cp fleet.example.yml fleet.yml && $EDITOR fleet.yml     # lb/fleet.yml is gitignored, like lb/.env
+#
+# docker-compose.yml mounts lb/fleet.yml read-only at /etc/vllm-lb/fleet.yml (LB_FLEET); a missing file fails the
+# start. How the deployment is WIRED (ports, the broker DB, secrets) stays in lb/.env. A value lives in ONE place.
+#
+# This example: a TP=2 pair of DGX Sparks the LB drives over SSH, a classic server on one of them, and a box that
+# only sends hardware telemetry. lb/fleet.one-host.example.yml: one box with two cards and a one-host cluster.
+# Addresses are documentation ranges (RFC 5737); names are placeholders.
+
+boxes:                              # every box: its name is what leases, parks and the panel call it
+  box-a:
+    hostname: box-a-host            # as the hardware sender reports it (the box's own hostname)
+    label: box-a-gpu                # its GPU lane: what its servers are called and a broker claim stamps
+    platform: linux/arm64           # the CPU its images are built for (linux/amd64 | linux/arm64); a GB10 is Arm
+    ssh: operator@192.0.2.10        # how the LB reaches it — only a box an ssh-controlled cluster runs on
+    cards:                          # EVERY card, by nvidia-smi index; a type is a file in vllm_lb/hardware/types/
+      - {index: 0, type: gb10, serves: true}
+  box-b:
+    hostname: box-b-host
+    label: box-b-gpu
+    platform: linux/arm64
+    ssh: operator@192.0.2.11
+    cards:
+      - {index: 0, type: gb10, serves: true}
+  box-c:
+    hostname: box-c-host            # telemetry only: no server runs here, so no card serves
+    platform: linux/amd64
+    cards:
+      - {index: 0, type: radeon8060s, serves: false}
+
+clusters:                           # one engine across ranks; TP is the serving cards of its ranks' boxes
+  pair:
+    control: ssh                    # ssh: the LB starts and stops it (lb/cluster/tp-rank over SSH); none: routes only;
+    iface: bond0                     # the NIC the ranks talk over (NCCL_SOCKET_IFNAME); its address is each rank's interconnect
+    link: roce                       # how the ranks' GPUs are joined: roce (NCCL over RDMA) or ethernet (NCCL sockets) — tp-rank opens
+                                     # /dev/infiniband only for roce
+                                    # local: one host's node the LB requests and that host applies (no SSH)
+    url: http://192.0.2.10:8100     # the head rank's API
+    ram_usable_fraction: 0.98   # what a start may take of each box's MemTotal; the rest is the one reserve
+    max_num_batched_tokens: 8192    # the prefill budget (vLLM --max-num-batched-tokens, 2048-65536) a launch uses when
+                                    # neither the panel's knob nor the model's catalog row (tuned / engine_args) says
+    # default: true                 # PER TASK (chat; transcription): of a task's SEVERAL clusters exactly one says
+                                    # so — where a request of that task naming no model, or a name no cluster serves,
+                                    # goes (alone; an upload's name is its form's `model`). A task's one cluster is its
+                                    # default; leave the key out. run_at_boot (true/false) is required per cluster when
+                                    # several.
+    ranks:                          # HEAD FIRST: rank 0 serves the API
+      - {box: box-a, interconnect: 198.51.100.1}   # the address the ranks talk over (ssh clusters only)
+      - {box: box-b, interconnect: 198.51.100.2}
+
+backends:                           # plain classic servers the LB dials: one per box, on that box's serving cards
+  box-a: {url: http://192.0.2.10:8000}
+  box-b: {url: http://192.0.2.11:8000}
+
+# WHERE EACH MODEL'S FILES SIT in this deployment, relative to the models roots (lb/.env MODELS_SEARCH_DIRS; a
+# standalone node's EDGE_MODELS_DIR). The model library (vllm_lb/library) says what a model IS and how it launches;
+# where you staged it is yours. A model not named here is not staged: the panel does not offer it, and a Start of it is
+# refused naming this key. `uncensored`: its abliterated twin, beside it; `draft`: a drafter that is its own checkpoint.
+checkpoints:
+  qwen3.8-flash-next-hibrid48: {path: qwen38-flash-next-cluster/Qwen3.8-Flash-Next-hibrid48, uncensored: qwen38-flash-next-cluster/Qwen3.8-Flash-Next-hibrid48_uncensored}
+  qwen3.8-flash-next-sglang: {path: qwen38-flash-next-cluster/Qwen3.8-Flash-Next-hibrid48, uncensored: qwen38-flash-next-cluster/Qwen3.8-Flash-Next-hibrid48_uncensored}
+  qwen3.8-flash-next-tensorfold-nvfp4: {path: tensorfold-hf/hub/models--nvidia--Qwen3.8-Flash-Next-NVFP4/snapshots/fc694b54fb0174e0913e6adf86691ef85a4ead47}
+  qwen3.8-flash-next-tensorfold-mlx-mtp: {path: tensorfold-hf/hub/models--TensorFold--Qwen3.8-Flash-Next-MLX-4bit-MTP/snapshots/2b170fa6309d5d1ee380b35636075fac7945f286}
+  qwen3.8-27b-nvidia-nvfp4: {path: Qwen3.8-27B-NVFP4, uncensored: Qwen3.8-27B-NVFP4_uncensored}
+  qwen3.8-27b-nvfp4: {path: base.qwen3.8-dense-nvfp4-vllm}
+  qwen3.8-27b-dflash2: {path: dflash2-27b-tp2/Qwen3.8-27B-NVFP4-bf16head, draft: dflash2-27b-tp2/Qwen3.8-27B-DFlash2}
+  qwen3.8-27b-sglang-dflash2: {path: Qwen3.8-27B-NVFP4, uncensored: Qwen3.8-27B-NVFP4_uncensored, draft: Qwen3.8-27B-DFlash2}
+  glm-5.3-flash-nvfp4: {path: glm53-flash-cluster/GLM-5.3-Flash-NVFP4}
+  deepseek-v4-flash-nvfp4: {path: deepseek-v4-flash-cluster/DeepSeek-V4-Flash-0731-NVFP4}
+  mai-ui-2b: {path: MAI-UI-2B}
+  whisper-large-v3-turbo: {path: whisper-large-v3-turbo}
+  faster-whisper-large-v3-turbo: {path: faster-whisper-large-v3-turbo}
+  faster-whisper-large-v3: {path: faster-whisper-large-v3}
+  parakeet-tdt-0.6b-v3: {path: parakeet-tdt-0.6b-v3}
+
+# REFERENCE BLUEPRINTS (lb/vllm_lb/library/blueprints: the project's proven setups by hardware type) are no key of this
+# file: the setup wizard proposes a blueprint's settings as this deployment's answers (SETUP.md; render.py --prefill),
+# and what it renders is the settings themselves. A fleet still naming `blueprint` or `blueprints` is refused at boot.

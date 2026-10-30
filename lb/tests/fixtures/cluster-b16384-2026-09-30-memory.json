@@ -1,0 +1,65 @@
+{
+  "what": "What a larger PREFILL BUDGET (max_num_batched_tokens) costs one rank in unified memory, and the incident that made it matter. Every number below is a measurement or a quoted log line; nothing here is modelled. The estimator calibrated on 2026-09-15 (cluster-e2e-2026-09-15-memory.json) was blind to this knob, so batched 8192 and batched 16384 produced the identical verdict 103.2 / 97.7 GiB.",
+
+  "boxes": {
+    "note": "box-a and box-b are NVIDIA GB10 (DGX Spark, hostname box-b-host). CPU and GPU share ONE LPDDR5X pool, so a CUDA allocation failure and host memory exhaustion are the same event seen from two sides, and MemAvailable is a legitimate signal for it.",
+    "mem_total_gib": 121.7,
+    "mem_total_source": "/lb/status hardware.box-a.ram_total_mb 124610 (mem_unified true); `free -g` on the recovered box read total 121, available 117 (operator, 2026-09-30 after recovery)"
+  },
+
+  "batched_8192": {
+    "source": "worklog/fixtures/gateway-knobs/lb-status-live-pre-knobs.json — a real /lb/status capture, 2026-09-30T04:15:31Z, generation 52 SERVING, max_num_seqs 8, max_model_len 262144, prefill budget at its default 8192 (the operator's knob was null, and tp-rank's own default is 8192).",
+    "generation": 52,
+    "max_num_seqs": 8,
+    "max_num_batched_tokens": 8192,
+    "max_model_len": 262144,
+    "mem_at_launch_gib": {"box-a": 115.7, "box-b": 116.6},
+    "mem_available_gib": {"box-a": 9.1, "box-b": 12.7},
+    "actual_used_gib": {"box-a": 106.6, "box-b": 103.9},
+    "estimated_total_gib": {"box-a": 103.2, "box-b": 97.7},
+    "deviation_pct": {"box-a": -3.2, "box-b": -6.0},
+    "verdict": "SAFE. This is the configuration the operator restored as the original and ran for weeks (seqs 8, batched 8192, spec 4, ctx 262144). It leaves 9.1 GiB free on the head."
+  },
+
+  "batched_16384": {
+    "source": "Two independent records of the SAME box in the SAME role. (1) The low-water mark, committed in this repo at lb/vllm_lb/static/index.html as the panel's own hint beside the knob: \"measured: 16,384 gave -24 % prefill vs 8,192 and left box-a ~0.8 GiB free\" — from the 2026-09-30 real-prompt A/B series, which ran max_num_seqs 8, 16 and 24. (2) A live sample the operator took during generation 68 (max_num_seqs 16): box-a 4.2 GiB, box-b 7.2 GiB MemAvailable against mem_at_launch ~116 GiB.",
+    "generations": [68, 79],
+    "generations_source": "lb/state/perf-archive-2026-09-30T2020-two-topic-restart/boots-2026-09-30.jsonl (generation 68, max_num_seqs 16, max_num_batched_tokens 16384, outcome serving) and lb/state/perf/boots-2026-09-30.jsonl (generation 79, same knobs, outcome serving). Generations 71 and 75 also asked for 16384 but were superseded in `starting` by an 8192 relaunch, so they are NOT evidence of a 16384 failure. The boot records carry the knobs and the timing ONLY — they hold no memory field of any kind.",
+    "max_num_batched_tokens": 16384,
+    "max_model_len": 262144,
+    "mem_available_gib_low_water": {"box-a": 0.8},
+    "mem_available_gib_sampled": {"box-a": 4.2, "box-b": 7.2},
+    "mem_at_launch_gib": {"box-a": 116.0},
+    "actual_used_gib_low_water": {"box-a": 115.2},
+    "estimated_total_gib_before_this_fix": {"box-a": 103.2, "box-b": 97.7},
+    "verdict": "FATAL. 0.8 GiB free on a box whose CUDA allocator shares that pool."
+  },
+
+  "slope": {
+    "gib_per_1024_tokens_from_the_low_water": 1.075,
+    "gib_per_1024_tokens_from_the_sample": 0.65,
+    "arithmetic": "head, same box, same role, same model, same context, same KV pin: (115.2 - 106.6) GiB over (16384 - 8192) tokens = 8.6 / 8 = 1.075 GiB per 1,024 tokens from the low-water mark; (111.8 - 106.6) / 8 = 0.65 from the single sample.",
+    "confound": "max_num_seqs was 8 in the 8192 capture and 8/16/24 across the 16384 series, so the slope carries whatever a seat costs in CUDA graphs. That cost is measured small (0.29 GiB at seqs 1, 0.59 at seqs 2 — worklog/vllm-cluster-ram-headroom.md §4) but it has only two points and is NOT modelled here.",
+    "architectural_floor_gib_per_1024_tokens": 0.09,
+    "architectural_floor_note": "From the model's own config (worklog/vllm-cluster-ram-headroom.md §5.1: hidden_size 2560, 24 query heads x 256 head_dim, 2 kv heads, 36 linear-attention layers with 16 key / 48 value heads x 128, bf16, TP=2) the concurrently-live per-token prefill tensors come to roughly 95 KiB per token per rank. That is an order of magnitude BELOW the measured slope, because most of what the budget costs is not a per-token tensor: it is the caching allocator's high-water mark, which torch never returns to the driver; the inductor compile range, which tracks the budget exactly (the committed start log shows compile_ranges_endpoints [8192] and \"Compiling a graph for compile range (1, 8192)\"); and the captured prefill CUDA graphs. So the architectural figure is a floor, not the answer, and the measured slope is what the box actually lost."
+  },
+
+  "incident": {
+    "when": "2026-09-30",
+    "what": "Both GB10 boxes hung hard and needed a physical power cycle. The kernel log, read by the operator after recovery, shows NO oom-kill and NO `Killed process` line: every error is the NVIDIA driver failing an allocation.",
+    "kernel_log": [
+      "2026-09-30T20:46:06.358000+00:00 box-b-host kernel: NVRM: nvCheckOkFailedNoLog: Check failed: Out of memory [NV_ERR_NO_MEMORY] (0x00000051) returned from _memdes...",
+      "2026-09-30T20:46:52.290901+00:00 box-b-host kernel: message repeated 4 times: [ NVRM: ... Out of memory [NV_ERR_NO_MEMORY] ...",
+      "2026-09-30T20:47:05.013900+00:00 box-b-host kernel: NVRM: ... Out of memory [NV_ERR_NO_MEMORY] ..."
+    ],
+    "timing": "The boxes run UTC. 20:46-20:47Z is the minute the benchmark run P1-s16-b16k-sp4 finished (22:46:58 local, UTC+2) and generation 80 (max_num_seqs 8, max_num_batched_tokens 16384) began — a generation HANDOVER. Both boxes were unreachable by 22:51 local.",
+    "chronic": "NVRM out-of-memory lines recur through the whole evening — 16:32, 17:04, 17:56, 18:03, 19:34, 19:41, 19:45, 20:01, 20:29, 20:46, 20:47Z — so the fleet had been running with too little headroom for hours before the fatal one. The gate that was meant to prevent that never saw the knob responsible.",
+    "last_telemetry": "lb/state/perf/perf-2026-09-30.jsonl, final sample 20:47:03-20:47:20Z: box-b stopped reporting entirely, box-a at sm_mean 0.0 and 16.0 W, the engine's own config no longer readable. Nothing was written for the next 2 h 12 m."
+  },
+
+  "safe_boundary": {
+    "safe_free_gib": 9.1,
+    "fatal_free_gib": [0.8, 4.2],
+    "note": "The measured boundary between a configuration that serves and one that hangs these boxes lies between 4.2 and 9.1 GiB of MemAvailable left. A start gate must sit on the safe side of it. broker_parrot's 12.0 GiB danger floor cannot be that gate: the configuration that has been serving for weeks leaves 9.1 GiB and is already under it."
+  }
+}

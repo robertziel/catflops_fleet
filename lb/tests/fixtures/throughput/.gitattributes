@@ -1,0 +1,3 @@
+# Captured wire bytes: never normalise their line endings. The usage tap is tested on these exact bytes.
+*.body -text
+*.metrics -text

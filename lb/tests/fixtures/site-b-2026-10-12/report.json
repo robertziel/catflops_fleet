@@ -1,0 +1,32 @@
+{
+ "heartbeat": 1791788082.3847513,
+ "host": "node-a-host",
+ "applied": {
+  "id": 14,
+  "at": 1791761213.8269897,
+  "state": "up",
+  "force": false,
+  "launch": {
+   "max_model_len": 131072,
+   "max_num_seqs": 16,
+   "gpu_memory_utilization": 0.95,
+   "kv_cache_memory": 8501810176,
+   "model": "qwen3.8-27b-nvidia-nvfp4@uncensored",
+   "max_num_batched_tokens": null,
+   "kv_offload_ram_gib": 32
+  },
+  "done_at": 1791761225.6419468,
+  "exit": 0,
+  "stderr": " Container qwen38-5090 Recreate \n Container qwen38-5090 Recreated \n Container qwen38-5090 Starting \n Container qwen38-5090 Started \n",
+  "refused": "",
+  "restarts_at_apply": 0
+ },
+ "applying": null,
+ "container": {
+  "status": "running",
+  "exit_code": 0,
+  "restarts": 0,
+  "started_at": "2026-10-11T23:27:05.322277812Z"
+ },
+ "log": null
+}

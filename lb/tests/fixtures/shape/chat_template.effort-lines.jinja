@@ -1,0 +1,4 @@
+{# the lines of the shipped chat_template.jinja that name the reasoning efforts (both checkpoints carry the same) #}
+    {%- set resolved_reasoning_effort = reasoning_effort|default('xhigh') %}
+    {%- if resolved_reasoning_effort not in ('xhigh', 'medium', 'low') %}
+        {{- raise_exception('Unexpected reasoning effort ' ~ reasoning_effort ~ '. Supported types are xhigh (default), medium, and low.') }}

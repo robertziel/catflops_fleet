@@ -1,0 +1,13 @@
+# deploy/standalone/node-gpu.nvidia.yml -- the node's card attached the NVIDIA way: Docker's device reservation
+# (the NVIDIA Container Toolkit), ONE card by its nvidia-smi index. up.sh adds this file when the node's
+# EDGE_NODE_GPU_RUNTIME is `nvidia` -- the serving card's hardware type states it (lb/vllm_lb/hardware/types/*.yml
+# `gpu_runtime`), `python -m vllm_lb.fleet node-env` renders it. Never started on its own.
+services:
+  node:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["${EDGE_NODE_GPU:?set in deploy/standalone/.env}"]
+              capabilities: [gpu]

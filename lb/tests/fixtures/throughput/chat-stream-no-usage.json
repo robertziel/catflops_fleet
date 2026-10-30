@@ -1,0 +1,131 @@
+{
+  "captured_at": "2026-09-15T21:23:25+00:00",
+  "via": "http://127.0.0.1:8010",
+  "request": {
+    "method": "POST",
+    "path": "/v1/chat/completions",
+    "headers": {
+      "Content-Type": "application/json",
+      "anthropic-version": "2023-06-01"
+    },
+    "body": {
+      "model": "qwen3.8:latest",
+      "max_tokens": 32,
+      "stream": true,
+      "messages": [
+        {
+          "role": "user",
+          "content": "Count from 1 to 20, separated by single spaces. Reply with the numbers only."
+        }
+      ]
+    }
+  },
+  "status": 200,
+  "reason": "OK",
+  "headers": [
+    [
+      "Server",
+      "vllm-lb/1.0 Python/3.12.14"
+    ],
+    [
+      "Date",
+      "Tue, 15 Sep 2026 21:23:23 GMT"
+    ],
+    [
+      "Content-Type",
+      "text/event-stream"
+    ],
+    [
+      "Date",
+      "Tue, 15 Sep 2026 21:23:23 GMT"
+    ],
+    [
+      "Connection",
+      "close"
+    ],
+    [
+      "X-LB-Backend",
+      "http://host.docker.internal:11434"
+    ],
+    [
+      "X-LB-Kind",
+      "ollama"
+    ],
+    [
+      "X-LB-Box",
+      "box-c"
+    ]
+  ],
+  "served_by": {
+    "X-LB-Backend": "http://host.docker.internal:11434",
+    "X-LB-Kind": "ollama",
+    "X-LB-Box": "box-c"
+  },
+  "head_s": 0.304968,
+  "reads": [
+    [
+      0.304976,
+      246
+    ],
+    [
+      0.518209,
+      686
+    ],
+    [
+      0.518273,
+      457
+    ],
+    [
+      0.743932,
+      682
+    ],
+    [
+      0.955348,
+      451
+    ],
+    [
+      0.955413,
+      686
+    ],
+    [
+      1.169219,
+      231
+    ],
+    [
+      1.169286,
+      685
+    ],
+    [
+      1.16983,
+      229
+    ],
+    [
+      1.384348,
+      460
+    ],
+    [
+      1.384407,
+      227
+    ],
+    [
+      1.598772,
+      457
+    ],
+    [
+      1.598841,
+      225
+    ],
+    [
+      1.785755,
+      210
+    ],
+    [
+      1.785844,
+      215
+    ]
+  ],
+  "bytes": 6147,
+  "abandoned": false,
+  "refused_before": [],
+  "posts_so_far": 4
+}

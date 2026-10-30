@@ -1,0 +1,250 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1260" viewBox="0 0 1600 1260" role="img" aria-label="catflops_fleet engines">
+  <!-- The engine structure, read from lb/vllm_lb/catalog.py, resolve.py, images.py, library/ (CLUSTER_ENGINES, NODE_ENGINES, ENGINE_REFUSES, ENGINE_DROPS_PRIORITY,
+       ENGINE_POOL_PER_SEAT, ENGINE_MODELED_PERF, TENSORFOLD_*, VLLM_FLAGS), lb/vllm_lb/fleet.py (NodeEngine and its subclasses)
+       and lb/vllm_lb/engine_metrics.py (VOCABULARIES). Palette as docs/images/architecture.svg. -->
+  <defs>
+    <style>
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      .cap { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; letter-spacing: 1.6px; fill: #8b949e; }
+      .card { fill: #161b22; stroke: #30363d; stroke-width: 1.5; }
+      .opt { fill: #161b22; stroke: #4d5866; stroke-width: 1.5; stroke-dasharray: 6 5; }
+      .group { fill: none; stroke: #4d5866; stroke-width: 1.5; stroke-dasharray: 6 5; }
+      .ctitle { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 18px; fill: #e6edf3; }
+      .etitle { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 22px; font-weight: 600; fill: #e6edf3; }
+      .sub { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 15px; fill: #8b949e; }
+      .note { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; fill: #8b949e; }
+      .key { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; letter-spacing: 1.2px; fill: #6e7781; }
+      .val { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13.5px; fill: #B1B8C0; }
+      .cy { fill: #64EBDB; }
+      .gr { fill: #7BEE98; }
+      .route { fill: #1b2129; }
+      .rtext { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14px; fill: #B1B8C0; }
+      .chip { fill: #1b2129; stroke: #30363d; stroke-width: 1; }
+      .edge { fill: none; stroke: #5a6572; stroke-width: 1.6; }
+      .hot { fill: none; stroke: #64EBDB; stroke-width: 2; }
+      .ctl { fill: none; stroke: #7BEE98; stroke-width: 1.6; stroke-dasharray: 7 5; }
+      .tree { fill: none; stroke: #4d5866; stroke-width: 1.5; }
+      .elabel { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; fill: #8b949e; }
+    </style>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#5a6572"/></marker>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#64EBDB"/></marker>
+    <marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#7BEE98"/></marker>
+  </defs>
+
+  <rect width="1600" height="1260" rx="16" fill="#0d1117"/>
+  <text x="40" y="50" class="cap">ENGINES</text>
+  <text x="140" y="50" class="sub">one model → its recipe → resolved on your cards (engine × accelerator × platform × TP) → one engine class</text>
+
+  <!-- REQUEST → TASK -->
+  <rect x="40" y="80" width="400" height="150" rx="6" class="card"/>
+  <text x="58" y="110" class="ctitle">Request → task</text>
+  <rect x="58" y="124" width="364" height="26" rx="4" class="route"/>
+  <text x="68" y="142" class="rtext">/v1/messages · /v1/chat/… <tspan class="cy">→ chat</tspan></text>
+  <rect x="58" y="156" width="364" height="26" rx="4" class="route"/>
+  <text x="68" y="174" class="rtext">/v1/audio/transcriptions <tspan class="gr">→ transcription</tspan></text>
+  <text x="58" y="210" class="note">router.task_of_path</text>
+
+  <path d="M440 155H498" class="hot" marker-end="url(#ah)"/>
+
+  <!-- MODEL LIBRARY -->
+  <rect x="500" y="80" width="500" height="150" rx="6" class="card"/>
+  <text x="518" y="110" class="ctitle">Model library</text>
+  <text x="660" y="110" class="note">lb/vllm_lb/library · one entry per model</text>
+  <text x="518" y="138" class="val">models.json · <tspan class="note">facts read from config.json</tspan></text>
+  <text x="518" y="162" class="val"><tspan class="cy">recipes.json</tspan> {engine, build} · <tspan class="gr">node_engine</tspan></text>
+  <text x="518" y="186" class="val">measurements.json · <tspan class="note">covers engine × acc × TP</tspan></text>
+  <text x="518" y="210" class="note">where it sits: your fleet file's checkpoints.&lt;id&gt;</text>
+
+  <!-- CLASSIC -->
+  <rect x="1070" y="80" width="490" height="150" rx="6" class="opt"/>
+  <text x="1088" y="110" class="cap">CLASSIC</text>
+  <text x="1170" y="110" class="note">recipe launch.classic · ServingMode classic</text>
+  <text x="1088" y="140" class="ctitle">vLLM on one box</text>
+  <text x="1088" y="166" class="val">started by broker_parrot (optional)</text>
+  <text x="1088" y="190" class="val">chat only · image: the matrix's, resolved too</text>
+  <text x="1088" y="214" class="note">a cluster engine on a classic row is refused</text>
+
+  <path d="M1000 120H1068" class="edge" marker-end="url(#a)"/>
+  <path d="M640 230V266" class="hot" marker-end="url(#ah)"/>
+  <text x="652" y="254" class="elabel">recipe + this fleet's target</text>
+  <path d="M960 230C960 252 1300 246 1300 468" class="ctl" marker-end="url(#ag)"/>
+  <text x="1312" y="300" class="elabel">node_engine</text>
+
+  <!-- RESOLUTION AT START -->
+  <rect x="40" y="268" width="1000" height="176" rx="10" class="group"/>
+  <text x="60" y="296" class="cap">RESOLUTION AT START</text>
+  <text x="260" y="296" class="note">resolve.py · the first missing piece is the refusal, verbatim · never a substitute</text>
+  <rect x="60" y="312" width="150" height="58" rx="4" class="chip"/>
+  <text x="72" y="336" class="rtext" style="fill:#64EBDB">target</text>
+  <text x="72" y="358" class="note">acc × platform × TP</text>
+  <path d="M210 341H224" class="hot" marker-end="url(#ah)"/>
+  <rect x="224" y="312" width="150" height="58" rx="4" class="chip"/>
+  <text x="236" y="336" class="rtext" style="fill:#64EBDB">engine</text>
+  <text x="236" y="358" class="note">serves arch, quant</text>
+  <path d="M374 341H388" class="hot" marker-end="url(#ah)"/>
+  <rect x="388" y="312" width="150" height="58" rx="4" class="chip"/>
+  <text x="400" y="336" class="rtext" style="fill:#64EBDB">accelerator</text>
+  <text x="400" y="358" class="note">quant, platform</text>
+  <path d="M538 341H552" class="hot" marker-end="url(#ah)"/>
+  <rect x="552" y="312" width="150" height="58" rx="4" class="chip"/>
+  <text x="564" y="336" class="rtext" style="fill:#64EBDB">image</text>
+  <text x="564" y="358" class="note">the image matrix</text>
+  <path d="M702 341H716" class="hot" marker-end="url(#ah)"/>
+  <rect x="716" y="312" width="150" height="58" rx="4" class="chip"/>
+  <text x="728" y="336" class="rtext" style="fill:#64EBDB">KV dtype</text>
+  <text x="728" y="358" class="note">on image × arch</text>
+  <path d="M866 341H880" class="hot" marker-end="url(#ah)"/>
+  <rect x="880" y="312" width="150" height="58" rx="4" class="chip"/>
+  <text x="892" y="336" class="rtext" style="fill:#64EBDB">measured?</text>
+  <text x="892" y="358" class="note">engine × acc × TP</text>
+  <rect x="60" y="384" width="470" height="44" rx="4" class="route"/>
+  <text x="74" y="404" class="val"><tspan class="cy">measured</tspan> → its image · its footprint</text>
+  <text x="74" y="421" class="note">"sized by vllm × nvidia-sm121 × TP=2" — /lb/status, boot log</text>
+  <rect x="550" y="384" width="470" height="44" rx="4" class="route"/>
+  <text x="564" y="404" class="val">unmeasured → <tspan style="fill:#e6edf3">refused</tspan> · or <tspan class="gr">estimated: true</tspan></text>
+  <text x="564" y="421" class="note">the operator's explicit choice · config.json estimate, labelled</text>
+  <path d="M640 444V468" class="hot" marker-end="url(#ah)"/>
+  <text x="652" y="458" class="elabel">launch.cluster.engine</text>
+
+  <!-- TP=2 CLUSTER -->
+  <rect x="40" y="470" width="1000" height="530" rx="10" class="group"/>
+  <text x="60" y="498" class="cap">TP CLUSTER</text>
+  <text x="200" y="498" class="note">one engine across its hosts · tp-rank over ssh, told TP · nodes · GPUs · link · memory · platform</text>
+
+  <!-- vLLM -->
+  <rect x="60" y="516" width="310" height="464" rx="6" class="card"/>
+  <text x="78" y="548" class="etitle">vLLM</text>
+  <text x="160" y="548" class="note">engine: vllm (default)</text>
+  <text x="78" y="580" class="key">KV POOL</text>
+  <text x="78" y="598" class="val">paged · gpu_memory_utilization</text>
+  <text x="78" y="624" class="key">KV DTYPE</text>
+  <text x="78" y="642" class="val">kv_cache_dtype flag · else auto</text>
+  <text x="78" y="668" class="key">SETTINGS</text>
+  <text x="78" y="686" class="val">VLLM_FLAGS · 16 named fields</text>
+  <text x="78" y="712" class="key">REFUSES</text>
+  <text x="78" y="730" class="val">—</text>
+  <text x="78" y="756" class="key">X-PRIORITY</text>
+  <text x="78" y="774" class="val">scheduled by it</text>
+  <text x="78" y="800" class="key">COMPUTE TILE</text>
+  <text x="78" y="818" class="val">its own MFU estimate</text>
+  <text x="78" y="844" class="key">ONLY HERE</text>
+  <text x="78" y="862" class="val">LMCache disk tier · PLE patch</text>
+  <text x="78" y="888" class="key">/METRICS</text>
+  <rect x="78" y="898" width="64" height="24" rx="4" class="chip"/>
+  <text x="88" y="915" class="rtext" style="fill:#64EBDB">vllm:</text>
+
+  <!-- SGLang -->
+  <rect x="390" y="516" width="310" height="464" rx="6" class="card"/>
+  <text x="408" y="548" class="etitle">SGLang</text>
+  <text x="510" y="548" class="note">engine: sglang</text>
+  <text x="408" y="580" class="key">KV POOL</text>
+  <text x="408" y="598" class="val">paged · static mem fraction</text>
+  <text x="408" y="624" class="key">KV DTYPE</text>
+  <text x="408" y="642" class="val">engine_args · else fp8_e4m3</text>
+  <text x="408" y="668" class="key">SETTINGS</text>
+  <text x="408" y="686" class="val">engine_args → its own flags</text>
+  <text x="408" y="712" class="key">REFUSES</text>
+  <text x="408" y="730" class="val">disk tier · prefill cap · PLE</text>
+  <text x="408" y="756" class="key">X-PRIORITY</text>
+  <text x="408" y="774" class="val">scheduled by it</text>
+  <text x="408" y="800" class="key">COMPUTE TILE</text>
+  <text x="408" y="818" class="val">modeled · its pass counters</text>
+  <text x="408" y="844" class="key">ONLY HERE</text>
+  <text x="408" y="862" class="val">DFlash2 drafter (tp-rank)</text>
+  <text x="408" y="888" class="key">/METRICS</text>
+  <rect x="408" y="898" width="82" height="24" rx="4" class="chip"/>
+  <text x="418" y="915" class="rtext" style="fill:#64EBDB">sglang:</text>
+
+  <!-- TensorFold -->
+  <rect x="720" y="516" width="310" height="464" rx="6" class="card"/>
+  <text x="738" y="548" class="etitle">TensorFold</text>
+  <text x="868" y="548" class="note">engine: tensorfold</text>
+  <text x="738" y="580" class="key">CLI (REQUIRED)</text>
+  <text x="738" y="598" class="val">tensorfold-native | tensorfold</text>
+  <text x="738" y="624" class="key">KV POOL</text>
+  <text x="738" y="642" class="val">one window a seat · seats×ctx</text>
+  <text x="738" y="668" class="key">SETTINGS (REQUIRED)</text>
+  <text x="738" y="686" class="val">cli · kv_cache_dtype · drafts</text>
+  <text x="738" y="712" class="key">REFUSES</text>
+  <text x="738" y="730" class="val">pool pin · chunk · depth · +3</text>
+  <text x="738" y="756" class="key">X-PRIORITY</text>
+  <text x="738" y="774" class="val">integer refused (400)</text>
+  <text x="738" y="800" class="key">COMPUTE TILE</text>
+  <text x="738" y="818" class="val">modeled · its pass counters</text>
+  <text x="738" y="844" class="key">ONLY HERE</text>
+  <text x="738" y="862" class="val">own MTP head · confidence stop</text>
+  <text x="738" y="888" class="key">/METRICS</text>
+  <rect x="738" y="898" width="118" height="24" rx="4" class="chip"/>
+  <text x="748" y="915" class="rtext" style="fill:#64EBDB">tensorfold:</text>
+
+  <!-- ONE-HOST NODE -->
+  <rect x="1070" y="470" width="490" height="530" rx="10" class="group"/>
+  <text x="1090" y="498" class="cap">ONE-HOST NODE</text>
+  <text x="1238" y="498" class="note">fleet.py ENGINES · one class each</text>
+
+  <path d="M1106 576V698M1106 622H1125M1106 698H1125" class="tree"/>
+  <path d="M1141 728V850M1141 774H1160M1141 850H1160" class="tree"/>
+  <path d="M1176 880V926H1195" class="tree"/>
+
+  <rect x="1090" y="516" width="450" height="60" rx="6" class="card"/>
+  <text x="1108" y="541" class="ctitle">NodeEngine</text>
+  <text x="1222" y="541" class="note">base</text>
+  <text x="1108" y="564" class="note">image · fit · settings · tiles · scrape vocabulary</text>
+
+  <rect x="1125" y="592" width="415" height="60" rx="6" class="card"/>
+  <text x="1143" y="617" class="ctitle">VllmEngine</text>
+  <text x="1440" y="617" class="note cy">chat</text>
+  <text x="1488" y="617" class="note gr">stt</text>
+  <text x="1143" y="640" class="note">fit = a fraction of the card · start check</text>
+
+  <rect x="1125" y="668" width="415" height="60" rx="6" class="card"/>
+  <text x="1143" y="693" class="ctitle">MeasuredEngine</text>
+  <text x="1143" y="716" class="note">fit = the catalog's measured engine_memory</text>
+
+  <rect x="1160" y="744" width="380" height="60" rx="6" class="card"/>
+  <text x="1178" y="769" class="ctitle">SglangEngine</text>
+  <text x="1440" y="769" class="note cy">chat</text>
+  <text x="1178" y="792" class="note">static fraction · seats, context, KV</text>
+
+  <rect x="1160" y="820" width="380" height="60" rx="6" class="card"/>
+  <text x="1178" y="845" class="ctitle">FasterWhisperEngine</text>
+  <text x="1488" y="845" class="note gr">stt</text>
+  <text x="1178" y="868" class="note">CTranslate2 · compute type</text>
+
+  <rect x="1195" y="896" width="345" height="60" rx="6" class="card"/>
+  <text x="1213" y="921" class="ctitle">NemoEngine</text>
+  <text x="1488" y="921" class="note gr">stt</text>
+  <text x="1213" y="944" class="note">a .nemo checkpoint</text>
+
+  <text x="1090" y="984" class="note">compose: deploy/standalone/node-engine.&lt;name&gt;.yml</text>
+
+  <!-- METRICS -->
+  <path d="M215 1000V1038" class="edge" marker-end="url(#a)"/>
+  <path d="M545 1000V1038" class="edge" marker-end="url(#a)"/>
+  <path d="M875 1000V1038" class="edge" marker-end="url(#a)"/>
+  <path d="M1315 1000V1038" class="edge" marker-end="url(#a)"/>
+  <rect x="40" y="1040" width="1520" height="150" rx="10" class="group"/>
+  <text x="60" y="1068" class="cap">/METRICS</text>
+  <text x="160" y="1068" class="note">the scrape names its own engine (engine_metrics.engine_of) · nothing is threaded in from the catalog</text>
+
+  <rect x="60" y="1088" width="86" height="34" rx="4" class="chip"/>
+  <text x="76" y="1110" class="rtext" style="fill:#64EBDB">vllm:</text>
+  <rect x="160" y="1088" width="104" height="34" rx="4" class="chip"/>
+  <text x="176" y="1110" class="rtext" style="fill:#64EBDB">sglang:</text>
+  <rect x="278" y="1088" width="140" height="34" rx="4" class="chip"/>
+  <text x="294" y="1110" class="rtext" style="fill:#64EBDB">tensorfold:</text>
+  <rect x="432" y="1088" width="166" height="34" rx="4" class="chip"/>
+  <text x="448" y="1110" class="rtext" style="fill:#7BEE98">transcription_</text>
+
+  <path d="M598 1105H698" class="hot" marker-end="url(#ah)"/>
+  <text x="606" y="1095" class="elabel">prefix</text>
+  <rect x="700" y="1088" width="300" height="34" rx="4" class="card"/>
+  <text x="716" y="1110" class="rtext">parse_&lt;engine&gt;_metrics</text>
+  <path d="M1000 1105H1078" class="hot" marker-end="url(#ah)"/>
+  <rect x="1080" y="1088" width="460" height="34" rx="4" class="card"/>
+  <text x="1096" y="1110" class="rtext">one canonical scrape → the panel's tiles</text>
+  <text x="60" y="1162" class="note">COMPUTE · PREFILL · MEMORY BANDWIDTH · KV pool — "not exposed" where the engine publishes no figure</text>
+
+  <!-- LEGEND -->
+  <text x="40" y="1230" class="note"><tspan class="cy">■</tspan> chat   <tspan class="gr">■</tspan> transcription (stt)   — solid: required   ┄ dashed: optional / grouping</text>
+</svg>

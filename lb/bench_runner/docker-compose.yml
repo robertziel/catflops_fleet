@@ -1,0 +1,98 @@
+# vllm-bench-runner: the gateway's "Start test swarm" button, SEALED (bench_runner/__init__.py says why).
+#
+#   egress  the only door: an HTTPS proxy refusing Anthropic and every private/CGNAT/link-local/loopback
+#           address (policy.py), plus two fixed relays, to the LB (8010) and to the engine's API (8000).
+#           On the sealed network as `egress`, `lb` and `engine`, and on the deployment's network where
+#           the LB and the engine are.
+#   runner  bench_queue_runner.py + bench_session.py + the pinned Claude Code, as `bench`, on the SEALED
+#           network ONLY (internal: no route out). Its one mount is the LB's swarm directory: requests in,
+#           reports and captures out. No credential, no host HOME, no ~/.claude — and egress_check.py
+#           proves the seal before it starts and before every session it launches.
+#
+# Run it from THIS directory with this deployment's values (.env.example documents each; unset = compose
+# stops and names it — there are no defaults):
+#   cp .env.example .env && $EDITOR .env && docker compose up -d --build
+# A deploy/standalone server does not keep a .env here: `deploy/standalone/up.sh bench` derives every
+# value from its server file.
+#
+# The proof, by hand (every line PASS, and a public page fetched through the proxy):
+#   docker compose run --rm --no-deps --entrypoint python runner -m bench_runner.egress_check \
+#       --public-url https://example.com/
+#
+# A runner restart ends a swarm in flight (its processes are the container's): redeploy between swarms.
+name: vllm-bench-runner
+services:
+  egress:
+    build:
+      context: ..
+      dockerfile: bench_runner/Dockerfile
+    image: vllm-bench-runner:latest
+    container_name: vllm-bench-egress
+    restart: unless-stopped
+    init: true
+    entrypoint: ["python", "-m", "bench_runner.egress"]
+    # It listens on the address of `egress-sealed-side`, a name that exists on the sealed network ALONE.
+    # Not `egress`: compose registers a service's own name (and docker its container name) on EVERY network
+    # the service joins, and the first proof run found the proxy bound to the upstream side that way.
+    command:
+      - --bind
+      - egress-sealed-side
+      - --proxy-port
+      - "3128"
+      - --relay
+      - "8010=${BENCH_LB_TARGET:?set in lb/bench_runner/.env or by deploy/standalone/up.sh}"
+      - --relay
+      - "8000=${BENCH_ENGINE_TARGET:?set in lb/bench_runner/.env or by deploy/standalone/up.sh}"
+    networks:
+      sealed:
+        aliases: [egress, lb, engine, egress-sealed-side]
+      upstream: {}
+    user: "65534:65534"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('egress-sealed-side', 3128), 3).close()"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+
+  runner:
+    image: vllm-bench-runner:latest
+    container_name: vllm-bench-runner
+    restart: unless-stopped
+    init: true
+    depends_on:
+      egress:
+        condition: service_healthy
+    networks: [sealed]
+    volumes:
+      - "${BENCH_STATE_DIR:?set in lb/bench_runner/.env or by deploy/standalone/up.sh}:/data/benchq"
+    # The wiring INSIDE the sealed network: the same on every deployment, so it is written here once.
+    # entrypoint.py builds the runner's command from these, and egress_check.py reads the same two.
+    environment:
+      BENCH_BOX: "${BENCH_BOX:?set in lb/bench_runner/.env or by deploy/standalone/up.sh}"
+      BENCH_LB_URL: "http://lb:8010"
+      BENCH_METRICS_URL: "http://engine:8000/metrics"
+      BENCH_EGRESS_PROXY: "http://egress:3128"
+      BENCH_NO_PROXY: "lb,engine"
+    read_only: true
+    tmpfs: ["/tmp:size=1g"]
+    # Root only to give the state directory to `bench` and to drop to it (entrypoint.py).
+    cap_drop: [ALL]
+    cap_add: [CHOWN, SETUID, SETGID]
+    security_opt: ["no-new-privileges:true"]
+    logging:
+      driver: json-file
+      options: {max-size: "20m", max-file: "5"}
+
+networks:
+  sealed:
+    internal: true
+  upstream:
+    name: "${BENCH_UPSTREAM_NETWORK:?set in lb/bench_runner/.env or by deploy/standalone/up.sh}"
+    external: true

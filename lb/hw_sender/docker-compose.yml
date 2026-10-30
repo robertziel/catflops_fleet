@@ -1,0 +1,50 @@
+# vllm-hw-sender: THIS server's hardware telemetry for the gateway's hardware tiles and FLIGHT RECORDER.
+#
+# Every 5 s fleet_telemetry (lb/fleet_telemetry, `python -m fleet_telemetry`) samples CPU, RAM, GPUs, temperatures,
+# power, clocks, fans, network counters and containers, and broadcasts one JSON datagram to UDP HW_SENDER_PORT. The LB
+# (vllm_lb/hw.py) listens on its LB_HW_PORT and draws the box its fleet file gives that hostname
+# (boxes.<box>.hostname). An unmapped sender is counted `ignored` in /lb/status `hardware_state`, never guessed.
+#
+# Run it FROM THIS DIRECTORY, with this server's lb/hw_sender/.env (gitignored; .env.example
+# documents every line). COMPOSE_FILE there picks the files: this one, exactly ONE GPU kind, and
+# bridged.yml only where the LB runs on this same server and the LAN must not hear the broadcast:
+#   cp .env.example .env && $EDITOR .env
+#   docker compose build && docker compose up -d && docker logs -f vllm-hw-sender
+# Every server-specific value is ${VAR:?} from that .env. Unset, compose stops and names it; there are
+# no defaults (operator rule: each server has different ports, names and networks available).
+#
+# This file alone names NO GPU kind. The sender refuses to start (exit 78) until a gpu-*.yml names one, and (exit 69)
+# until that kind's reader reports a GPU: an empty GPU row looks exactly like a box without a GPU.
+name: vllm-hw-sender
+services:
+  hw-sender:
+    # From lb/: the image carries lb/fleet_telemetry (Dockerfile.dockerignore sends nothing else).
+    build:
+      context: ..
+      dockerfile: hw_sender/Dockerfile
+    image: vllm-hw-sender:latest
+    container_name: vllm-hw-sender
+    restart: unless-stopped
+    # HOST networking. The sender broadcasts to its default-route
+    # interface's broadcast address and to 255.255.255.255. From a bridged container that would be
+    # the bridge, not the LAN, and interface discovery would see the container's veth. It also gives
+    # the container this server's own hostname, which is the name on the wire. Nothing is published:
+    # the sender only sends.
+    network_mode: host
+    environment:
+      # The LB's LB_HW_PORT. Required: the sender has no default port.
+      HW_SENDER_PORT: "${HW_SENDER_PORT:?set in lb/hw_sender/.env}"
+      # Host networking: /proc/net/dev is the box's, so the recorder sends its NIC counters (bridged.yml: none).
+      HW_SENDER_NETWORK: host
+    # The recorder's containers (name, image, RAM), READ-ONLY, never the docker socket (even `:ro` the socket is the
+    # docker API, i.e. control of the host):
+    #   * the host's cgroup v2 tree: one directory per running container, its memory.current and memory.stat;
+    #   * docker's per-container state (<DockerRootDir>/containers): config.v2.json's Name and Config.Image. That
+    #     file also holds each container's environment, which this mount makes readable here (read, never changed).
+    # The targets are fleet_telemetry/__main__.py's CGROUP_ROOT / CONTAINERS_DIR.
+    volumes:
+      - /sys/fs/cgroup:/host/sys/fs/cgroup:ro
+      - ${HW_SENDER_DOCKER_ROOT:?set in lb/hw_sender/.env}/containers:/host/docker/containers:ro
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}

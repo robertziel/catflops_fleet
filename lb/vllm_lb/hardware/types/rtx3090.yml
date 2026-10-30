@@ -1,0 +1,23 @@
+# NVIDIA GeForce RTX 3090 — a discrete Ampere card with 24 GB of GDDR6X of its own.
+# A hardware TYPE (vllm_lb/hardware/profiles.py loads it): every figure is {value, source} — value null means no
+# source states it, and the source then says why. Peaks are one GPU's, DENSE, at the precision named.
+name: NVIDIA GeForce RTX 3090
+memory: discrete
+# What its kernels target (vllm_lb/hardware/accelerators/<key>.yml): its arch and gpu_runtime are the
+# accelerator's, one place per value — shared with every product of its architecture.
+accelerator: nvidia-sm86
+# No executor this repo ships drives it: lb/cluster/tp-rank is built for DGX Spark pairs.
+controls: []
+facts:
+  memory_gb: {value: 24, source: "NVIDIA RTX Blackwell GPU Architecture whitepaper v1.1 (2025), Appendix A, Table 3 'GeForce RTX 5090 vs GeForce RTX 4090 vs GeForce RTX 3090 Specs': 'Frame Buffer Memory Size and Type 24 GB GDDR6X'"}
+  cuda_cores: {value: 10496, source: "NVIDIA RTX Blackwell GPU Architecture whitepaper v1.1 (2025), Appendix A, Table 3: 'CUDA Cores / GPU 10496'; the product page (nvidia.com/en-us/geforce/graphics-cards/30-series/rtx-3090-3090ti): 'NVIDIA CUDA Cores 10496'"}
+  peak_gbps: {value: 936, source: "NVIDIA RTX Blackwell GPU Architecture whitepaper v1.1 (2025), Appendix A, Table 3: 'Memory Bandwidth 936 GB/sec' (384-bit, 19.5 Gbps)"}
+  host_platform: {value: null, source: "a discrete card runs in whatever host it is plugged into: the box's own `platform` in the fleet file says which"}
+  bandwidth_counter: {value: null, source: "not established: neither NVIDIA's spec pages nor a measurement in this repo says whether a DRAM-traffic counter can be read on this card (nvidia-smi's utilization.memory is a duty cycle, not traffic)"}
+  visible_gib: {value: null, source: "not measured: no vLLM has started on a 3090 in this project, so no boot log has printed the total it sees"}
+  free_at_start_gib: {value: null, source: "not measured: no vLLM has started on a 3090 in this project, so no boot log has printed its free memory at start"}
+  mfu_patch_loads: {value: null, source: "not established: no node with the MFU byte-size patch has run on a 3090 on this fleet, so no launch that needs it is offered there"}
+  peak_tflops:
+    bf16: {value: 71.2, source: "NVIDIA RTX Blackwell GPU Architecture whitepaper v1.1 (2025), Appendix A, Table 3: 'Peak BF16 Tensor TFLOPS with FP32 Accumulate 71.2/142.4' — dense (the X of X/Y; Y is with sparsity), at GPU Boost Clock"}
+    fp8: {value: null, source: "NVIDIA RTX Blackwell GPU Architecture whitepaper v1.1 (2025), Appendix A, Table 3: 'Peak FP8 Tensor TFLOPS' N/A for the RTX 3090 — Ampere's Tensor Cores have no FP8"}
+    nvfp4: {value: null, source: "NVIDIA RTX Blackwell GPU Architecture whitepaper v1.1 (2025), Appendix A, Table 3: 'Peak FP4 Tensor TFLOPS' N/A for the RTX 3090 — Ampere's Tensor Cores have no FP4"}

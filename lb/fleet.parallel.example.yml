@@ -1,0 +1,86 @@
+# THE FLEET FILE, parallel shape (worklog/parallel-clusters.md): the CATALOG of clusters this LB can run — here TWO under one LB — the TP=2 pair
+# the LB drives over SSH, and a one-host node on a third box the LB requests and that box's own applier runs
+# (control: local). Each is keyed by its NAME everywhere: its state under <LB_CLUSTER_STATE dir>/clusters/<name>/,
+# its loop, its view (/lb/status.clusters.<name>), its switch (POST /lb/clusters/<name>), its panel card. The LB's
+# own box may be that third box (the node's applier then runs beside the LB: `python3 -m vllm_lb.node_applier --repo
+# <checkout> --cluster node`). Every key is explained in lb/fleet.example.yml and lb/fleet.one-host.example.yml;
+# vllm_lb/fleet.py validates it and refuses the start, naming the value, on anything missing, unknown or inconsistent.
+# Addresses are documentation ranges (RFC 5737 / 3849); names are placeholders.
+
+boxes:
+  box-a:
+    hostname: box-a-host
+    label: box-a-gpu
+    platform: linux/arm64
+    ssh: operator@192.0.2.10
+    cards:
+      - {index: 0, type: gb10, serves: true}
+  box-b:
+    hostname: box-b-host
+    label: box-b-gpu
+    platform: linux/arm64
+    ssh: operator@192.0.2.11
+    cards:
+      - {index: 0, type: gb10, serves: true}
+  box-c:                              # the second engine's box — a card whose type lists `local` among its controls
+    hostname: box-c-host
+    label: box-c-gpu
+    platform: linux/amd64             # its node's image must be amd64; the pair's are arm64
+    node_limits: {memory_gib: 24, cpus: 16, pids: 4096, nice: 10}   # the node container's bounds on this shared box (no defaults)
+    cards:
+      - {index: 0, type: rtx5090, serves: true}
+
+clusters:
+  pair:                               # engine 1: the pair, started from the panel (its model is the Start's)
+    control: ssh
+    iface: bond0                     # the NIC the ranks talk over (NCCL_SOCKET_IFNAME); its address is each rank's interconnect
+    link: roce                       # how the ranks' GPUs are joined: roce (NCCL over RDMA) or ethernet (NCCL sockets) — tp-rank opens
+                                     # /dev/infiniband only for roce
+    run_at_boot: true                 # runs when the LB starts; several clusters declared = each says so
+    default: true                     # THE DEFAULT: a request naming no model, or a model name no cluster
+                                      # serves, goes here alone (never to another cluster); several declared =
+                                      # exactly one says so. Two run_at_boot clusters share a box only
+                                      # where their memory fits its pool (gpu_ram_max_gib).
+    url: http://192.0.2.10:8100
+    ram_usable_fraction: 0.98   # what a start may take of each box's MemTotal; the rest is the one reserve
+    max_num_batched_tokens: 8192
+    ranks:
+      - {box: box-a, interconnect: 198.51.100.1}
+      - {box: box-b, interconnect: 198.51.100.2}
+  node:                               # engine 2: one card, another model, in parallel with the pair
+    control: local
+    run_at_boot: false                # declared, not run at boot: the panel's + tab activates it for one run
+    model: qwen3.8-27b-nvidia-nvfp4   # the boot default, among `choices`; a new model is a catalog row, not code
+    url: http://192.0.2.12:8000
+    launch:
+      image: vllm/vllm-openai@sha256:0000000000000000000000000000000000000000000000000000000000000000
+      max_model_len: 131072
+      max_num_seqs: 8
+      gpu_memory_utilization: 0.9
+      reasoning_parser: qwen3
+      tool_call_parser: qwen3_coder
+      choices: [qwen3.8-27b-nvidia-nvfp4]
+    ranks:
+      - {box: box-c}
+
+backends: {}
+
+# WHERE EACH MODEL'S FILES SIT, relative to the models roots (lb/.env MODELS_SEARCH_DIRS; a standalone node's
+# EDGE_MODELS_DIR) — the deployment's, never the model library's (lb/fleet.example.yml says more). A model not
+# named here is not staged: not offered, and a Start of it is refused naming this key.
+checkpoints:
+  qwen3.8-flash-next-hibrid48: {path: qwen38-flash-next-cluster/Qwen3.8-Flash-Next-hibrid48, uncensored: qwen38-flash-next-cluster/Qwen3.8-Flash-Next-hibrid48_uncensored}
+  qwen3.8-flash-next-sglang: {path: qwen38-flash-next-cluster/Qwen3.8-Flash-Next-hibrid48, uncensored: qwen38-flash-next-cluster/Qwen3.8-Flash-Next-hibrid48_uncensored}
+  qwen3.8-flash-next-tensorfold-nvfp4: {path: tensorfold-hf/hub/models--nvidia--Qwen3.8-Flash-Next-NVFP4/snapshots/fc694b54fb0174e0913e6adf86691ef85a4ead47}
+  qwen3.8-flash-next-tensorfold-mlx-mtp: {path: tensorfold-hf/hub/models--TensorFold--Qwen3.8-Flash-Next-MLX-4bit-MTP/snapshots/2b170fa6309d5d1ee380b35636075fac7945f286}
+  qwen3.8-27b-nvidia-nvfp4: {path: Qwen3.8-27B-NVFP4, uncensored: Qwen3.8-27B-NVFP4_uncensored}
+  qwen3.8-27b-nvfp4: {path: base.qwen3.8-dense-nvfp4-vllm}
+  qwen3.8-27b-dflash2: {path: dflash2-27b-tp2/Qwen3.8-27B-NVFP4-bf16head, draft: dflash2-27b-tp2/Qwen3.8-27B-DFlash2}
+  qwen3.8-27b-sglang-dflash2: {path: Qwen3.8-27B-NVFP4, uncensored: Qwen3.8-27B-NVFP4_uncensored, draft: Qwen3.8-27B-DFlash2}
+  glm-5.3-flash-nvfp4: {path: glm53-flash-cluster/GLM-5.3-Flash-NVFP4}
+  deepseek-v4-flash-nvfp4: {path: deepseek-v4-flash-cluster/DeepSeek-V4-Flash-0731-NVFP4}
+  mai-ui-2b: {path: MAI-UI-2B}
+  whisper-large-v3-turbo: {path: whisper-large-v3-turbo}
+  faster-whisper-large-v3-turbo: {path: faster-whisper-large-v3-turbo}
+  faster-whisper-large-v3: {path: faster-whisper-large-v3}
+  parakeet-tdt-0.6b-v3: {path: parakeet-tdt-0.6b-v3}

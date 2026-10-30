@@ -1,0 +1,7 @@
+# NeMo — an ENGINE's capabilities (vllm_lb/engine_library.py): what checkpoints it serves, as data. Its BEHAVIOUR is
+# code: fleet.py NemoEngine. Every figure {value, source}.
+name: NeMo
+facts:
+  formats: {value: [nemo], source: "NeMo restores a .nemo archive (nemo.collections.asr.models.ASRModel.restore_from) — a Parakeet node (2026-10-24)"}
+  architectures: {value: [], source: "a .nemo archive names its NeMo model class in its own model_config.yaml, not a Hugging Face architecture: the format is what NeMo is checked against"}
+  quant_formats: {value: [none], source: "parakeet-tdt-0.6b-v3, the one checkpoint served on NeMo here, is unquantised"}

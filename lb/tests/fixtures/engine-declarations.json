@@ -1,0 +1,426 @@
+{
+ "vllm/chat": {
+  "name": "vllm",
+  "label": "vLLM",
+  "task": "chat",
+  "vocabulary": "vllm",
+  "memory": "gpu_memory_utilization × the card (or a pinned KV pool)",
+  "whole_file": "engine",
+  "settings": [
+   {
+    "key": "model",
+    "name": "model",
+    "env": "EDGE_NODE_MODEL",
+    "options": [],
+    "unset": null
+   },
+   {
+    "key": "max_num_seqs",
+    "name": "seats",
+    "env": "EDGE_NODE_MAX_NUM_SEQS",
+    "options": [],
+    "unset": null
+   },
+   {
+    "key": "max_model_len",
+    "name": "context",
+    "env": "EDGE_NODE_MAX_MODEL_LEN",
+    "options": [],
+    "unset": null
+   },
+   {
+    "key": "gpu_memory_utilization",
+    "name": "GPU memory",
+    "env": "EDGE_NODE_GPU_MEM_UTIL",
+    "options": [],
+    "unset": null
+   },
+   {
+    "key": "max_num_batched_tokens",
+    "name": "prefill budget",
+    "env": "EDGE_NODE_MAX_NUM_BATCHED_TOKENS",
+    "options": [],
+    "unset": "vLLM default"
+   },
+   {
+    "key": "kv_cache_memory",
+    "name": "KV pool",
+    "env": "EDGE_NODE_KV_CACHE_MEMORY",
+    "options": [],
+    "unset": "from GPU memory"
+   },
+   {
+    "key": "kv_offload_ram_gib",
+    "name": "KV offload",
+    "env": "EDGE_NODE_KV_OFFLOAD_RAM_GIB",
+    "options": [],
+    "unset": "off"
+   },
+   {
+    "key": "kv_cache_dtype",
+    "name": "KV type",
+    "env": "EDGE_NODE_KV_CACHE_DTYPE",
+    "options": [],
+    "unset": "engine auto"
+   }
+  ],
+  "tiles": [
+   "generated",
+   "prefill",
+   "prompt",
+   "queue",
+   "kv",
+   "bandwidth",
+   "compute",
+   "saturation",
+   "swarm"
+  ]
+ },
+ "vllm/transcription": {
+  "name": "vllm",
+  "label": "vLLM",
+  "task": "transcription",
+  "vocabulary": "vllm",
+  "memory": "gpu_memory_utilization × the card (or a pinned KV pool)",
+  "whole_file": "engine",
+  "settings": [
+   {
+    "key": "model",
+    "name": "model",
+    "env": "EDGE_NODE_MODEL",
+    "options": [],
+    "unset": null
+   },
+   {
+    "key": "max_num_seqs",
+    "name": "seats",
+    "env": "EDGE_NODE_MAX_NUM_SEQS",
+    "options": [],
+    "unset": null
+   },
+   {
+    "key": "max_model_len",
+    "name": "context",
+    "env": "EDGE_NODE_MAX_MODEL_LEN",
+    "options": [],
+    "unset": null
+   },
+   {
+    "key": "gpu_memory_utilization",
+    "name": "GPU memory",
+    "env": "EDGE_NODE_GPU_MEM_UTIL",
+    "options": [],
+    "unset": null
+   },
+   {
+    "key": "max_num_batched_tokens",
+    "name": "prefill budget",
+    "env": "EDGE_NODE_MAX_NUM_BATCHED_TOKENS",
+    "options": [],
+    "unset": "vLLM default"
+   },
+   {
+    "key": "kv_cache_memory",
+    "name": "KV pool",
+    "env": "EDGE_NODE_KV_CACHE_MEMORY",
+    "options": [],
+    "unset": "from GPU memory"
+   }
+  ],
+  "tiles": [
+   "speech"
+  ]
+ },
+ "faster-whisper/chat": {
+  "name": "faster-whisper",
+  "label": "faster-whisper (CTranslate2)",
+  "task": "chat",
+  "vocabulary": "faster-whisper",
+  "memory": "the catalog's measured engine_memory",
+  "whole_file": "lane",
+  "settings": [
+   {
+    "key": "model",
+    "name": "model",
+    "env": "EDGE_NODE_MODEL",
+    "options": [],
+    "unset": null
+   },
+   {
+    "key": "max_num_seqs",
+    "name": "seats",
+    "env": "EDGE_NODE_MAX_NUM_SEQS",
+    "options": [],
+    "unset": null
+   },
+   {
+    "key": "max_queue",
+    "name": "queue",
+    "env": "EDGE_NODE_MAX_QUEUE",
+    "options": [
+     2,
+     4,
+     8,
+     16,
+     32
+    ],
+    "unset": "none — busy answers 503"
+   },
+   {
+    "key": "compute_type",
+    "name": "compute type",
+    "env": "EDGE_NODE_COMPUTE_TYPE",
+    "options": [
+     "float16",
+     "bfloat16",
+     "int8_float16",
+     "int8_bfloat16",
+     "int8"
+    ],
+    "unset": "the image's own"
+   }
+  ],
+  "tiles": [
+   "generated",
+   "prefill",
+   "prompt",
+   "queue",
+   "kv",
+   "bandwidth",
+   "compute",
+   "saturation",
+   "swarm"
+  ]
+ },
+ "faster-whisper/transcription": {
+  "name": "faster-whisper",
+  "label": "faster-whisper (CTranslate2)",
+  "task": "transcription",
+  "vocabulary": "faster-whisper",
+  "memory": "the catalog's measured engine_memory",
+  "whole_file": "lane",
+  "settings": [
+   {
+    "key": "model",
+    "name": "model",
+    "env": "EDGE_NODE_MODEL",
+    "options": [],
+    "unset": null
+   },
+   {
+    "key": "max_num_seqs",
+    "name": "seats",
+    "env": "EDGE_NODE_MAX_NUM_SEQS",
+    "options": [],
+    "unset": null
+   },
+   {
+    "key": "max_queue",
+    "name": "queue",
+    "env": "EDGE_NODE_MAX_QUEUE",
+    "options": [
+     2,
+     4,
+     8,
+     16,
+     32
+    ],
+    "unset": "none — busy answers 503"
+   },
+   {
+    "key": "compute_type",
+    "name": "compute type",
+    "env": "EDGE_NODE_COMPUTE_TYPE",
+    "options": [
+     "float16",
+     "bfloat16",
+     "int8_float16",
+     "int8_bfloat16",
+     "int8"
+    ],
+    "unset": "the image's own"
+   }
+  ],
+  "tiles": [
+   "speech"
+  ]
+ },
+ "nemo/chat": {
+  "name": "nemo",
+  "label": "NeMo (Parakeet TDT)",
+  "task": "chat",
+  "vocabulary": "faster-whisper",
+  "memory": "the catalog's measured engine_memory",
+  "whole_file": "lane",
+  "settings": [
+   {
+    "key": "model",
+    "name": "model",
+    "env": "EDGE_NODE_MODEL",
+    "options": [],
+    "unset": null
+   },
+   {
+    "key": "max_num_seqs",
+    "name": "seats",
+    "env": "EDGE_NODE_MAX_NUM_SEQS",
+    "options": [],
+    "unset": null
+   },
+   {
+    "key": "max_queue",
+    "name": "queue",
+    "env": "EDGE_NODE_MAX_QUEUE",
+    "options": [
+     2,
+     4,
+     8,
+     16,
+     32
+    ],
+    "unset": "none — busy answers 503"
+   }
+  ],
+  "tiles": [
+   "generated",
+   "prefill",
+   "prompt",
+   "queue",
+   "kv",
+   "bandwidth",
+   "compute",
+   "saturation",
+   "swarm"
+  ]
+ },
+ "nemo/transcription": {
+  "name": "nemo",
+  "label": "NeMo (Parakeet TDT)",
+  "task": "transcription",
+  "vocabulary": "faster-whisper",
+  "memory": "the catalog's measured engine_memory",
+  "whole_file": "lane",
+  "settings": [
+   {
+    "key": "model",
+    "name": "model",
+    "env": "EDGE_NODE_MODEL",
+    "options": [],
+    "unset": null
+   },
+   {
+    "key": "max_num_seqs",
+    "name": "seats",
+    "env": "EDGE_NODE_MAX_NUM_SEQS",
+    "options": [],
+    "unset": null
+   },
+   {
+    "key": "max_queue",
+    "name": "queue",
+    "env": "EDGE_NODE_MAX_QUEUE",
+    "options": [
+     2,
+     4,
+     8,
+     16,
+     32
+    ],
+    "unset": "none — busy answers 503"
+   }
+  ],
+  "tiles": [
+   "speech"
+  ]
+ },
+ "sglang/chat": {
+  "name": "sglang",
+  "label": "SGLang",
+  "task": "chat",
+  "vocabulary": "sglang",
+  "memory": "the catalog's measured engine_memory",
+  "whole_file": "engine",
+  "settings": [
+   {
+    "key": "model",
+    "name": "model",
+    "env": "EDGE_NODE_MODEL",
+    "options": [],
+    "unset": null
+   },
+   {
+    "key": "max_num_seqs",
+    "name": "seats",
+    "env": "EDGE_NODE_MAX_NUM_SEQS",
+    "options": [],
+    "unset": null
+   },
+   {
+    "key": "max_model_len",
+    "name": "context",
+    "env": "EDGE_NODE_MAX_MODEL_LEN",
+    "options": [],
+    "unset": null
+   },
+   {
+    "key": "kv_cache_dtype",
+    "name": "KV type",
+    "env": "EDGE_NODE_KV_CACHE_DTYPE",
+    "options": [],
+    "unset": "engine auto"
+   }
+  ],
+  "tiles": [
+   "generated",
+   "prefill",
+   "prompt",
+   "queue",
+   "kv",
+   "bandwidth",
+   "compute",
+   "saturation",
+   "swarm"
+  ]
+ },
+ "sglang/transcription": {
+  "name": "sglang",
+  "label": "SGLang",
+  "task": "transcription",
+  "vocabulary": "sglang",
+  "memory": "the catalog's measured engine_memory",
+  "whole_file": "engine",
+  "settings": [
+   {
+    "key": "model",
+    "name": "model",
+    "env": "EDGE_NODE_MODEL",
+    "options": [],
+    "unset": null
+   },
+   {
+    "key": "max_num_seqs",
+    "name": "seats",
+    "env": "EDGE_NODE_MAX_NUM_SEQS",
+    "options": [],
+    "unset": null
+   },
+   {
+    "key": "max_model_len",
+    "name": "context",
+    "env": "EDGE_NODE_MAX_MODEL_LEN",
+    "options": [],
+    "unset": null
+   },
+   {
+    "key": "kv_cache_dtype",
+    "name": "KV type",
+    "env": "EDGE_NODE_KV_CACHE_DTYPE",
+    "options": [],
+    "unset": "engine auto"
+   }
+  ],
+  "tiles": [
+   "speech"
+  ]
+ }
+}

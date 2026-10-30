@@ -1,0 +1,7 @@
+# The sender image is built from lb/ (docker-compose.yml) and takes ONLY the fleet_telemetry package: not the gateway,
+# not its secrets (lb/.env, cluster-ssh/, state/), not this server's lb/hw_sender/.env, never host-side bytecode.
+*
+!fleet_telemetry
+!fleet_telemetry/**
+**/__pycache__
+**/*.pyc

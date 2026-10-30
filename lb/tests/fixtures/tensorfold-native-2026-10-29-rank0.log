@@ -1,0 +1,55 @@
+
+=============
+== PyTorch ==
+=============
+
+NVIDIA Release 26.07 (build 373437299)
+PyTorch Version 2.13.0a0+9186a08
+Container image Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+Copyright (c) 2014-2024 Facebook Inc.
+Copyright (c) 2011-2014 Idiap Research Institute (Ronan Collobert)
+Copyright (c) 2012-2014 Deepmind Technologies    (Koray Kavukcuoglu)
+Copyright (c) 2011-2012 NEC Laboratories America (Koray Kavukcuoglu)
+Copyright (c) 2011-2013 NYU                      (Clement Farabet)
+Copyright (c) 2006-2010 NEC Laboratories America (Ronan Collobert, Leon Bottou, Iain Melvin, Jason Weston)
+Copyright (c) 2006      Idiap Research Institute (Samy Bengio)
+Copyright (c) 2001-2004 Idiap Research Institute (Ronan Collobert, Samy Bengio, Johnny Mariethoz)
+Copyright (c) 2015      Google Inc.
+Copyright (c) 2015      Yangqing Jia
+Copyright (c) 2013-2016 The Caffe contributors
+All rights reserved.
+
+Various files include modifications (c) NVIDIA CORPORATION & AFFILIATES.  All rights reserved.
+
+GOVERNING TERMS: The software and materials are governed by the NVIDIA Software License Agreement
+(found at https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-software-license-agreement/)
+and the Product-Specific Terms for NVIDIA AI Products
+(found at https://www.nvidia.com/en-us/agreements/enterprise-software/product-specific-terms-for-ai-products/).
+
+NOTE: CUDA Forward Compatibility mode ENABLED.
+  Using CUDA 13.3 driver version 610.43.02 with kernel driver version 580.142.
+  See https://docs.nvidia.com/deploy/cuda-compatibility/ for details.
+
+W1029 14:44:42.730000 134 torch/utils/_pytree.py:630] <enum 'KernelPreference'> is an Enum subclass and is now natively supported by torch.compile as an opaque value type. Calling register_constant() on Enum subclasses is deprecated and will be an error in a future release.
+W1029 14:44:42.760000 134 torch/utils/_pytree.py:630] <enum 'ScaleCalculationMode'> is an Enum subclass and is now natively supported by torch.compile as an opaque value type. Calling register_constant() on Enum subclasses is deprecated and will be an error in a future release.
+[vision-helper] ready: tower 0.84 GiB, loaded in 11.6 s
+[tensorfold] vision: image and video input on this GPU, a 0.84 GiB tower (helper pid 134; {"torch":"2.13.0a0+9186a08b2c.nv26.07","transformers":"5.17.0","pillow":"12.3.0","numpy":"2.1.0","av":"19.0.1"}; self-test b519f02192431f6965510b499bf1cd22474d9298262730d78505b2658fa51678)
+info: rank 0: waiting for rank 1 on 198.51.100.1:29551
+
+[2026-10-29 14:44:51] box-a:1:1 [0] init.cc:449 NCCL WARN Spectrum-X (SPCX) NCCL plugin is not supported on device:roce0, skipping ..
+
+[2026-10-29 14:44:51] box-a:1:1 [0] init.cc:449 NCCL WARN Spectrum-X (SPCX) NCCL plugin is not supported on device:roce1, skipping ..
+
+[2026-10-29 14:44:51] box-a:1:1 [0] misc/ibvwrap.cc:402 (wrap_ibv_query_port_speed) NCCL WARN Call to ibv_query_port_speed failed with error Protocol not supported errno 93
+
+[2026-10-29 14:44:51] box-a:1:1 [0] misc/ibvwrap.cc:402 (wrap_ibv_query_port_speed) NCCL WARN Call to ibv_query_port_speed failed with error Protocol not supported errno 93
+info: RoCE all-gather on 2 port(s) for gathers up to 512 KiB a rank
+info: rank 0: settings agreed, NCCL joined
+prompt path: 4096-row chunks (the last up to 512 more), glue split by rows, matmul K slices in one program (_b16mm_ks/_fp4mm_ks), experts on 128-pair items (fn_experts_prompt)
+info: caches in reserved address space (2048 KiB granularity), indexer keys in a ring
+info: vision: 2.00 GiB kept free for the image tower's workspace
+info: sequence memory: 30.76 GiB (43.35 GiB free, 10.0 GiB kept free); fp8 KV cache, 528 bytes a position a layer
+box-a[tensorfold] warning: non-loopback server has no API key; requests are open
+[tensorfold] prompt chunks of up to 2,048 tokens, cut at replies 256+ tokens apart
+[tensorfold] serving Qwen3.8-Flash-Next at http://0.0.0.0:8100/v1 (sampling: temperature 1.0, top_k 20, top_p 0.95; drafts: on; context: 131072; loaded in 91.4s)
+[tensorfold] thinking on (the chat template's default): replies reason in reasoning_content before the answer in content, and max_tokens counts both. --no-thinking turns it off; a request can send chat_template_kwargs {"enable_thinking": false}

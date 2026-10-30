@@ -1,0 +1,9 @@
+{
+  "source": "worklog/cluster_e2e.py on the deployed gateway, 2026-09-15 19:55:44Z-20:09:28Z (worklog/vllm-cluster-control-plane.md S5): generation 1, max_num_seqs 1, max_model_len 262144, Qwen3.8-Flash-Next-hibrid48, PLE replicated, MTP K=4, KV pin 28000000000 bytes. The MemAvailable below is what the LB's own cluster loop observed (tp-rank status), copied from that run's timeline.json. The same start's logs are qwen38-start-2026-09-15-rank{0,1}.log.",
+  "roles": {"box-a": "head", "box-b": "worker"},
+  "selection": {"model_choice": "qwen3.8-flash-next-hibrid48", "max_num_seqs": 1, "max_model_len": 262144},
+  "launched": {"t_s": 18.1, "state": "starting", "detail": "both ranks running; waiting for the head to answer /health",
+               "mem_available_gib": {"box-a": 114.8, "box-b": 114.3}},
+  "running": {"t_s": 787.8, "state": "running", "detail": "TP=2 pair up (generation 1)",
+              "mem_available_gib": {"box-a": 11.6, "box-b": 16.6}}
+}

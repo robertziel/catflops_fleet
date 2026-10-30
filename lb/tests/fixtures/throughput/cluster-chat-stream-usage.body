@@ -1,0 +1,22 @@
+data: {"id":"chatcmpl-8c350c497aaa9ba5","object":"chat.completion.chunk","created":1789508591,"model":"Qwen/Qwen3.8-Flash-Next","choices":[{"index":0,"delta":{"role":"assistant","content":""},"logprobs":null,"finish_reason":null}],"prompt_token_ids":null,"prompt_text":null}
+
+data: {"id":"chatcmpl-8c350c497aaa9ba5","object":"chat.completion.chunk","created":1789508591,"model":"Qwen/Qwen3.8-Flash-Next","choices":[{"index":0,"delta":{"reasoning":"We"},"logprobs":null,"finish_reason":null,"token_ids":null}]}
+
+data: {"id":"chatcmpl-8c350c497aaa9ba5","object":"chat.completion.chunk","created":1789508591,"model":"Qwen/Qwen3.8-Flash-Next","choices":[{"index":0,"delta":{"reasoning":" need to"},"logprobs":null,"finish_reason":null,"token_ids":null}]}
+
+data: {"id":"chatcmpl-8c350c497aaa9ba5","object":"chat.completion.chunk","created":1789508591,"model":"Qwen/Qwen3.8-Flash-Next","choices":[{"index":0,"delta":{"reasoning":" respond to user: \""},"logprobs":null,"finish_reason":null,"token_ids":null}]}
+
+data: {"id":"chatcmpl-8c350c497aaa9ba5","object":"chat.completion.chunk","created":1789508591,"model":"Qwen/Qwen3.8-Flash-Next","choices":[{"index":0,"delta":{"reasoning":"Count from 1 to"},"logprobs":null,"finish_reason":null,"token_ids":null}]}
+
+data: {"id":"chatcmpl-8c350c497aaa9ba5","object":"chat.completion.chunk","created":1789508591,"model":"Qwen/Qwen3.8-Flash-Next","choices":[{"index":0,"delta":{"reasoning":" 20, separated"},"logprobs":null,"finish_reason":null,"token_ids":null}]}
+
+data: {"id":"chatcmpl-8c350c497aaa9ba5","object":"chat.completion.chunk","created":1789508591,"model":"Qwen/Qwen3.8-Flash-Next","choices":[{"index":0,"delta":{"reasoning":" by single spaces. Reply"},"logprobs":null,"finish_reason":null,"token_ids":null}]}
+
+data: {"id":"chatcmpl-8c350c497aaa9ba5","object":"chat.completion.chunk","created":1789508591,"model":"Qwen/Qwen3.8-Flash-Next","choices":[{"index":0,"delta":{"reasoning":" with the numbers only.\""},"logprobs":null,"finish_reason":null,"token_ids":null}]}
+
+data: {"id":"chatcmpl-8c350c497aaa9ba5","object":"chat.completion.chunk","created":1789508591,"model":"Qwen/Qwen3.8-Flash-Next","choices":[{"index":0,"delta":{"reasoning":" Need final only numbers"},"logprobs":null,"finish_reason":"length","stop_reason":null,"token_ids":null}]}
+
+data: {"id":"chatcmpl-8c350c497aaa9ba5","object":"chat.completion.chunk","created":1789508591,"model":"Qwen/Qwen3.8-Flash-Next","choices":[],"usage":{"prompt_tokens":72,"total_tokens":104,"completion_tokens":32,"completion_tokens_details":{"reasoning_tokens":32}},"system_fingerprint":"vllm-0.29.0-tp2-7f9497f4"}
+
+data: [DONE]
+

@@ -1,0 +1,19 @@
+{
+ "dir": "/data/bench",
+ "error": "",
+ "now": 1790989307.8935766,
+ "runs": [],
+ "skipped": [],
+ "facets": {
+  "models": [],
+  "kinds": [],
+  "workloads": [],
+  "spec": [],
+  "batched": [],
+  "max_num_seqs": [],
+  "concurrency": [],
+  "prompt_tokens": [],
+  "max_tokens": [],
+  "groups": []
+ }
+}

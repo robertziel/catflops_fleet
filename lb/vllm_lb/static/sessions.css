@@ -1,0 +1,107 @@
+/* /sessions — the history of loaded models. Loaded AFTER gateway.css (the palette, the header, the
+   cards) and benchmarks.css (the chart furniture: --grid, --axis, --seq-*, the card radius). Nothing
+   here invents a second meaning for any of their tokens.
+
+   ONE HUE ON THE WHOLE PAGE. Four models need four categorical hues, and on this surface there is no
+   fourth: scripts/validate_palette.js (dataviz) measures every candidate against benchmarks.css's
+   --cmp-3 #3987e5 at 1.9-6.3 ΔE under protanopia, below its floor of 8, or outside the 0.48-0.67
+   lightness band. So identity is carried by the facet's own title and the table's model column, and
+   every mark is drawn in the page's accent family. */
+
+body.sessions .page { max-width: 1500px; }
+
+/* ── the filter row, above everything it scopes ──────────────────────────── */
+
+.s-filters { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem 1rem; margin: 0 0 .9rem; }
+.s-range { border: 0; margin: 0; padding: 0; }
+.s-span { color: var(--ink-faint); font: var(--small)/1.4 var(--mono); }
+
+/* ── the totals: a number, its name, and what it counts ──────────────────── */
+
+.s-tiles { display: grid; gap: var(--gap); margin: 0 0 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(156px, 1fr)); }
+.s-tile { background: var(--panel); border: 1px solid var(--line); border-radius: var(--card-r);
+  padding: .7rem .85rem; display: flex; flex-direction: column; gap: .15rem; min-width: 0; }
+.s-tile-v { font: 600 1.45rem/1.1 var(--mono); color: var(--ink); letter-spacing: -.01em; }
+.s-tile-k { color: var(--ink-dim); font-size: .78rem; }
+.s-tile-n { color: var(--ink-faint); font-size: var(--small); }
+
+/* ── the prices the dollars were made from, dated ──────────────────────────────────────── */
+.s-prices { display: flex; flex-wrap: wrap; align-items: baseline; gap: .15rem 1.1rem; margin: -.4rem 0 1rem;
+  font: var(--small)/1.5 var(--mono); color: var(--ink-faint); }
+.s-prices[hidden] { display: none; }
+.s-prices-k { color: var(--ink-faint); }
+.s-price { color: var(--ink-dim); cursor: help; }
+.s-price b { font-weight: 600; color: var(--ink); }
+.s-price i { font-style: normal; color: var(--ink-faint); }
+
+/* ── the cards ───────────────────────────────────────────────────────────── */
+
+.s-card { margin: 0 0 1rem; }
+.s-card .card-head { display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap; }
+.s-card h2 { margin: 0; font-size: .95rem; font-weight: 600; }
+.s-sub { color: var(--ink-faint); font-size: var(--small); }
+
+/* ── small multiples: one strip per model ────────────────────────────────── */
+
+.s-facets { display: flex; flex-direction: column; gap: .45rem; margin-top: .5rem; }
+.s-facet { border-top: 1px solid var(--line); padding-top: .4rem; }
+.s-facet:first-child { border-top: 0; padding-top: 0; }
+.s-facet-head { display: flex; align-items: baseline; gap: .55rem; flex-wrap: wrap; }
+.s-facet-name { font-weight: 600; font-size: .85rem; }
+.s-facet-sum { color: var(--ink-dim); font: var(--small)/1.4 var(--mono); }
+/* The rates the strip's dollars were billed at, printed on it: the price lists differ per model,
+   so a $-figure alone is not comparable across strips. help-cursored because its tooltip carries
+   the date and source, as every other dollar on this page does; nowrap so the chip is never split. */
+.s-facet-rates { color: var(--ink-faint); font: var(--small)/1.4 var(--mono); cursor: help;
+  white-space: nowrap; }
+.s-svg { width: 100%; height: auto; display: block; }
+.s-svg-big { margin-top: .4rem; }
+.s-chart { margin-top: .2rem; }
+
+/* The marks. 2px of surface between neighbours comes from the slot arithmetic in sessions.js; the
+   rounded data-end is 3px, capped at half a bar so a thin bar never turns into a lozenge. */
+/* THE BAR'S COLOUR IS ITS RATE, on the same four-tier ramp the table washes numbers with
+   (benchmarks.css `--heat`, measured on these surfaces): height says how much it generated, colour
+   says how fast it was among its own model's sessions. A bar is a solid mark, so each tier also
+   carries a stroke of the hue at full strength — the faintest tier is a visible bar, not a smudge. */
+.s-bar { fill: rgba(var(--heat), .30); stroke: rgba(var(--heat), .55); stroke-width: .5; }
+.s-bar.s-t1 { fill: var(--heat-1); }
+.s-bar.s-t2 { fill: var(--heat-2); }
+.s-bar.s-t3 { fill: var(--heat-3); }
+.s-bar.s-t4 { fill: var(--heat-4); }
+.s-bar:hover { fill: rgba(var(--heat), .85); }
+/* A SESSION THAT GENERATED NOTHING is not a short bar — it has no bar. The baseline tick says it
+   happened; the table says why (a start that failed, or a pair that served no request). */
+.s-bar-none { fill: var(--ink-faint); opacity: .5; }
+.s-line { fill: none; stroke: var(--seq-3); stroke-width: 2; stroke-linejoin: round; }
+.s-area { fill: var(--seq-1); opacity: .16; stroke: none; }
+.s-dot { fill: var(--seq-4); stroke: var(--panel); stroke-width: 2; }
+.s-dot:hover { fill: var(--seq-5); }
+.s-grid { stroke: var(--grid); stroke-width: 1; }
+.s-axis { stroke: var(--axis); stroke-width: 1; }
+.s-ylab, .s-xlab { fill: var(--ink-faint); font: 10px var(--mono); }
+
+/* ── the table ───────────────────────────────────────────────────────────── */
+
+.s-scroll { overflow-x: auto; margin-top: .5rem; }
+.s-table { border-collapse: collapse; width: 100%; font-size: .78rem; }
+.s-table th, .s-table td { padding: .3rem .5rem; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.s-table th { position: sticky; top: 0; background: var(--panel); color: var(--ink-dim);
+  font-weight: 600; text-align: right; font-size: var(--small); text-transform: lowercase; }
+/* which way is better, said in the header rather than left for the reader to infer */
+.s-dir { margin-inline-start: .25em; font-size: 8px; vertical-align: .15em; color: var(--ink-faint); }
+.s-table th.name, .s-table td.name { text-align: left; }
+.s-table td { text-align: right; font-family: var(--mono); color: var(--ink); }
+.s-table td.name { font-family: inherit; color: var(--ink); max-width: 20ch;
+  overflow: hidden; text-overflow: ellipsis; }
+.s-table tbody tr:hover { background: var(--panel-2); }
+/* A session that never served is dimmed, not hidden: it happened, and the history is the record of
+   what happened. A start that did not end `serving` is marked in the status colour it IS. */
+.s-row-idle td { color: var(--ink-faint); }
+.s-row-failed td:first-child { box-shadow: inset 2px 0 0 var(--bad); }
+
+@media (max-width: 760px) {
+  .s-tile-v { font-size: 1.2rem; }
+  .s-facet-sum, .s-facet-rates { font-size: 10px; }
+}

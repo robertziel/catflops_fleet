@@ -1,0 +1,14 @@
+# Rendered by deploy/standalone/install-node-applier.sh, one per cluster. Cluster @CLUSTER@'s applier HEARTBEAT: a pass
+# every 30 s writes the report the LB reads (vllm_lb/node_control.py APPLIER_PERIOD_S — the same number, pinned by
+# deploy/tests; three missed beats and the panel says "no applier listening").
+[Unit]
+Description=vLLM node applier heartbeat for cluster @CLUSTER@
+
+[Timer]
+OnBootSec=15s
+OnUnitActiveSec=30s
+AccuracySec=1s
+Unit=vllm-node-applier-@CLUSTER@.service
+
+[Install]
+WantedBy=timers.target

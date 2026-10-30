@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "name": "wall",
+  "label": "Wall",
+  "what": "a monitoring wall: the cluster's boxes on top, throughput + saturation beside requests, no controls; tabs at the foot",
+  "rows": [
+    { "cols": [
+      { "width": "1", "items": ["queued", "cluster"] }
+    ] },
+    { "cols": [
+      { "width": "1", "items": ["engine", "saturation"] },
+      { "width": "1", "items": ["requests"] }
+    ] },
+    { "cols": [
+      { "width": "1", "items": ["tabs"] }
+    ] }
+  ],
+  "hidden": ["server"]
+}

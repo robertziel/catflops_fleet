@@ -1,0 +1,48 @@
+# THE FLEET FILE, one-host shape: one box with two different cards, one of which serves a one-host cluster the LB
+# routes to but does not start (control: none). Every key is explained in lb/fleet.example.yml; vllm_lb/fleet.py
+# validates it and refuses the start, naming the value, on anything missing, unknown or inconsistent.
+# Addresses are documentation ranges (RFC 5737); names are placeholders.
+
+boxes:
+  box-d:
+    hostname: box-d-host
+    label: box-d-gpu
+    platform: linux/amd64           # the CPU its images are built for: the node's image must be amd64
+    # kv_offload_ram_max_gib: 16    # OPTIONAL: the most GiB of this box's RAM a node's KV tier (kv_offload_ram_gib)
+                                    # may take — at most the host's /dev/shm (`df -B1 /dev/shm`), where vLLM maps it
+                                    # pinned at start; left out = no tier here. Refused on unified memory (a GB10).
+    cards:
+      - {index: 0, type: rtx3090, serves: false}     # in the box, not this fleet's: listed, serves nothing
+      - {index: 1, type: rtx5090, serves: true}      # the card the node runs on
+
+clusters:
+  node:
+    control: none                   # started by its own compose project; the LB observes it, never starts it.
+                                    # local: the LB requests (an intent), this host applies — model + launch required;
+                                    # its launch lists `choices` (the models the panel may select, `model` among them)
+                                    # in place of served_name: each choice's served name and folder are its catalog row's
+    model: qwen3.8-27b-nvidia-nvfp4@uncensored   # the model it serves (vllm_lb/library/models.json), @variant optional
+    url: http://vllm-node:8000      # what the LB dials
+    launch:                         # how its compose launches it: `python -m vllm_lb.fleet node-env <file> node`
+      image: vllm/vllm-openai@sha256:0000000000000000000000000000000000000000000000000000000000000000
+      served_name: qwen3.8-27b-uncensored
+      max_model_len: 131072
+      max_num_seqs: 8
+      gpu_memory_utilization: 0.9
+      # max_num_batched_tokens:     # OPTIONAL: vLLM's prefill chunk; left out = vLLM's own default for the card
+      # kv_cache_memory:            # OPTIONAL: the KV pool pinned, bytes (the boot log's "--kv-cache-memory=N ... to
+                                    # fully utilize gpu memory" is the card's whole KV); left out = sized from the fraction
+      # kv_offload_ram_gib:         # OPTIONAL: a KV tier in the host's RAM, GiB, up to the box's kv_offload_ram_max_gib:
+                                    # a preempted request's prompt KV is parked there and copied back, not recomputed
+      reasoning_parser: qwen3
+      tool_call_parser: qwen3_coder
+    ranks:
+      - {box: box-d}                # its GPU: box-d's serving card (index 1)
+
+backends: {}
+
+# WHERE EACH MODEL'S FILES SIT, relative to the models roots (lb/.env MODELS_SEARCH_DIRS; a standalone node's
+# EDGE_MODELS_DIR) — the deployment's, never the model library's (lb/fleet.example.yml says more). A model not
+# named here is not staged: not offered, and a Start of it is refused naming this key.
+checkpoints:
+  qwen3.8-27b-nvidia-nvfp4: {path: Qwen3.8-27B-NVFP4, uncensored: Qwen3.8-27B-NVFP4_uncensored}

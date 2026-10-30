@@ -1,0 +1,20 @@
+{
+  "captured_at": "2026-09-15T21:23:31+00:00",
+  "url": "http://127.0.0.1:11434/api/ps",
+  "status": 200,
+  "headers": [
+    [
+      "Content-Type",
+      "application/json; charset=utf-8"
+    ],
+    [
+      "Date",
+      "Tue, 15 Sep 2026 21:23:31 GMT"
+    ],
+    [
+      "Content-Length",
+      "393"
+    ]
+  ],
+  "body": "{\"models\":[{\"name\":\"qwen3.8:latest\",\"model\":\"qwen3.8:latest\",\"size\":18714627931,\"digest\":\"22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643\",\"details\":{\"parent_model\":\"\",\"format\":\"gguf\",\"family\":\"qwen35\",\"families\":[\"qwen35\"],\"parameter_size\":\"27.3B\",\"quantization_level\":\"Q4_K_M\"},\"expires_at\":\"2026-09-15T21:28:31.023366889Z\",\"size_vram\":18714627931,\"context_length\":262144}]}"
+}

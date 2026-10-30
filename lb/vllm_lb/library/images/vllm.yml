@@ -1,0 +1,22 @@
+# THE IMAGE MATRIX for vLLM (vllm_lb/images.py): which image runs a BUILD of this engine on an ACCELERATOR
+# (vllm_lb/hardware/accelerators/<key>.yml) for a CPU PLATFORM. A recipe names its engine and build; the resolver picks
+# the image for the cluster's accelerator and platform, or REFUSES naming the missing combination — never a nearest one.
+#
+# A BUILD is one image recipe of the engine (its base and the patches it carries): `fleet` is this project's patched vLLM
+# (Flash-Next's PLE placement and MTP drafter view), `glm53` and `deepseek-v4-b12x` the published two-GB10
+# recipes' images, `upstream-0.23` the upstream release a classic server runs.
+#
+# ONE ENTRY PER LINE, in exactly this key order: deploy/images/build.sh reads a tag from these lines with grep
+# (the host has no YAML parser), and tests/test_images.py holds every entry to that shape.
+builds:
+  fleet: {source: "vLLM 0.29.0 (98dff2a81) with this project's Flash-Next support (PLE placement, MTP drafter view, modelopt_mixed), image d9b79b5efa9f — kv_cache_dtypes.json's build record. Its build recipe is not in this repo (docs/design/engines.md, Open items)"}
+  glm53: {source: "deploy/glm53-flash-cluster-vllm/image: FROM the published two-GB10 GLM-5.3-Flash vLLM (487ecf187) pinned by digest, + the sm_121 sparse-attention indexer"}
+  deepseek-v4-b12x: {source: "deploy/deepseek-v4-flash-cluster-vllm/image: FROM the B12X vLLM base pinned by digest (vLLM 0.1.dev21830, the B12X kernels), + the DeepSeek-V4 quant config"}
+  priority: {source: "deploy/images/vllm/Dockerfile stage priority: upstream vLLM 2eb491e (0.31.1rc1.dev273, vllm/vllm-openai@sha256:514cd427…) + priority/priority.patch (the caller's X-Priority reaches the scheduler) — a one-card node's image (deploy/standalone node-engine.vllm.yml)"}
+  upstream-0.23: {source: "the upstream vLLM release a classic server runs (broker_parrot's per-box vLLM): vllm/vllm-openai v0.23.0, a multi-platform manifest"}
+images:
+  - {build: fleet, accelerator: nvidia-sm121, platform: linux/arm64, image: "myllmbox/qwen38-flash-next-cluster-vllm:v5", source: "the catalog's pin for the pair's Flash-Next, 27B and DFlash2 vLLM rows until 2026-10-30 (built for sm_121a, arm64); KV dtypes read in it 2026-10-22 on box-a (kv_cache_dtypes.json)"}
+  - {build: glm53, accelerator: nvidia-sm121, platform: linux/arm64, image: "myllmbox/glm53-flash-cluster-vllm:v2", source: "the catalog's pin for glm-5.3-flash-nvfp4 until 2026-10-30; deploy/images/build.sh vllm glm53 nvidia-sm121 (TORCH_CUDA_ARCH_LIST=12.1a, --platform linux/arm64)"}
+  - {build: deepseek-v4-b12x, accelerator: nvidia-sm121, platform: linux/arm64, image: "myllmbox/deepseek-v4-flash-cluster-vllm:v1", source: "the catalog's pin for deepseek-v4-flash-nvfp4 until 2026-10-30; deploy/images/build.sh vllm deepseek-v4-b12x nvidia-sm121 (CUTE_DSL_ARCH=sm_121a, --platform linux/arm64)"}
+  - {build: upstream-0.23, accelerator: nvidia-sm121, platform: linux/arm64, image: "vllm/vllm-openai:v0.23.0", source: "the catalog's classic pin for qwen3.8-27b-nvfp4 until 2026-10-30 — broker_parrot's per-box vLLM on the pair's boxes"}
+  - {build: priority, accelerator: nvidia-sm120, platform: linux/amd64, image: "vllm-fleet:2eb491e-priority.1", source: "the RTX 5090 node's production image since 2026-10-28, built by hand with --target priority on its host: image id sha256:7b35cbcf2a880e0e61233848f038417a04b1a94950ac691ae901948abff7f360, the id its fleet launch block pins and kv_cache_dtypes.json records. No pin file yet (deploy/images/vllm/priority.nvidia-sm120.env): the base digest is recorded truncated"}

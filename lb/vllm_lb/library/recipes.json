@@ -1,0 +1,308 @@
+{
+  "about": "THE RECIPES (vllm_lb/catalog.py `document`): how each model is launched, independent of hardware — its engine and build (the image is the matrix's, library/images), parsers, speculative decoding, KV dtype, engine flags. `overrides.<accelerator>` holds the few settings that apply only on that accelerator (DeepSeek-V4's B12X kernels on the GB10).",
+  "recipes": [
+    {
+      "model": "qwen3.8-flash-next-hibrid48",
+      "node_engine": "vllm",
+      "launch": {
+        "cluster": {
+          "default": true,
+          "build": "fleet",
+          "kv_cache_dtype": "fp8_e4m3",
+          "kv_cache_dtype_backend": {
+            "name": "QWEN4_EXP_QSA_TRITON",
+            "reads": [
+              "bfloat16",
+              "fp8",
+              "fp8_e4m3",
+              "nvfp4"
+            ],
+            "source": "models/qwen4_exp/nvidia/qsa.py in myllmbox/qwen38-flash-next-cluster-vllm:v5 (read on box-a 2026-10-26, no engine started): Qwen4ExpQSAFlashAttentionBackend (get_name QWEN4_EXP_QSA_TRITON) supported_kv_cache_dtypes auto, bfloat16, fp8, fp8_e4m3, nvfp4; supports_kv_cache_dtype: 'The QSA main cache is only read by the Triton kernel in ops/qsa.py, which dequantizes in registers, so the FlashAttention capability is irrelevant here' - nvfp4 has its own page geometry, writer and read kernel there; the MTP drafter's attentions are QSA too (mtp.py _iter_qsa_attentions). Anything else raises 'Qwen4Exp QSA requires a BF16, FP8-E4M3 or NVFP4 main KV cache' (qsa.py:437; generations 262/265 at int4_per_token_head). NVFP4 NOT MEASURED on this fleet"
+          },
+          "tool_call_parser": "qwen3_xml",
+          "reasoning_parser": "qwen3",
+          "speculative_config": {
+            "method": "mtp",
+            "num_speculative_tokens": 4
+          },
+          "gpu_memory_utilization": 0.7,
+          "kv_cache_memory": 28000000000,
+          "ple_replicate": false,
+          "mtp_prefix": "mtp."
+        }
+      }
+    },
+    {
+      "model": "qwen3.8-flash-next-sglang",
+      "launch": {
+        "cluster": {
+          "engine": "sglang",
+          "build": "fleet.4",
+          "kv_cache_dtype_refuses": {
+            "nvfp4": "the fleet's qsa-fp8-kv patch (myllmbox/sglang-27b-tp2:708f51e-fleet.4) widens only an FP8 pool to the BF16 the SM121 QSA kernel reads (\"unsupported SM121 QSA call: expected BF16 D=256 …\", generation 153); an FP4 pool is not widened",
+            "fp4_mx_block16": "the fleet's qsa-fp8-kv patch (myllmbox/sglang-27b-tp2:708f51e-fleet.4) widens only an FP8 pool to the BF16 the SM121 QSA kernel reads (\"unsupported SM121 QSA call: expected BF16 D=256 …\", generation 153); an FP4 pool is not widened"
+          },
+          "tool_call_parser": "qwen3_coder",
+          "reasoning_parser": "qwen3",
+          "speculative_config": {
+            "method": "nextn",
+            "num_speculative_tokens": 4
+          },
+          "kv_cache_memory": 18000000000,
+          "ple_replicate": false,
+          "mtp_prefix": "",
+          "engine_args": {
+            "speculative_algorithm": "NEXTN",
+            "speculative_num_steps": 3,
+            "speculative_eagle_topk": 1,
+            "mem_fraction_static": 0.74,
+            "kv_pool_calibration": {
+              "reference_bytes": 6993411168,
+              "pre_load_gib": 109.43,
+              "max_fraction": 0.85
+            },
+            "mamba_slots_per_req": 10,
+            "linear_attn_prefill_backend": "flashinfer",
+            "fp4_gemm_backend": "flashinfer_cutlass",
+            "moe_runner_backend": "flashinfer_cutlass",
+            "kv_cache_dtype": "fp8_e4m3",
+            "page_size": 64,
+            "cuda_graph_max_bs_decode": 32
+          }
+        }
+      }
+    },
+    {
+      "model": "qwen3.8-flash-next-tensorfold-nvfp4",
+      "launch": {
+        "cluster": {
+          "engine": "tensorfold",
+          "build": "native",
+          "tool_call_parser": "",
+          "reasoning_parser": "",
+          "mtp_prefix": "",
+          "engine_args": {
+            "cli": "tensorfold-native",
+            "kv_cache_dtype": "fp8_e4m3",
+            "drafts": true,
+            "thinking": true,
+            "vision": true,
+            "max_tokens": 32768,
+            "roce": 1,
+            "l2pf": 1,
+            "yarn": 0,
+            "memory_reserve_gib": 10,
+            "nccl_channels": 4
+          }
+        }
+      }
+    },
+    {
+      "model": "qwen3.8-flash-next-tensorfold-mlx-mtp",
+      "launch": {
+        "cluster": {
+          "engine": "tensorfold",
+          "build": "py066",
+          "tool_call_parser": "",
+          "reasoning_parser": "",
+          "mtp_prefix": "",
+          "engine_args": {
+            "cli": "tensorfold",
+            "kv_cache_dtype": "bfloat16",
+            "drafts": true,
+            "thinking": true,
+            "vision": false,
+            "max_tokens": 32768,
+            "roce": 0,
+            "memory_reserve_gib": 10
+          }
+        }
+      }
+    },
+    {
+      "model": "qwen3.8-27b-nvidia-nvfp4",
+      "node_engine": "vllm",
+      "launch": {
+        "cluster": {
+          "build": "fleet",
+          "kv_cache_dtype": "int4_per_token_head",
+          "tool_call_parser": "qwen3_xml",
+          "reasoning_parser": "qwen3",
+          "speculative_config": {
+            "method": "mtp",
+            "num_speculative_tokens": 4
+          },
+          "gpu_memory_utilization": 0.7,
+          "kv_cache_memory": 48000000000,
+          "mtp_prefix": "mtp."
+        }
+      }
+    },
+    {
+      "model": "qwen3.8-27b-nvfp4",
+      "node_engine": "vllm",
+      "launch": {
+        "classic": {
+          "default": true,
+          "build": "upstream-0.23",
+          "tool_call_parser": "qwen3_coder",
+          "reasoning_parser": "qwen3"
+        }
+      }
+    },
+    {
+      "model": "qwen3.8-27b-dflash2",
+      "node_engine": "vllm",
+      "launch": {
+        "cluster": {
+          "build": "fleet",
+          "tool_call_parser": "qwen3_xml",
+          "reasoning_parser": "qwen3",
+          "speculative_config": {
+            "method": "dflash",
+            "num_speculative_tokens": 4
+          },
+          "draft_checkpoint": true,
+          "gpu_memory_utilization": 0.7,
+          "kv_cache_memory": 28000000000,
+          "mtp_prefix": ""
+        }
+      }
+    },
+    {
+      "model": "qwen3.8-27b-sglang-dflash2",
+      "node_engine": "sglang",
+      "launch": {
+        "cluster": {
+          "engine": "sglang",
+          "build": "fleet.2",
+          "tool_call_parser": "qwen3_coder",
+          "reasoning_parser": "qwen3",
+          "speculative_config": {
+            "method": "dflash",
+            "num_speculative_tokens": 4
+          },
+          "draft_checkpoint": true,
+          "engine_args": {
+            "mem_fraction_static": 0.8,
+            "kv_pool_calibration": {
+              "reference_bytes": 73435823273,
+              "pre_load_gib": 109.63,
+              "max_fraction": 0.85
+            },
+            "mamba_slots_per_req": 10,
+            "linear_attn_prefill_backend": "flashinfer"
+          },
+          "kv_cache_memory": 73435823273,
+          "mtp_prefix": ""
+        }
+      }
+    },
+    {
+      "model": "glm-5.3-flash-nvfp4",
+      "node_engine": "vllm",
+      "launch": {
+        "cluster": {
+          "build": "glm53",
+          "tool_call_parser": "glm47",
+          "reasoning_parser": "glm45",
+          "speculative_config": {
+            "method": "mtp",
+            "num_speculative_tokens": 4
+          },
+          "gpu_memory_utilization": 0.84,
+          "kv_cache_memory": 5400000000,
+          "mtp_prefix": "",
+          "kv_cache_dtype": "fp8_e4m3",
+          "kv_cache_dtype_refuses": {
+            "nvfp4": "GLM-5.3-Flash attends through MLA (kv_lora_rank 512), and this vLLM refuses an nvfp4 KV cache with MLA (config/vllm.py:2539-2549 validate_nvfp4_kv_cache_with_mla @487ecf187)"
+          },
+          "block_size": 2304,
+          "moe_backend": "marlin",
+          "enforce_eager": true,
+          "skip_mm_profiling": true,
+          "limit_mm_per_prompt": {
+            "image": 4,
+            "video": 1
+          }
+        }
+      }
+    },
+    {
+      "model": "deepseek-v4-flash-nvfp4",
+      "node_engine": "vllm",
+      "launch": {
+        "cluster": {
+          "build": "deepseek-v4-b12x",
+          "tool_call_parser": "deepseek_v4",
+          "reasoning_parser": "deepseek_v4",
+          "speculative_config": {
+            "method": "dspark",
+            "num_speculative_tokens": 5,
+            "draft_sample_method": "probabilistic",
+            "attention_backend": "B12X"
+          },
+          "gpu_memory_utilization": 0.85,
+          "kv_cache_memory": 10000000000,
+          "mtp_prefix": "",
+          "kv_cache_dtype": "fp8",
+          "kv_cache_dtype_refuses": {
+            "fp8_e4m3": "DeepSeek-V4's sparse MLA backend takes auto, fp8_ds_mla and its alias fp8 only (vllm/models/deepseek_v4/sparse_mla.py:53-57 in this image)"
+          },
+          "block_size": 256,
+          "trust_remote_code": true,
+          "tokenizer_mode": "deepseek_v4",
+          "max_cudagraph_capture_size": 48,
+          "compilation_config": {
+            "cudagraph_mode": "FULL_AND_PIECEWISE",
+            "custom_ops": [
+              "all"
+            ]
+          },
+          "reasoning_config": {
+            "reasoning_parser": "deepseek_v4",
+            "reasoning_start_str": "",
+            "reasoning_end_str": ""
+          },
+          "default_chat_template_kwargs": {
+            "thinking": true,
+            "reasoning_effort": "high"
+          }
+        }
+      },
+      "overrides": {
+        "nvidia-sm121": {
+          "moe_backend": "b12x",
+          "load_format": "b12x",
+          "linear_backend": "b12x",
+          "attention_backend": "B12X"
+        }
+      }
+    },
+    {
+      "model": "mai-ui-2b",
+      "node_engine": "vllm",
+      "launch": {}
+    },
+    {
+      "model": "whisper-large-v3-turbo",
+      "node_engine": "vllm",
+      "launch": {}
+    },
+    {
+      "model": "faster-whisper-large-v3-turbo",
+      "node_engine": "faster-whisper",
+      "launch": {}
+    },
+    {
+      "model": "faster-whisper-large-v3",
+      "node_engine": "faster-whisper",
+      "launch": {}
+    },
+    {
+      "model": "parakeet-tdt-0.6b-v3",
+      "node_engine": "nemo",
+      "launch": {}
+    }
+  ]
+}

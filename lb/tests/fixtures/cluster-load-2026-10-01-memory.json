@@ -1,0 +1,67 @@
+{
+  "what": "What LOAD takes from a serving TP=2 pair's unified memory, on top of what the same pair rests at — the figure an `auto` KV pool must leave room for so that broker_parrot's 12 GB floor holds under load and not only at rest. The KV pool is pinned and allocated at start; full prefill chunks' activations and per-request state are not, and the caching allocator keeps what they grew. Every number is a measurement or a quoted log line.",
+  "boxes": {
+    "note": "box-a (head, box-a-host) and box-b (worker, box-b-host) are NVIDIA GB10: CPU and GPU share one 121.7 GiB LPDDR5X pool. vLLM itself reads 'free' on them as psutil's MemAvailable (vllm/utils/mem_utils.py MemorySnapshot.measure, is_integrated_gpu), the same number tp-rank's status reports.",
+    "mem_total_gib": 121.7
+  },
+  "sources": {
+    "sar": "`sadf -d /var/log/sysstat/sa01 -- -r` on each GB10 box (sysstat-collect.timer, every 10 min): kbavail / 1048576, rounded to 0.1 GiB",
+    "lb": "/lb/status cluster.boxes.<box>.mem_available_gib (tp-rank status) read every 10 s from 20:36:46Z",
+    "perf": "lb/state/perf/perf-2026-10-01.jsonl — running/waiting per minute, prompt tokens computed",
+    "vllm": "docker logs qwen38-cluster-vllm on each GB10 box, generation 99"
+  },
+  "generation_99": {
+    "config": {"max_num_seqs": 16, "max_num_batched_tokens": 4096, "num_speculative_tokens": 4,
+               "ple_replicate": false, "kv_cache_memory": 35000000000, "max_model_len": 262144},
+    "vllm": {
+      "head": ["Model loading took 50.56 GiB memory and 345.668025 seconds",
+               "Initial free memory 108.38 GiB, reserved 32.6 GiB memory for KV Cache as specified by kv_cache_memory_bytes config and skipped memory profiling.",
+               "GPU KV cache size: 2,134,800 tokens, Maximum concurrency for 262,144 tokens per request: 8.14x",
+               "Graph capturing finished in 24 secs, took 1.59 GiB"],
+      "worker": ["Model loading took 50.56 GiB memory and 347.011640 seconds",
+                 "Initial free memory 109.18 GiB, reserved 32.6 GiB memory for KV Cache as specified by kv_cache_memory_bytes config and skipped memory profiling.",
+                 "Graph capturing finished in 24 secs, took 1.38 GiB"]
+    },
+    "serving_since": "20:07:56Z (the boot record's `running`); the first prompt tokens are in the perf window that opens 20:11:58Z",
+    "sar_mem_available_gib": {
+      "box-a":  {"20:00": 55.7, "20:10": 19.4, "20:20": 17.9, "20:30": 16.8, "20:40": 14.4},
+      "box-b": {"20:00": 57.9, "20:10": 21.8, "20:20": 20.9, "20:30": 19.3, "20:40": 17.4}
+    },
+    "at_rest_gib": {"box-a": 19.4, "box-b": 21.8,
+                    "note": "sar at 20:10, two minutes after the head first answered and before any request"},
+    "loaded_gib": {"box-a": 13.5, "box-b": 16.1,
+                   "note": "the lowest the LB read between 20:36:46Z and 21:05:19Z (box-a at 20:56:58Z, box-b at 20:58:08Z); 16 running and up to 15 waiting (perf 20:32:59Z-20:39:54Z, and without a break from 20:53:55Z), up to 361,061 prompt tokens computed in a minute, KV occupancy at most 0.40. It stepped down with each new extreme of load (14.4 → 13.5 at the 20:53Z burst), then held."},
+    "load_gib": {"box-a": 5.9, "box-b": 5.7}
+  },
+  "generation_98": {
+    "config": {"max_num_seqs": 16, "max_num_batched_tokens": 4096, "num_speculative_tokens": 4,
+               "ple_replicate": true, "kv_cache_memory": 28000000000, "max_model_len": 262144},
+    "sar_mem_available_gib": {
+      "box-a":  {"17:50": 9.1, "18:00": 9.1, "18:10": 9.0, "18:20": 7.3, "18:30": 7.9, "18:40": 8.0, "18:50": 7.9,
+                 "19:00": 7.9, "19:10": 7.9, "19:20": 7.9, "19:30": 7.9, "19:40": 7.9, "19:50": 7.9},
+      "box-b": {"17:50": 12.2, "18:00": 12.2, "18:10": 11.9, "18:20": 10.7, "18:30": 11.4, "18:40": 11.4, "18:50": 11.4,
+                 "19:00": 11.4, "19:10": 10.9, "19:20": 10.9, "19:30": 10.8, "19:40": 10.8, "19:50": 10.8}
+    },
+    "loaded_gib": {"box-a": 7.3, "box-b": 10.7, "note": "16 running, KV occupancy up to 1.00 (perf 18:20Z-19:50Z)"},
+    "static_difference_to_99_gib": {
+      "ple_split": -13.9,
+      "ple_split_source": "Model loading took 64.46 GiB (PLE replicated, lb/tests/fixtures/qwen38-start-2026-09-15-rank0.log) against 50.56 GiB (split, generation 99)",
+      "kv_pin": 6.52,
+      "kv_pin_source": "(35,000,000,000 - 28,000,000,000) / 1024^3"
+    },
+    "at_rest_gib": {"box-a": 12.0, "box-b": 14.5,
+                    "note": "never sampled at rest — traffic arrived at once; generation 99's resting figure minus the 7.4 GiB static difference, and within 0.7 GiB of generation 84's 11.3 / 14.9 (the same static configuration at budget 8,192)"},
+    "load_gib": {"box-a": 4.7, "box-b": 3.8}
+  },
+  "budget_8192": {
+    "config": {"max_num_seqs": 16, "max_num_batched_tokens": 8192, "num_speculative_tokens": 4,
+               "ple_replicate": true, "kv_cache_memory": 28000000000, "max_model_len": 262144},
+    "at_rest_gib": {"box-a": 11.3, "box-b": 14.9,
+                    "source": "generation 84, the operator's live read just after its ranks served and before traffic"},
+    "loaded_gib": {
+      "96": {"box-a": 1.2, "box-b": 5.4, "source": "sar 05:20Z-08:20Z under 16 running for three hours, drifting down 2.3 → 1.2"},
+      "97": {"box-a": 1.6, "box-b": 4.7, "source": "sar 16:40Z-17:20Z under up to 16 running"}
+    },
+    "load_gib": {"96": {"box-a": 10.1, "box-b": 9.5}, "97": {"box-a": 9.7, "box-b": 10.2}}
+  }
+}

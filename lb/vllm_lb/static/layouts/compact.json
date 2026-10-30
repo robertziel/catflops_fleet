@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "name": "compact",
+  "label": "Compact",
+  "what": "tabs first; the server card beside throughput + saturation; requests and the cluster share a row",
+  "rows": [
+    { "cols": [
+      { "width": "1", "items": ["queued", "tabs"] }
+    ] },
+    { "cols": [
+      { "width": "side", "items": ["server"] },
+      { "width": "1", "items": ["engine", "saturation"] }
+    ] },
+    { "cols": [
+      { "width": "1", "items": [{ "id": "requests", "size": "half" }, { "id": "cluster", "size": "half" }] }
+    ] }
+  ],
+  "hidden": []
+}

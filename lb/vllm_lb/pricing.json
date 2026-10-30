@@ -1,0 +1,52 @@
+{
+  "lists": {
+    "zai-glm-5.3-flash": {
+      "vendor": "Z.ai",
+      "label": "GLM-5.3-Flash",
+      "usd_per_mtok": {"input": 0.15, "output": 0.50, "cache_read": 0.03},
+      "as_of": "2026-10-20",
+      "source": "https://docs.z.ai/guides/overview/pricing",
+      "basis": "Latest Models table: input $0.15, cached input $0.03, output $0.50 per 1M tokens, USD ('All prices are in USD'). The page carries no date of its own: this is the day it was read.",
+      "excludes": "cached input STORAGE, 'Limited-time Free' on the page",
+      "tokenizer": "token counts are GLM-5.3-Flash's own tokenizer, the one the hosted model counts with"
+    },
+    "anthropic-claude-opus-5-5": {
+      "vendor": "Anthropic",
+      "label": "Claude Opus 5.5",
+      "usd_per_mtok": {"input": 4.0, "output": 20.0, "cache_read": 0.20},
+      "as_of": "2026-10-05",
+      "source": "https://platform.claude.com/docs/en/about-claude/pricing",
+      "basis": "Base input $4, output $20; a cache hit is 0.05x base input ($0.20). The page carries no date of its own: this is the day it was read.",
+      "excludes": "the 1.25x cache-WRITE premium ($5/MTok) — the log counts tokens the engine computed, not tokens an Anthropic cache would have written, so every non-hit prompt token is priced at base input. That makes the saving a LOWER bound.",
+      "tokenizer": "token counts are Qwen's own. Claude's tokenizer counts the same text differently (Claude 4.7 and later ~30% more than earlier Claude, per the page) and its ratio to Qwen's is not published, so this prices Qwen-counted tokens as if they were Claude-counted."
+    },
+    "alibaba-qwen3.8-27b-sg": {
+      "vendor": "Alibaba Cloud Model Studio · Singapore (International)",
+      "label": "Qwen3.8-27B",
+      "usd_per_mtok": {"input": 0.50, "output": 3.0, "cache_read": 0.10},
+      "as_of": "2026-10-03",
+      "source": "https://www.alibabacloud.com/help/en/model-studio/model-pricing",
+      "basis": "Input $0.50 and output $3.00, one tier (0 < tokens <= 1M). Cache read is the IMPLICIT cache's 'typically 20% of the standard input price' from the context-cache page (https://www.alibabacloud.com/help/en/model-studio/context-cache); qwen3.8-27b is not among the models that page lists as exceptions to it. The pricing table itself says only that a 'context caching discount' applies, with no number.",
+      "excludes": "the explicit cache's creation charge (125%) — vLLM's prefix cache is automatic, the implicit cache's analogue.",
+      "tokenizer": "token counts here ARE this model's own tokenizer's."
+    }
+  },
+  "references": ["anthropic-claude-opus-5-5"],
+  "own": {
+    "glm-5.3-flash-nvfp4": "zai-glm-5.3-flash",
+    "qwen3.8-27b-nvidia-nvfp4": "alibaba-qwen3.8-27b-sg",
+    "qwen3.8-27b-nvfp4": "alibaba-qwen3.8-27b-sg",
+    "qwen3.8-27b-dflash2": "alibaba-qwen3.8-27b-sg",
+    "qwen3.8-27b-sglang-dflash2": "alibaba-qwen3.8-27b-sg",
+    "qwen3.8-flash-next-hibrid48": {"unpriced": "Qwen3.8-Flash-Next is not on Alibaba's published price list (read 2026-10-03). The nearest listed model, qwen3.8-flash, is a different proprietary model whose cache-hit price is also unpublished, so it is not substituted."},
+    "mai-ui-2b": {"unpriced": "MAI-UI-2B (Tongyi-MAI's GUI agent, Qwen3-VL 2B) is on no vendor's published API price list (read 2026-10-17): it is an open-weights model run only on this fleet, so there is no hosted price to compare its tokens to, and none is substituted."},
+    "qwen3.8-flash-next-sglang": {"unpriced": "Qwen3.8-Flash-Next is not on Alibaba's published price list (read 2026-10-03). The nearest listed model, qwen3.8-flash, is a different proprietary model whose cache-hit price is also unpublished, so it is not substituted."},
+    "qwen3.8-flash-next-tensorfold-nvfp4": {"unpriced": "Qwen3.8-Flash-Next is not on Alibaba's published price list (read 2026-10-03). The nearest listed model, qwen3.8-flash, is a different proprietary model whose cache-hit price is also unpublished, so it is not substituted."},
+    "qwen3.8-flash-next-tensorfold-mlx-mtp": {"unpriced": "Qwen3.8-Flash-Next is not on Alibaba's published price list (read 2026-10-03). The nearest listed model, qwen3.8-flash, is a different proprietary model whose cache-hit price is also unpublished, so it is not substituted."},
+    "whisper-large-v3-turbo": {"unpriced": "Whisper large-v3-turbo (vLLM on a self-hosted card) is a speech-to-text model: where it is hosted it is priced per audio minute, never per token, so the sessions' token figures have no list to compare to, and none is substituted (2026-10-23)."},
+    "faster-whisper-large-v3-turbo": {"unpriced": "Whisper large-v3-turbo (faster-whisper on a self-hosted card) is a speech-to-text model: where it is hosted it is priced per audio minute, never per token, so the sessions' token figures have no list to compare to, and none is substituted (2026-10-23)."},
+    "faster-whisper-large-v3": {"unpriced": "Whisper large-v3 (faster-whisper on a self-hosted card) is a speech-to-text model: where it is hosted it is priced per audio minute, never per token, so the sessions' token figures have no list to compare to, and none is substituted (2026-10-24)."},
+    "parakeet-tdt-0.6b-v3": {"unpriced": "Parakeet TDT 0.6B v3 (NeMo on a self-hosted card) is a speech-to-text model: where it is hosted it is priced per audio minute, never per token, so the sessions' token figures have no list to compare to, and none is substituted (2026-10-24)."},
+    "deepseek-v4-flash-nvfp4": {"unpriced": "DeepSeek retired DeepSeek-V4-Flash from its API: the legacy deepseek-v4-flash name is now served by DeepSeek-V4.1-Flash-1017 at the Flash price (api-docs.deepseek.com/quick_start, read 2026-10-23). That is a different, larger model, so its price is not substituted."}
+  }
+}
