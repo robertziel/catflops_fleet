@@ -14,7 +14,7 @@
 .rec-strip {
   display: block; width: 100%; min-width: 0; margin: 0; padding: .15rem .55rem;
   font: inherit; font-size: var(--small); line-height: 1.5; text-align: left; font-variant-numeric: tabular-nums;
-  color: var(--ink-dim); background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px;
+  color: var(--ink-dim); background: var(--panel-2); border: var(--rule); border-radius: var(--radius-box);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer;
 }
 .rec-strip:hover, .rec-strip:focus-visible { color: var(--ink); border-color: var(--ink-faint); }
@@ -25,14 +25,14 @@
 /* OPEN: under the strip, the same width, the card's ground. */
 .rec-body {
   display: grid; gap: .4rem; min-width: 0; padding: .45rem .6rem .55rem;
-  background: var(--panel); border: 1px solid var(--line); border-top: 0; border-radius: 0 0 10px 10px;
-  font-size: .76rem;
+  background: var(--panel); border: var(--rule); border-top: 0; border-radius: 0 0 var(--radius-band) var(--radius-band);
+  font-size: var(--fs-76);
 }
 .rec-top { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
 .rec-h { font-size: var(--small); font-weight: 700; letter-spacing: .08em; color: var(--ink-faint); }
 .rec-expand, .rec-more {
   font: inherit; font-size: var(--small); color: var(--accent); background: transparent;
-  border: 1px solid var(--line); border-radius: 999px; padding: .05rem .5rem; cursor: pointer;
+  border: var(--rule); border-radius: var(--radius-pill); padding: .05rem .5rem; cursor: pointer;
 }
 .rec-more { justify-self: start; border: 0; padding: 0; }
 .rec-expand:hover, .rec-expand:focus-visible, .rec-more:hover, .rec-more:focus-visible { color: var(--ink); }
@@ -45,7 +45,7 @@
 /* Label OVER value (the panel's `.ceils` head): beside a "4752 MHz" headline a 7.5rem tile cut its label to "CPU C…". */
 .rec-tiles .t-head { flex-direction: column; align-items: flex-start; flex-wrap: nowrap; --t-head-h: 2.3rem; }
 .rec-tiles .t-label { max-width: 100%; }
-.rec-tiles .t-val { font-size: 1rem; }
+.rec-tiles .t-val { font-size: var(--fs-100); }
 
 /* The figures: label over value, a grid that wraps to the card's width. */
 .rec-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 6.2rem), 1fr)); gap: .25rem .55rem; }
@@ -66,7 +66,7 @@
   font-variant-numeric: tabular-nums; min-width: 0; }
 .rec-cram { text-align: right; font-weight: 600; }
 .rec-name, .rec-img { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-.rec-name { font-family: var(--mono); font-size: .72rem; }
+.rec-name { font-family: var(--mono); font-size: var(--fs-72); }
 .rec-img { color: var(--ink-faint); font-size: var(--small); }
 @container (max-width: 30rem) {
   .rec-ctab { grid-template-columns: minmax(0, 1fr) max-content; row-gap: .3rem; }

@@ -46,7 +46,7 @@ def build(src: Sources | None = None) -> MCPServer:
     server = MCPServer(
         name="fleet-usage",
         title="Fleet usage (read-only)",
-        version="1.0.0-beta",
+        version="1.0.0-beta.2",
         instructions=INSTRUCTIONS,
         warn_on_duplicate_tools=True,
     )

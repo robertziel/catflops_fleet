@@ -32,6 +32,8 @@ def test_the_operator_values_arrive_through_the_fleet_file(tmp_path):
     never a compose default, and no longer the environment (config.py RETIRED_KEYS)."""
     from tests.fleet_files import write
     c = Config.from_env({"LB_ALLOWED_HOSTS": "loopback", "LB_FLEET": write(tmp_path, """
+panel:
+  style: vibe
 boxes:
   box-a: {hostname: host-a, label: box-a-gpu, platform: linux/arm64, cards: [{index: 0, type: gb10, serves: true}]}
   box-b: {hostname: host-b, label: box-b-gpu, platform: linux/arm64, cards: [{index: 0, type: gb10, serves: true}]}

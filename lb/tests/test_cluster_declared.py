@@ -39,6 +39,8 @@ def declared_fleet(model: str = f"{MODEL}@uncensored", launch: bool = True, **ov
     block = "".join(f"\n      {k}: {v!r}" if isinstance(v, str) else f"\n      {k}: {v}"
                     for k, v in {**LAUNCH, **over}.items())
     return parse_fleet(f"""
+panel:
+  style: vibe
 boxes:
   node-a:
     hostname: node-a-host

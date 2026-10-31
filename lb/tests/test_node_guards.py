@@ -25,6 +25,8 @@ from vllm_lb.hardware.profiles import types
 DIGEST = "rocm/vllm@sha256:" + "2" * 64
 LIMITS = "    node_limits: {memory_gib: 24, cpus: 16, pids: 4096, nice: 10}\n"
 APU = f"""
+panel:
+  style: vibe
 boxes:
   apu:
     hostname: apu-host

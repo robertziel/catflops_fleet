@@ -27,7 +27,8 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 
-const src = fs.readFileSync(path.join(__dirname, '..', 'vllm_lb', 'static', 'gateway.js'), 'utf8');
+// palette.js first: the colours this script computes are read from the style's tokens (tests/palette_env.js).
+const src = require('./palette_env').withPalette(fs.readFileSync(path.join(__dirname, '..', 'vllm_lb', 'static', 'gateway.js'), 'utf8'));
 const css = fs.readFileSync(path.join(__dirname, '..', 'vllm_lb', 'static', 'gateway.css'), 'utf8');
 
 const el = () => ({ addEventListener() {}, removeAttribute() {}, setAttribute() {}, append() {},
@@ -100,7 +101,7 @@ const PAIR = { tp: 2, boxes: ['pair-a', 'pair-b'], control: 'ssh', why: '',
   const r = row(html);
   ok(r.tiles.length === 3, 'a one-rank card draws three ceiling tiles', r.tiles.map((t) => t.label));
   ok(JSON.stringify(r.tiles.map((t) => t.label))
-     === JSON.stringify(['memory bandwidth · node-a', 'compute · node-a', 'cuda cores / gpu']),
+     === JSON.stringify(['memory bandwidth · node-a', 'compute · node-a', 'CUDA cores / GPU']),
      'memory bandwidth, compute, CUDA cores — no network', r.tiles.map((t) => t.label));
   ok(!/>network</.test(html), 'no tile labelled network anywhere on the card');
   // The one place it IS named: the quiet "not collected" tags under the graphs (unused_graphs.node.js, operator
@@ -136,7 +137,7 @@ const PAIR = { tp: 2, boxes: ['pair-a', 'pair-b'], control: 'ssh', why: '',
   const html = api.serverCard(s, b);
   const r = row(html);
   ok(JSON.stringify(r.tiles.map((t) => t.label)) === JSON.stringify(['memory bandwidth · pair-a',
-    'memory bandwidth · pair-b', 'compute · pair-a', 'compute · pair-b', 'network', 'cuda cores / gpu']),
+    'memory bandwidth · pair-b', 'compute · pair-a', 'compute · pair-b', 'network', 'CUDA cores / GPU']),
      'the pair: per-box tiles, then network, then the cores', r.tiles.map((t) => t.label));
   const net = r.tiles[4].html;
   const same = api.ceilingTile('network', NET, 'GB/s', 2, s.saturation.history.net_gbps);

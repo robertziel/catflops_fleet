@@ -22,7 +22,8 @@ const fs = require('fs');
 const path = require('path');
 
 const static_ = path.join(__dirname, '..', 'vllm_lb', 'static');
-const src = fs.readFileSync(path.join(static_, 'gateway.js'), 'utf8');
+// palette.js first: the colours this script computes are read from the style's tokens (tests/palette_env.js).
+const src = require('./palette_env').withPalette(fs.readFileSync(path.join(static_, 'gateway.js'), 'utf8'));
 const css = fs.readFileSync(path.join(static_, 'gateway.css'), 'utf8');
 
 const el = () => ({ addEventListener() {}, removeAttribute() {}, setAttribute() {}, append() {},
@@ -154,13 +155,13 @@ assert.strictEqual(decls('.stat').display, 'inline');
 // ── 6. option D (operator 2026-10-30): one inset band per metric group, cells divided by hairlines, no fill a cell ──
 const band = decls(':is(.tiles3, .tiles4, .tiles5, .tiles6)');
 assert.strictEqual(band.background, 'var(--panel-2)');
-assert.strictEqual(band['border-radius'], '10px');
+assert.strictEqual(band['border-radius'], 'var(--radius-band)');   // 10px in "Vibe coded" (gateway.css :root)
 const cell = decls(':is(.tiles3, .tiles4, .tiles5, .tiles6) > .tile');
 assert.strictEqual(cell['grid-template-rows'], 'subgrid', 'a tile is a box on its row\'s rows, not `display: contents`');
-assert.strictEqual(cell['border-left'], '1px solid var(--line)');
+assert.strictEqual(cell['border-left'], 'var(--rule)');   // 1px solid var(--line) in "Vibe coded"
 assert.ok(!('background' in cell), 'no fill per cell');
 assert.strictEqual(decls(':is(.tiles3, .tiles4, .tiles5, .tiles6) > .tile:first-child')['border-left'], '0');
 assert.ok(/\.ceils \{[^}]*background: var\(--panel-2\)/.test(css));
-assert.strictEqual(decls('.ceils > .ceil')['border-left'], '1px solid var(--line)');
+assert.strictEqual(decls('.ceils > .ceil')['border-left'], 'var(--rule)');
 
 console.log('ok');

@@ -63,6 +63,8 @@ def test_the_default_catalog_resolves_against_the_fleet_lb_fleet_names():
 # ── another accelerator: refused, naming the missing combination ────────────────────────────────────
 
 ONE_5090_PAIR = """
+panel:
+  style: vibe
 boxes:
   a: {hostname: a-host, label: a-gpu, platform: linux/amd64, ssh: op@192.0.2.10, cards: [{index: 0, type: rtx5090, serves: true}]}
   b: {hostname: b-host, label: b-gpu, platform: linux/amd64, ssh: op@192.0.2.11, cards: [{index: 0, type: rtx5090, serves: true}]}
@@ -101,7 +103,7 @@ def test_a_quant_format_the_accelerator_has_no_kernel_for_is_refused_before_any_
 
 def test_a_fleet_with_no_ssh_cluster_refuses_every_cluster_profile_naming_why(tmp_path):
     f = tmp_path / "fleet.yml"
-    f.write_text("boxes:\n  solo: {hostname: s, platform: linux/amd64, cards: [{index: 0, type: rtx5090, "
+    f.write_text("panel: {style: vibe}\nboxes:\n  solo: {hostname: s, platform: linux/amd64, cards: [{index: 0, type: rtx5090, "
                  "serves: true}]}\nclusters: {}\nbackends: {}\n")
     catalog = ModelCatalog.from_dict(document(catalog_deployment_of(REFERENCE)), targets=catalog_targets_of(f))
     assert not catalog.error

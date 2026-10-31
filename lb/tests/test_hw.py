@@ -59,6 +59,8 @@ TWO_CARDS = json.dumps({"host": "site-b-host", "cpu_percent": 4.0, "ram_percent"
 #: WHAT EACH BOX IS — its cards, by type — is the fleet file's (vllm_lb/fleet.py): the receiver never infers a box's
 #: memory model from what its sender reports. box-c is the Ryzen AI Max+ 395's Radeon 8060S: unified.
 FLEET = parse_fleet("""
+panel:
+  style: vibe
 boxes:
   box-a: {hostname: box-a-host, platform: linux/arm64, cards: [{index: 0, type: gb10, serves: false}]}
   box-b: {hostname: box-b-host, platform: linux/arm64, cards: [{index: 0, type: gb10, serves: false}]}
@@ -125,6 +127,8 @@ def test_a_bad_packet_is_counted_and_never_raises(junk):
 def test_the_host_map_comes_from_the_fleet_file(tmp_path):
     from tests.fleet_files import write
     cfg = Config.from_env({"LB_ALLOWED_HOSTS": "loopback", "LB_FLEET": write(tmp_path, """
+panel:
+  style: vibe
 boxes:
   box-c: {hostname: nuc-7, platform: linux/amd64, cards: [{index: 0, type: radeon8060s, serves: false}]}
   box-b: {hostname: box-b-host, platform: linux/arm64, cards: [{index: 0, type: gb10, serves: false}]}

@@ -25,8 +25,26 @@ COPY . /app
 # and ignores the query (proxy.py `handle`: `urlsplit(h.path).path`). The operator saw the previous
 # build's gateway.js after a deploy despite `Cache-Control: no-cache` on every file (2026-10-01). The
 # build FAILS if a stamp did not land, so a renamed reference cannot quietly ship unversioned.
+# THE STYLES (styles.js) are loaded by script, not by a page's markup, so they are stamped where they are named,
+# innermost first: each font in the style sheets that use it, then each sheet in styles/index.json, then the index's URL
+# in styles.js — and only then is styles.js hashed for the pages. Every styles/*.css must end up stamped in the index
+# and every url(fonts/…) in a sheet: a sheet or a font that ships unversioned fails the build.
+RUN cd /app/vllm_lb/static/styles \
+    && for w in fonts/*.woff2; do \
+         v=$(sha256sum "$w" | cut -c1-12) \
+         && sed -i "s#url(\"$w\")#url(\"$w?v=$v\")#g" *.css; \
+       done \
+    && ! grep -q 'url("fonts/[^"?]*")' *.css \
+    && for c in *.css; do \
+         v=$(sha256sum "$c" | cut -c1-12) \
+         && sed -i "s#\"/styles/$c\"#\"/styles/$c?v=$v\"#g" index.json \
+         && grep -q "\"/styles/$c?v=$v\"" index.json || exit 1; \
+       done \
+    && v=$(sha256sum index.json | cut -c1-12) \
+    && sed -i "s#'/styles/index.json'#'/styles/index.json?v=$v'#" ../styles.js \
+    && grep -q "'/styles/index.json?v=$v'" ../styles.js
 RUN cd /app/vllm_lb/static \
-    && for f in clusters.js gateway.js gateway.css layout.js layout.css benchmarks.js benchmarks.css sessions.js sessions.css server-scope.js recorder.js recorder.css; do \
+    && for f in clusters.js gateway.js gateway.css layout.js layout.css benchmarks.js benchmarks.css sessions.js sessions.css server-scope.js recorder.js recorder.css palette.js styles.js; do \
          v=$(sha256sum "$f" | cut -c1-12) \
          && sed -i "s#\"/$f\"#\"/$f?v=$v\"#g" index.html benchmarks.html sessions.html; \
        done \
@@ -38,7 +56,9 @@ RUN cd /app/vllm_lb/static \
     && grep -q 'gateway.css?v=' benchmarks.html \
     && grep -q 'sessions.js?v=' sessions.html && grep -q 'sessions.css?v=' sessions.html \
     && grep -q 'gateway.css?v=' sessions.html && grep -q 'benchmarks.css?v=' sessions.html \
-    && grep -q 'server-scope.js?v=' benchmarks.html && grep -q 'server-scope.js?v=' sessions.html
+    && grep -q 'server-scope.js?v=' benchmarks.html && grep -q 'server-scope.js?v=' sessions.html \
+    && grep -q 'palette.js?v=' index.html && grep -q 'palette.js?v=' benchmarks.html \
+    && grep -q 'styles.js?v=' index.html && grep -q 'styles.js?v=' benchmarks.html && grep -q 'styles.js?v=' sessions.html
 ENV PYTHONPATH=/app:/opt/broker_parrot PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
 EXPOSE 8010
 CMD ["python", "-m", "vllm_lb"]

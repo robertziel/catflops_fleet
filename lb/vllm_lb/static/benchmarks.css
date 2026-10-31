@@ -90,6 +90,13 @@
   --cmp-1: #d95926;
   --cmp-2: #199e70;
   --cmp-3: #3987e5;
+
+  /* THIS PAGE'S OWN SURFACES (beside gateway.css's): a pressed segment, a selected row and the open run's column, the
+     chart tooltip's ground, a table's row rule. */
+  --chip-on: #2d3440;
+  --row-sel: #1d2530;
+  --tip: #10151c;
+  --row-rule: #1f242c;
 }
 
 /* ── the header's own line back to the gateway ───────────────────────────── */
@@ -122,7 +129,7 @@
 .mdl-n b { font-weight: 600; color: var(--ink-dim); }
 .mdl-opt:hover .mdl-face { color: var(--ink); }
 /* Lit like the range picker's segment (#2d3440), and by the weight of the words and the edge as well. */
-.mdl-opt input:checked + .mdl-face { background: #2d3440; border-color: var(--accent); color: var(--ink); box-shadow: 0 1px 2px rgba(0, 0, 0, .45); }
+.mdl-opt input:checked + .mdl-face { background: var(--chip-on); border-color: var(--accent); color: var(--ink); box-shadow: 0 1px 2px rgba(var(--shade-rgb), .45); }
 .mdl-opt input:checked + .mdl-face .mdl-name { font-weight: 600; }
 .mdl-opt input:checked + .mdl-face .mdl-n b { color: var(--ink); }
 .mdl-opt input:focus-visible + .mdl-face { outline: 2px solid var(--accent); outline-offset: 1px; }
@@ -178,7 +185,7 @@
 .seg-opt:hover .seg-face { color: var(--ink); }
 /* Lit: #2d3440 carries --ink at 11.4:1, and stands 1.5:1 off the track — the selection is also the
    weight of the words, never the fill alone. */
-.seg-opt input:checked + .seg-face { background: #2d3440; color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(0, 0, 0, .45); }
+.seg-opt input:checked + .seg-face { background: var(--chip-on); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(var(--shade-rgb), .45); }
 .seg-opt input:focus-visible + .seg-face { outline: 2px solid var(--accent); outline-offset: 1px; }
 /* A desk has room for the range in words; a phone draws the short form and still READS the words out. */
 .seg-short { display: none; }
@@ -203,7 +210,7 @@
 .rec { margin-left: auto; display: inline-flex; align-items: center; gap: .45rem; min-height: 1.4rem; font-variant-numeric: tabular-nums; }
 .rec .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-faint); flex: none; }
 .rec.on { color: var(--ink); }
-.rec.on .dot { background: var(--ok); box-shadow: 0 0 0 3px rgba(63, 185, 80, .15); }
+.rec.on .dot { background: var(--ok); box-shadow: 0 0 0 3px rgba(var(--ok-rgb), .15); }
 .rec-open { color: var(--ink-dim); }
 
 /* The concurrency caps as toggles: the value that matters most gets the cheapest control.
@@ -217,7 +224,7 @@
   display: inline-flex; align-items: center; gap: .35rem; min-height: 1.75rem;
 }
 .chip .swatch { width: 9px; height: 9px; border-radius: 2px; flex: none; background: currentColor; }
-.chip[aria-pressed="true"] { color: var(--ink); border-color: currentColor; background: #1d2530; }
+.chip[aria-pressed="true"] { color: var(--ink); border-color: currentColor; background: var(--row-sel); }
 .chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .reset {
   font: inherit; font-size: .74rem; background: none; border: 0; color: var(--accent);
@@ -289,9 +296,9 @@
 .tip.sheet { left: 8px; right: 8px; top: 8px; max-width: none; }
 .tip {
   position: fixed; z-index: 20; pointer-events: none; max-width: 17rem;
-  background: #10151c; border: 1px solid var(--line); border-radius: 10px;
+  background: var(--tip); border: 1px solid var(--line); border-radius: 10px;
   padding: .45rem .6rem; font-size: .74rem; line-height: 1.45; color: var(--ink);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, .55); font-variant-numeric: tabular-nums;
+  box-shadow: 0 6px 20px rgba(var(--shade-rgb), .55); font-variant-numeric: tabular-nums;
 }
 .tip[hidden] { display: none; }
 .tip .tk { color: var(--ink-faint); }
@@ -351,7 +358,7 @@
 /* The hover targets are the strips under the marks (benchmarks.js compChart) and the bars; a mark or
    a label painted over a neighbour's strip must not swallow the pointer there. */
 .cmp-chart .g-dot, .cmp-chart .g-label, .cmp-chart .g-none { pointer-events: none; }
-.g-hl { fill: #1d2530; }                 /* the open run's column: the table's selected-row colour */
+.g-hl { fill: var(--row-sel); }                 /* the open run's column: the table's selected-row colour */
 .g-none { fill: var(--ink-faint); font-size: 10px; font-style: italic; }
 .cmp-note { font-size: .72rem; }
 .cmp-note i { font-family: var(--mono); font-style: normal; font-size: .95em; }
@@ -461,7 +468,7 @@ table.perf-t th .th-unit { display: block; font-size: .62rem; letter-spacing: .0
 table.runs-t.ctx-t { font-size: .86rem; }
 table.runs-t.twin.ctx-t th { position: static; background: transparent; white-space: normal; vertical-align: bottom; }
 table.runs-t.twin.ctx-t thead th { text-transform: uppercase; letter-spacing: .06em; }
-table.runs-t.twin.ctx-t tbody th { text-transform: none; letter-spacing: 0; font-size: 1rem; font-weight: 700; color: var(--ink); white-space: nowrap; padding: .5rem .65rem; border-bottom: 1px solid #1f242c; }
+table.runs-t.twin.ctx-t tbody th { text-transform: none; letter-spacing: 0; font-size: 1rem; font-weight: 700; color: var(--ink); white-space: nowrap; padding: .5rem .65rem; border-bottom: 1px solid var(--row-rule); }
 table.runs-t.twin.ctx-t tbody tr:last-child th { border-bottom: 0; }
 .ctx-t .ctx-mean { display: block; font-size: var(--small); font-weight: 400; color: var(--ink-faint); }
 table.runs-t.ctx-t td { font-weight: 600; }
@@ -511,11 +518,11 @@ table.runs-t th {
   white-space: nowrap; position: sticky; top: 0; background: var(--panel);
 }
 table.runs-t th.num { text-align: right; }
-table.runs-t td { padding: .42rem .65rem; border-bottom: 1px solid #1f242c; white-space: nowrap; font-variant-numeric: tabular-nums; }
+table.runs-t td { padding: .42rem .65rem; border-bottom: 1px solid var(--row-rule); white-space: nowrap; font-variant-numeric: tabular-nums; }
 table.runs-t tbody tr:last-child > * { border-bottom: 0; }
 table.runs-t tbody tr { cursor: pointer; }
 table.runs-t tbody tr:hover { background: var(--panel-2); }
-table.runs-t tbody tr[aria-selected="true"] { background: #1d2530; }
+table.runs-t tbody tr[aria-selected="true"] { background: var(--row-sel); }
 table.runs-t tbody tr[aria-selected="true"] td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 table.runs-t td.name { font-family: var(--mono); color: var(--ink); white-space: normal; min-width: 11rem; }
 table.runs-t td.num { text-align: right; }
@@ -645,7 +652,7 @@ body.has-panel main.page { padding-left: var(--pm-gutter); }
   display: flex; flex-direction: column; align-items: flex-start; gap: .15rem;
   padding: .4rem .4rem .4rem .4rem; background: var(--panel);
   border-top: 1px solid var(--line); border-right: 1px solid var(--line); border-radius: 0 var(--card-r) 0 0;
-  box-shadow: 0 -4px 18px rgba(0, 0, 0, .45);
+  box-shadow: 0 -4px 18px rgba(var(--shade-rgb), .45);
 }
 .perf-bar .pb-head { order: -1; padding-right: 1.4rem; }
 /* Docked in the flow (a phone): a card at the section head like the ones around it, no shadow, no corner. */
@@ -702,13 +709,13 @@ table.pm-m td > .pm-sq { margin: 0 auto; }
 /* A configuration that only ever BOOTED: not a number, so not a numbered square — no fill, a dotted edge
    like the never-ran cell, and its boot count with the ↻; it stays a button (its boot figures open). */
 .pm-sq.boot { background: transparent; border-style: dotted; border-color: var(--ink-faint); }
-.pm-sq.empty { cursor: default; background: transparent; border-style: dotted; border-color: #1f242c; }
+.pm-sq.empty { cursor: default; background: transparent; border-style: dotted; border-color: var(--row-rule); }
 /* No key row and no .pm-ks swatches any more: the conventions they drew — the shade's ramp step, the
    outlined too-few cell, the dotted boot-only ↻, the never-ran cell — are each square's own title and
    aria-label now. They cost the panel nothing and say more, because they say it about THAT square. */
 /* Only a square that can be pressed answers the pointer: a never-ran cell is not a control. */
 .pm-sq:where(button):hover { outline: 2px solid var(--ink-dim); outline-offset: 1px; }
-.pm-sq[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: 1px; box-shadow: 0 0 0 4px rgba(88, 166, 255, .18); }
+.pm-sq[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: 1px; box-shadow: 0 0 0 4px rgba(var(--accent-rgb), .18); }
 .pm-sq:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* Beside the matrix: the selected configuration named in ONE line, then `all` and `details`. Empty while
@@ -729,7 +736,7 @@ table.pm-m td > .pm-sq { margin: 0 auto; }
 /* `details` is the ONE way into the read-out, so it is the accent the moment a square is selected; open,
    it reads as pressed. */
 .pb-toggle { color: var(--accent); border-color: var(--accent); }
-.pb-toggle[aria-expanded="true"] { color: var(--ink); border-color: var(--ink-faint); background: #1d2530; }
+.pb-toggle[aria-expanded="true"] { color: var(--ink); border-color: var(--ink-faint); background: var(--row-sel); }
 .pb-all[hidden], .pb-toggle[hidden] { display: none; }
 /* THE SELECTED CONFIGURATION'S FIGURES: a card above the charts, in the page's own flow — never an overlay,
    so the charts the selection points at stay in view. Its left edge is the cap's ramp step (set where it is
@@ -766,7 +773,7 @@ table.pm-t tr.tail-row td { color: var(--ink-dim); font-size: .7rem; line-height
 .pm-tables { display: flex; flex-wrap: wrap; gap: 1rem; }
 table.pm-t { border-collapse: collapse; font-size: .78rem; flex: 1 1 14rem; }
 table.pm-t caption { text-align: left; font-size: var(--small); font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-dim); padding-bottom: .25rem; }
-table.pm-t th { text-align: left; font-weight: 500; text-transform: none; letter-spacing: 0; color: var(--ink-dim); padding: .3rem .5rem .3rem 0; border-bottom: 1px solid #1f242c; white-space: nowrap; }
+table.pm-t th { text-align: left; font-weight: 500; text-transform: none; letter-spacing: 0; color: var(--ink-dim); padding: .3rem .5rem .3rem 0; border-bottom: 1px solid var(--row-rule); white-space: nowrap; }
 table.pm-t th .th-unit { color: var(--ink-faint); }
 table.pm-t tbody tr { cursor: default; }
 table.pm-t tbody tr:hover { background: transparent; }
@@ -785,7 +792,7 @@ table.runs-t.pm-t td.heat[data-heat="4"] { --heat-c: var(--heat-4); }
 /* A faded legend line keeps its WORDS in full ink — the reader must still be able to name the ghosts. */
 #perf-cmp.scoped .cmp-legend .lg.off .lg-mark { opacity: .4; }
 /* The stamp on a panel's header while a scope is on: a chart of faded marks alone reads as dim, not chosen. */
-.scope-tag { font-size: var(--small); color: var(--ink); background: #1d2530; border: 1px solid var(--line); border-radius: 999px; padding: .1rem .6rem; }
+.scope-tag { font-size: var(--small); color: var(--ink); background: var(--row-sel); border: 1px solid var(--line); border-radius: 999px; padding: .1rem .6rem; }
 .scope-tag[hidden] { display: none; }
 .charts-head .scope-tag { display: inline-block; margin: .1rem 0 .3rem; }
 .charts-head .scope-tag[hidden] { display: none; }

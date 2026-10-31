@@ -92,5 +92,7 @@ extras.usage_mcp: skip
 extras.crawl: false
 extras.dashboard: false
 
+panel.style: glass
+
 clients.kinds: [claude-code]
 clients.where: other-machines-via-tunnel

@@ -150,5 +150,7 @@ extras.usage_mcp: build-only
 extras.crawl: false
 extras.dashboard: false
 
+panel.style: glass
+
 clients.kinds: [claude-code, openai-sdk]
 clients.where: this-host

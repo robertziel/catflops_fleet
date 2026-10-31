@@ -23,6 +23,9 @@ auto-detection: a value the file does not state is never filled in.
              Its tensor-parallel size is DERIVED — the serving cards under its ranks — never typed beside them.
   backends:  box → url: a plain classic server, on that box's serving cards. One per box: a server is named by its
              box's label.
+  panel:     style — the style the gateway panel opens in for a browser that chose none (operator, 2026-10-31), a key
+             of static/styles/index.json (`panel_styles`); a browser's own choice still wins. Required: a fleet that
+             names none is refused with the line to add.
 
 A one-host node (control local or none) is started by its own host's deployment, not by tp-rank, so the LB cannot
 read its launch off a launch record of its own — the fleet names it, once:
@@ -54,7 +57,7 @@ from typing import Any, Mapping
 
 import sys
 
-from vllm_lb import kv_dtype, yamlfile
+from vllm_lb import kv_dtype, panel_styles, yamlfile
 from vllm_lb.hardware import PLATFORMS, HardwareProfile, compatibility, profile, types
 
 
@@ -317,6 +320,8 @@ class Fleet:
     boxes: Mapping[str, Box]
     clusters: Mapping[str, Cluster]
     backends: Mapping[str, Backend]
+    #: The style the gateway panel opens in for a browser that chose none (`panel.style`; panel_styles.py).
+    panel_style: str
 
     @property
     def hw_hosts(self) -> dict[str, str]:
@@ -378,6 +383,32 @@ def _unretired(source: str, raw: Any) -> Any:
             if isinstance(c, dict) and k in c:
                 raise ValueError(f"{source}: clusters.{name}.{k} is retired (2026-10-30): {moved} — remove this key")
     return raw
+
+
+#: The fleet file's top-level keys: what every fleet states, and what it may.
+FLEET_KEYS = ("boxes", "clusters", "backends", "panel")
+FLEET_OPTIONAL = ("checkpoints",)
+
+
+def _top(source: str, raw: Any) -> str:
+    """The fleet document's top level checked — retired keys refused, the panel's default style named first (every fleet
+    written before 2026-10-31 lacks it, so its refusal carries the line to add), then every key required or known — and
+    the panel's default style returned (`_panel`)."""
+    _unretired(source, raw)
+    if isinstance(raw, dict) and "panel" not in raw:
+        raise ValueError(f"{source} names no panel.style — one of {panel_styles.known()}: the style the gateway panel "
+                         f"opens in for a browser that chose none (each browser may still pick its own; vibe keeps the original look). "
+                         f"Add:\npanel:\n  style: glass")
+    _keys(f"{source}: the fleet", raw, FLEET_KEYS, FLEET_OPTIONAL)
+    return _panel(source, raw["panel"])
+
+
+def _panel(source: str, raw: Any) -> str:
+    """THE PANEL BLOCK: `style`, the gateway panel's default style — a key of static/styles/index.json."""
+    if not isinstance(raw, dict):
+        raise ValueError(f"{source}: panel must be a mapping (panel: {{style: <key>}}), got {raw!r}")
+    _keys(f"{source}: panel", raw, ("style",))
+    return panel_styles.check(f"{source}: panel.style", raw["style"])
 
 
 def _text(where: str, v: Any, pattern: re.Pattern | None = None, shape: str = "") -> str:
@@ -1448,7 +1479,7 @@ def parse_fleet(text: str, source: str, library: Mapping[str, HardwareProfile] |
         return loaded[0]
 
     raw = yamlfile.parse(text, source)
-    _keys(f"{source}: the fleet", _unretired(source, raw), ("boxes", "clusters", "backends"), ("checkpoints",))
+    panel_style = _top(source, raw)
     boxes_raw = _named(f"{source}: boxes", raw["boxes"])
     if not boxes_raw:
         raise ValueError(f"{source}: boxes must name at least one box")
@@ -1551,7 +1582,7 @@ def parse_fleet(text: str, source: str, library: Mapping[str, HardwareProfile] |
             raise ValueError(f"{source}: boxes.{b.name} serves, so it needs a label (its GPU lane: what its servers "
                              f"are called)")
     return Fleet(source=source, boxes=MappingProxyType(boxes), clusters=MappingProxyType(clusters),
-                 backends=MappingProxyType(backends))
+                 backends=MappingProxyType(backends), panel_style=panel_style)
 
 
 def start_checker(cluster: Cluster, catalog):
@@ -1578,7 +1609,7 @@ def catalog_targets(raw: Any, source: str, library: Mapping[str, HardwareProfile
     from vllm_lb.catalog import CLASSIC, CLUSTER_MODE
     from vllm_lb.resolve import target_of
     lib = types() if library is None else library
-    _keys(f"{source}: the fleet", _unretired(source, raw), ("boxes", "clusters", "backends"), ("checkpoints",))
+    _top(source, raw)
     boxes = {name: _box(source, name, b, lib) for name, b in _named(f"{source}: boxes", raw["boxes"]).items()}
 
     def ranked(where: str, names) -> "object":

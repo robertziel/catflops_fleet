@@ -29,6 +29,8 @@ from vllm_lb.state import CLUSTER, Backend, Snapshot
 VLLM_IMAGE = "vllm-audio@sha256:" + "3" * 64
 FW_IMAGE = "sha256:" + "4" * 64           # a local build, pinned by its image id
 STT = f"""
+panel:
+  style: vibe
 boxes:
   apu:
     hostname: apu-host

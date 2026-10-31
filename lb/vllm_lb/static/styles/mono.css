@@ -1,0 +1,293 @@
+/* THE "mono" STYLE — the gateway panel as a calm, dark, all-monospace homelab board (2026-10-30).
+
+   WHAT THE LANGUAGE IS: a near-black page with cards lifted one step and drawn with a soft 1 px line; ONE type
+   family (JetBrains Mono) at small sizes for every word and figure; a quiet uppercase grey label above each group,
+   tracked out; white primary text, grey secondary lines; ONE teal accent for bars, links and the lit part of a
+   meter; green for "up", amber for a highlight or a pending step, coral for a fault. Thin rounded bars on a dark
+   track, flat status dots, small radii, no glow, no gradient. Dense and quiet: the figures carry the page.
+
+   HOW IT IS APPLIED: a token set under `:root[data-style="mono"]` that re-values gateway.css's tokens (and the
+   ones the style switch adds), then the component overrides tokens cannot express (the
+   one font everywhere, the label voice, flat dots, thin bars, the literals gateway.css still hard-codes). Nothing
+   moves: the same grid and the same fixed-height cells — only the skin changes.
+
+   CONTRAST (WCAG, on --panel #151a21 / --panel-2 #12161c / --bg #0e1116): ink 14.4 · ink-dim 7.4 · ink-faint 5.1 ·
+   accent 8.4 · ok 8.4 · warn 9.0 · bad 6.0 · park 7.8; every load/rate stop ≥ 4.8 (rate-rest the lowest) and
+   every mix between neighbours ≥ 4.5 (checked by colour.py in the design scratchpad).
+
+   FONT IS VENDORED (the panel loads nothing from a CDN): JetBrains Mono 2.304, SIL OFL 1.1
+   (`fonts/JetBrainsMono-OFL.txt`), 400/500/600/700, subset to Latin + Latin Extended-A + the panel's symbols
+   (Σ Δ α ≥ ≤ ≈ ≠ − – — … ← ↑ → ↓ ─ ■ ▲ ✓ ⌄), woff2, ~17 kB each; ligatures dropped (a data panel shows `->`
+   and `!=` as typed), slashed zero kept off (the default dotted zero reads at 11 px). */
+
+@font-face { font-family: "JetBrains Mono"; src: url("fonts/JetBrainsMono-400.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "JetBrains Mono"; src: url("fonts/JetBrainsMono-500.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: "JetBrains Mono"; src: url("fonts/JetBrainsMono-600.woff2") format("woff2"); font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: "JetBrains Mono"; src: url("fonts/JetBrainsMono-700.woff2") format("woff2"); font-weight: 700; font-style: normal; font-display: swap; }
+
+:root[data-style="mono"] {
+  color-scheme: dark;
+
+  /* ── the tokens gateway.css already has, re-valued ─────────────────────────────────────────────── */
+  --bg: #0e1116;            /* the page: near-black, a breath of blue */
+  --panel: #151a21;         /* a card: one step up */
+  --panel-2: #12161c;       /* a band inside a card (tiles, ceilings, a bar's track): one step DOWN — recessed */
+  --line: #222932;          /* the soft 1 px line around a card and between rows */
+  --ink: #e6e9ed;           /* primary text */
+  --ink-dim: #a1a9b3;       /* secondary line */
+  --ink-faint: #828c98;     /* labels, units, the quietest text: 5.1:1 on --panel */
+  --ok: #56c98a;            /* the green check */
+  --warn: #e3b341;          /* amber: a date, a highlight, a step in progress */
+  --bad: #f07167;           /* coral: a fault */
+  --accent: #4fc3d8;        /* THE teal: bars, links, the lit part of a meter */
+  --park: #8fb0dd;          /* standing by: a cool steel blue, never the fault's colour, not the accent */
+  --tag-vllm: 79, 195, 216;       /* the accent */
+  --tag-sglang: 180, 156, 240;    /* lavender */
+  --tag-tensorfold: 236, 140, 196;/* pink */
+  --tag-drafter: 111, 208, 176;   /* mint */
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --small: .68rem;          /* 10.9px of JetBrains Mono reads as the sans' 11.2 (taller x-height) */
+  --gutter: 1rem;
+  --gap: .6rem;
+
+  /* ── tokens the style switch adds ───────────────────────────────────────── */
+  --sans: var(--mono);      /* ONE family: the page has no sans */
+  --surface-3: #1c222b;     /* a hover, a pressed control, a secondary button */
+  --line-strong: #2e3641;   /* a control's border, the "off" dot, the chip and card outlines of the glyphs */
+  --track: #222932;         /* the unlit part of a ring, bar, fan, progress */
+  --muted: #828c98;
+  --scrim: rgba(5, 7, 10, .72);
+  --shadow-pop: 0 8px 24px rgba(0, 0, 0, .5);
+  --ok-rgb: 86, 201, 138;  --warn-rgb: 227, 179, 65;  --bad-rgb: 240, 113, 103;  --accent-rgb: 79, 195, 216;
+  --park-rgb: 143, 176, 221;  --neutral-rgb: 130, 140, 152;
+  --on-fill: #0e1116;       /* ink on a filled ok / accent control */
+  --radius-card: 8px;
+  --radius-band: 6px;
+  --radius-box: 6px;
+  --radius-ctl: 5px;
+  --radius-chip: 4px;
+  --radius-pill: 999px;
+  --label-font: var(--mono);
+  --label-weight: 400;
+  --label-tracking: .08em;   /* the quiet tracked-out caption */
+  --fig-weight: 600;
+  --fig-tracking: 0;        /* a mono figure needs no tightening: tabular by construction */
+  /* THE FIGURE SCALES (gateway.js scaleColor / rateColor / queueColor mix these stops in oklch): load reads
+     idle → ok → warn → bad as dim teal → THE teal → amber → coral — so a healthy bar is the accent, as on the
+     board, and only a hot one changes colour. A rate: grey at rest, the teal mid-way, pale cyan at its target. */
+  --load-idle: #7f9da5;  --load-ok: #4fc3d8;  --load-warn: #e3b341;  --load-bad: #f07167;
+  --rate-rest: #7d8794;  --rate-mid: #4fc3d8;  --rate-target: #b5ecf5;
+  /* (implementer, on install) mixed in oklch, as the comment above says; the rate reaches its target at 80 %. */
+  --scale-space: oklch;
+  --rate-high: var(--rate-target);
+  --glow: 0;                /* no glow: the JS skips the rate figure's inline text-shadow */
+  --core-idle: 92, 104, 118;      /* an idle core's RGB (gateway.js: rgba(var(--core-idle), .35–.6)) */
+  --core-mul: #56c98a;  --core-mem: #4fc3d8;  --core-other: #5d6876;   /* 3.1:1 on --panel-2: a graphic still told apart */
+  --step-current: #e3b341;
+  --hold-pill-ok: #56c98a;  --hold-pill-stop: #f07167;  --hold-pill-swarm: #4fc3d8;
+  --brand-mark: #c9cfd6; --brand-mark-pkg: #151a21; --brand-mark-line: #5c6774; --brand-mark-idle: #5c6774; --brand-mark-a: #4fc3d8; --brand-mark-b: #56c98a;
+  --wm-cat: #e6e9ed; --wm-flops: #4fc3d8; --wm-fleet: #828c98;
+
+  /* ── component overrides: what the tokens cannot say ──────────────────────────────────────────── */
+  & body { font-family: var(--mono); font-size: 12px; line-height: 1.45; font-variant-numeric: tabular-nums;
+           font-variant-ligatures: none; -webkit-font-smoothing: antialiased; }
+  & :is(button, input, select, textarea) { font-family: inherit; }
+
+  /* THE LABEL: small, uppercase, tracked, grey — every caption on the panel. */
+  & :is(.t-label, .fig span, .cpu-label, .gpu-label, .ring-label, .sat-label, .kpi span, .rq-head > span, .rq-title,
+        .cluster-head h2, .section > summary h2, .cn-facts dt, .trail-head, .mp-group-name, .rec-h, .rec-fig > span,
+        .rec-plab, .unused-k, .cs-unit, .cs-var, .cl-control, .est-role, #layout-hidden::before) {
+    font-family: var(--label-font); font-weight: var(--label-weight); letter-spacing: var(--label-tracking);
+    text-transform: uppercase; color: var(--ink-faint);
+  }
+  & .section > summary h2 { font-size: .7rem; }
+  /* THE FIGURE: semibold, untracked. */
+  & :is(.t-val, .ring-dial b, .fig b, .sat-val, .kpi b, .stat > b, .core-case .core-fig b, .rec-fig > b) {
+    font-weight: var(--fig-weight); letter-spacing: var(--fig-tracking);
+  }
+  & .t-val { text-shadow: none !important; }
+  & .t-unit { font-weight: 400; color: var(--ink-faint); }
+  & .sparkline.glow path { filter: none; }
+
+  /* ── header: the page's own ground, one line under it ─────────────────────────────────────────── */
+  & .top { background: var(--bg); gap: .6rem; }
+  & .brand h1 { font-size: .95rem; font-weight: 600; letter-spacing: 0; white-space: nowrap; }
+  & .wm-cat { color: var(--wm-cat); } & .wm-flops { color: var(--wm-flops); } & .wm-fleet { color: var(--wm-fleet); font-weight: 400; }
+  & .mark { --mark-cat: var(--brand-mark); --mark-pkg: var(--brand-mark-pkg); --mark-pkg-line: var(--brand-mark-line); --mark-idle: var(--brand-mark-idle); --mark-cyan: var(--brand-mark-a); --mark-green: var(--brand-mark-b); }
+  & .conn { font-size: .72rem; color: var(--ink-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  & .conn .dot { width: 7px; height: 7px; }
+  & .conn.ok .dot, .conn.bad .dot { box-shadow: none; }
+  & :is(.ly-open, .st-open, .ly-act, .cn-open, .rec-expand, .rec-more, .cn-route-btn, .cn-tab, .cn-copy, .cl-default, .cs-force) {
+    font-family: var(--mono); text-transform: uppercase; letter-spacing: .06em; font-size: var(--small);
+    border-radius: var(--radius-ctl); border-color: var(--line-strong);
+  }
+  & :is(.ly-open, .st-open) { color: var(--ink-faint); background: transparent; }
+  & :is(.ly-open, .st-open) b { font-weight: 500; color: var(--ink); }
+  & .ly-act.ly-primary { color: var(--on-fill); background: var(--accent); border-color: var(--accent); }
+  & :is(.ly-menu, .st-menu) { background: var(--panel); border-color: var(--line-strong); border-radius: var(--radius-card); box-shadow: var(--shadow-pop); }
+  & .ly-template, .ly-io-text, .ly-bar, .ly-note, .ly-unknown-body { border-radius: var(--radius-box); }
+  & .ly-template[aria-pressed="true"] { border-color: var(--accent); background: rgba(var(--accent-rgb), .08); }
+
+  /* ── cards and bands: one lifted step, a soft line, small corners ─────────────────────────────── */
+  & :is(.card, .cluster, .cn-box) { border-radius: var(--radius-card); border-color: var(--line); box-shadow: none; }
+  & :is(.tiles3, .tiles4, .tiles5, .tiles6, .ceils) { border-radius: var(--radius-band); border: 1px solid var(--line); }
+  & :is(.alert, .queued .strip, .sat-verdict, .sat-meter, .cluster-box, .cluster-confirm, .cn-snip, .cn-key, .rec-strip, .cl-card, .kpi, .cs-group, .chooser) { border-radius: var(--radius-box); }
+  & .rec-body { border-radius: 0 0 var(--radius-box) var(--radius-box); }
+  & .rec-strip[aria-expanded="true"] { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+  & .machine.selected { border-color: rgba(var(--accent-rgb), .55); box-shadow: none; }
+  & .card.server.down { background: var(--bg); }
+
+  /* ── chips: mono, quiet, a line in their hue on a whisper of it ────────────────────────────────── */
+  & .tag, .badge { font-family: var(--mono); font-weight: 500; letter-spacing: .04em; border-radius: var(--radius-chip); }
+  & .tag { color: var(--ink-dim); background: transparent; box-shadow: inset 0 0 0 1px var(--line-strong); }
+  & .tag.engine, .tag.drafter { --t: var(--neutral-rgb); color: rgb(var(--t)); background: rgba(var(--t), .08); box-shadow: inset 0 0 0 1px rgba(var(--t), .35); }
+  & .tag.engine.vllm { --t: var(--tag-vllm); }
+  & .tag.engine.sglang { --t: var(--tag-sglang); }
+  & .tag.engine.tensorfold { --t: var(--tag-tensorfold); }
+  & .tag.drafter { --t: var(--tag-drafter); }
+  & .tag.drafter.off { --t: var(--neutral-rgb); }
+  & .tag.twin { --t: var(--warn-rgb); color: rgb(var(--t)); background: rgba(var(--t), .1); box-shadow: inset 0 0 0 1px rgba(var(--t), .4); }
+  & .tag.running { --t: var(--ok-rgb); background: rgba(var(--t), .08); box-shadow: inset 0 0 0 1px rgba(var(--t), .35); }
+  & .tag.running::before { box-shadow: none; }
+  & .tag.running.reserving, .tag.running.starting, .tag.running.stopping, .tag.running.finishing { --t: var(--warn-rgb); }
+  & .tag.running.failed, .tag.running.blocked { --t: var(--bad-rgb); }
+  /* A state word: its hue on a tint of itself, no outline — a label, not a button. */
+  & .badge { padding: .12rem .4rem; font-weight: 600; border-color: transparent; background: color-mix(in srgb, currentColor 13%, transparent); }
+  & .cpu-tag, .gpu-tag {
+    font-family: var(--mono); font-weight: 500; border-radius: var(--radius-chip);
+    background: color-mix(in srgb, var(--tag, var(--ink-faint)) 10%, transparent);
+    border-color: color-mix(in srgb, var(--tag, var(--ink-faint)) 40%, transparent);
+  }
+  & .hold-pill, .trail-again, .trail-taken, .cl-default, .rec-expand { border-radius: var(--radius-pill); }
+  & .cn-open { border-radius: var(--radius-ctl); }
+
+  /* ── the status dot: flat, no halo, no glow ───────────────────────────────────────────────────── */
+  & .diode, .diode.park, .diode.ok, .diode.warn, .diode.bad, .diode.ok.soft, .swarm-state .diode { box-shadow: none; }
+  & .diode { width: 9px; height: 9px; margin-top: .36rem; }
+  & .diode.ok.soft { opacity: .7; }
+  & .diode.pulse { animation: mono-pulse 1.6s ease-in-out infinite; }
+  & .tag.running::before { box-shadow: none; }
+  & .diode.off { background: var(--line-strong); }
+
+  /* ── meters: thin rounded bars on a recessed track; rings and fans thin ──────────────────────── */
+  & .ring-bg, .gpu-card .gpu-fan-bg { stroke: var(--track); }
+  & .ring-bg, .ring-fg { stroke-width: 4; }
+  & .sat-bar { height: 5px; border-radius: 999px; background: var(--track); }
+  & .sat-bar i { border-radius: 999px; }
+  & .sat-bar.none { background: repeating-linear-gradient(90deg, var(--line-strong) 0 3px, transparent 3px 6px); }
+  & .startup-progress progress, .startup-progress progress::-webkit-progress-bar { background: var(--track); border-radius: 999px; }
+  & .startup-progress progress::-webkit-progress-value { background: var(--accent); border-radius: 999px; }
+  & .startup-progress progress::-moz-progress-bar { background: var(--accent); }
+  & .startup-progress .full progress::-webkit-progress-value { background: var(--ok); }
+  & .startup-progress .full progress::-moz-progress-bar { background: var(--ok); }
+  & .sparkline-base { stroke: var(--track); }
+  /* The area under a line: a whisper of its colour, not a slab (the dark style's .18 reads as a filled block here). */
+  & .sparkline path[fill-opacity] { fill-opacity: .16; mask-image: linear-gradient(to bottom, #000 0%, rgba(0, 0, 0, .25) 100%); }
+  & .sparkline-target { stroke: var(--muted); }
+  & .core-mul { fill: var(--core-mul); background: var(--core-mul); }
+  & .core-mem { fill: var(--core-mem); background: var(--core-mem); }
+  & .core-other { fill: var(--core-other); background: var(--core-other); }
+  /* The glyphs: drawn in the card's own line colour — a chip and a board are outlines on the card, not lit objects. */
+  & .cores .chip-pkg, .gpu-card .gpu-board, .gpu-card .gpu-hub { fill: var(--panel-2); stroke: var(--line-strong); stroke-opacity: 1; }
+  & .cores .chip-pins, .gpu-card .gpu-bracket, .gpu-card .gpu-fingers { fill: var(--line-strong); fill-opacity: 1; }
+  & .gpu-card .gpu-blades { fill: #3a4350; fill-opacity: 1; }
+  & .gpu-card .gpu-vram { stroke: var(--line-strong); stroke-opacity: 1; }
+  & .gpu-card .gpu-vram-label, .gpu-card .gpu-vram-pct { font-family: var(--mono); }
+
+  /* ── the step strip and the trail ─────────────────────────────────────────────────────────────── */
+  & .step:not(.done, .current, .failed, .stalled) i { background: var(--panel); border-color: var(--line-strong); }
+  & .step:is(.done, .current, .failed, .stalled)::before { background: rgba(var(--ok-rgb), .55); }
+  & .step.done i::after, .tick.done::after { border-color: var(--on-fill); }
+  & .step.current i { background: var(--step-current); border-color: var(--step-current); box-shadow: none; }
+  & .step.current span { color: var(--step-current); }
+  & .step.failed i, .step.stalled i { box-shadow: none; }
+  & .step span { font-size: var(--small); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-faint); }
+  & .step.done span { color: var(--ink-dim); }
+  & .tick.wait { border-color: var(--step-current); }
+  & .startup-phase::before { border-color: rgba(var(--warn-rgb), .25); border-top-color: var(--step-current); }
+  & .trail-step.now i, .trail-step.now.long i { box-shadow: none; }
+  & .cs-warn, .cluster-estimate .est-shared { border-left-color: rgba(var(--warn-rgb), .5); }
+
+  /* ── controls ─────────────────────────────────────────────────────────────────────────────────── */
+  & :is(.cluster-settings, .swarm) :is(input, select), .mp-button, .seg-box, .cn-input {
+    border-radius: var(--radius-ctl); border-color: var(--line-strong); background: var(--panel-2); font-family: var(--mono);
+  }
+  & .seg-box:has(input:checked) { border-color: var(--accent); background: rgba(var(--accent-rgb), .1); }
+  & .seg.changed .seg-box:has(input:checked) { background: rgba(var(--warn-rgb), .12); border-color: var(--warn); }
+  & .cn-route-btn[aria-pressed="true"], .cn-tab[aria-selected="true"] { background: rgba(var(--accent-rgb), .1); }
+  & .mp-list { --tint: var(--accent-rgb); background: var(--panel); border-color: var(--line-strong); border-radius: var(--radius-card); box-shadow: var(--shadow-pop); }
+  & .mp-option { border-radius: var(--radius-ctl); }
+  & .cn::backdrop { background: var(--scrim); }
+  & .cn-x { border-radius: var(--radius-ctl); }
+  & .cn-door code, .cp-log { border-radius: var(--radius-chip); }
+  & .cp-log { background: var(--bg); }
+  & .info:hover::after, .info:focus::after { border-radius: var(--radius-box); font-family: var(--mono); }
+  @media (max-width: 600px) {
+    & .mp-list { border-radius: var(--radius-card) var(--radius-card) 0 0; }
+    & .mp-list::before { background: var(--scrim); }
+    & .mp-list::after { background: var(--line-strong); }
+  }
+
+  /* THE HOLD BUTTONS: dark, outlined in the action's hue, its word in that hue — calm until pressed. */
+  & .cluster-apply, .cs-defaults, .cc-go, .cc-cancel, .cl-act {
+    font-family: var(--mono); font-weight: 500; text-transform: uppercase; letter-spacing: .06em; font-size: .72rem;
+    border-radius: var(--radius-ctl);
+  }
+  & .hold {
+    --tint: var(--ok-rgb); --pill: var(--hold-pill-ok);
+    border-radius: var(--radius-box); border-color: rgba(var(--tint), .45); background: rgba(var(--tint), .08); color: rgb(var(--tint));
+    font-family: var(--mono); font-weight: 500; font-size: .76rem; text-transform: uppercase; letter-spacing: .06em; box-shadow: none;
+  }
+  & .hold:hover:not(:disabled) { background: rgba(var(--tint), .14); }
+  & .hold .hold-icon { background: rgb(var(--tint)); }
+  & .hold .hold-pill { background: rgba(var(--tint), .12); color: var(--pill); font-family: var(--mono); font-size: .64rem; letter-spacing: .04em; text-transform: none; }
+  & .hold .hold-fill { background: rgba(var(--tint), .22); }
+  & .hold .hold-track { background: rgba(var(--tint), .18); } & .hold .hold-track i { background: rgb(var(--tint)); }
+  & .hold.holding { box-shadow: none; border-color: rgb(var(--tint)); }
+  & .hold.stop { --tint: var(--bad-rgb); --pill: var(--hold-pill-stop); }
+  & .hold.swarm { --tint: var(--accent-rgb); --pill: var(--hold-pill-swarm); }
+  & .hold:disabled { background: transparent; color: var(--ink-faint); border-color: var(--line); }
+  & .hold:disabled .hold-icon { background: var(--line-strong); }
+  & .hold.kill { text-transform: none; background: transparent; color: var(--ink-faint); border-color: var(--line-strong); border-radius: var(--radius-ctl); }
+  & .hold.kill:hover:not(:disabled), .hold.kill:focus-visible, .hold.kill.holding { color: var(--bad); border-color: var(--bad); background: rgba(var(--bad-rgb), .08); }
+  & .hold.kill .hold-fill { background: var(--bad); }
+  & .hold.kill.holding .rq-x { color: var(--on-fill); }
+  & .hold.kill .hold-track { display: none; }
+  & .rq-prio { border-radius: var(--radius-ctl); border-color: var(--line-strong); }
+  & .rq-prio.on { color: var(--on-fill); }
+
+  /* ── tabs: plain uppercase words; the open one in ink over a 1 px rule ─────────────────────────── */
+  & #tablist [role="tab"] { font-size: .72rem; font-weight: 500; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); padding: .5rem .6rem; }
+  & #tablist [role="tab"][aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ink); }
+  & .tab-n { letter-spacing: 0; }
+
+  /* ── the requests table ───────────────────────────────────────────────────────────────────────── */
+  & .rq-head > span { font-weight: 400; border-bottom-color: var(--line-strong); }
+  & .rq-table { font-size: .74rem; }
+
+  /* ── "show more": a fold's summary is a quiet uppercase footer with a down-chevron ────────────── */
+  & :is(.cluster-settings, .cp-more, .advanced, .rq-recent) > summary {
+    font-size: var(--small); font-weight: 500; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-faint);
+  }
+  & :is(.cluster-settings, .cp-more, .advanced, .rq-recent) > summary:hover { color: var(--ink); }
+  & summary::before { border-color: var(--ink-faint); }
+
+  /* ── names and headings ──────────────────────────────────────────────────────────────────────── */
+  & .box-host, .box-kind { font-size: .74rem; color: var(--ink-faint); }
+  & .box-name, .model-badge b, .cl-head h3, .cn-title, .ly-menu-head b, .cp-title { font-weight: 600; letter-spacing: 0; }
+  & .cl-links a { font-size: var(--small); text-transform: uppercase; letter-spacing: .06em; text-decoration: none; }
+  & .cl-links a:hover { text-decoration: underline; }
+  & .sat-verdict { background: var(--panel); }
+  & .sat-verdict b, .cp-detail b, .fact b, .rq-counts b { font-weight: 600; }
+
+  /* ── links and focus ───────────────────────────────────────────────────────────────────────────── */
+  & a { color: var(--accent); }
+  & :is(button, summary, input, select, a):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  & :is(.cluster-settings, .swarm) label { font-size: var(--small); text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); }
+}
+
+@keyframes mono-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: .4; }
+}
+@media (prefers-reduced-motion: reduce) { :root[data-style="mono"] .diode.pulse { animation: none; } }

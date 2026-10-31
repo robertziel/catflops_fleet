@@ -11,7 +11,7 @@ You never type a config file by hand and never fill a gap with a guess.
 
 | file | what it is |
 |---|---|
-| `deploy/setup/questions.yml` | **the question library**: 191 questions in 24 sections, in asking order. Each one has `ask`, `why`, `kind`, `choices` (or the library they are read from), `validate`, `when` (the condition on earlier answers), `writes` (the exact file and key it fills), `secret` and an optional read-only `probe`. |
+| `deploy/setup/questions.yml` | **the question library**: 192 questions in 25 sections, in asking order. Each one has `ask`, `why`, `kind`, `choices` (or the library they are read from), `validate`, `when` (the condition on earlier answers), `writes` (the exact file and key it fills), `secret` and an optional read-only `probe`. |
 | `deploy/setup/answers.yml` | **the answer sheet** (gitignored, mode 600): one key per question id. Start from `answers.example.yml` (the pair shape) or `answers.standalone.example.yml` (one box). |
 | `deploy/setup/render.py` | **the renderer**: validates the sheet against the library and writes the files. Standard library only. |
 | `deploy/tests/test_setup.py` | the guard: every required key of every `.env.example` and compose `${KEY:?}`, and every key of every fleet example, is written by some question. A new setting without a question fails the suite. |
@@ -68,6 +68,7 @@ The sections (`questions.yml` `sections`, in asking order):
 | `telemetry` | hardware senders: port, which machines, GPU kind, bridged network | 6 |
 | `bench` | the sealed swarm runner and its networks | 8 |
 | `extras` | usage-mcp (build / register), the Crawl4AI service, the legacy dashboard | 8 |
+| `panel` | the gateway panel's default style (`lb/fleet.yml` `panel.style`: one of `lb/vllm_lb/static/styles/index.json`; docs/guides/panel-styles.md) | 1 |
 | `tuning` | any gateway knob changed from what `lb/.env.example` documents | 1 |
 | `clients` | which clients connect and from where (sets up the smoke test) | 2 |
 

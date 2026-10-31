@@ -22,7 +22,8 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 
-const src = fs.readFileSync(path.join(__dirname, '..', 'vllm_lb', 'static', 'gateway.js'), 'utf8');
+// palette.js first: the colours this script computes are read from the style's tokens (tests/palette_env.js).
+const src = require('./palette_env').withPalette(fs.readFileSync(path.join(__dirname, '..', 'vllm_lb', 'static', 'gateway.js'), 'utf8'));
 const el = () => ({ addEventListener() {}, removeAttribute() {}, setAttribute() {}, append() {},
   classList: { toggle() {}, add() {}, remove() {} }, style: {}, hidden: false, innerHTML: '',
   textContent: '', value: '', dataset: {}, querySelectorAll: () => [], querySelector: () => null,
@@ -178,7 +179,8 @@ for (const r of [boxRow(null), card(0, null, 7270, 24576)]) {
   assert.ok(g.tagNone && g.tagColour === null, `${what}: an unknown reading wears a colour`);
   assert.strictEqual(g.tagTitle, 'no sample for 42s', `${what}: the reason`);
   assert.ok(g.head['aria-label'].startsWith(`${r.label} · not reported`), `${what}: "${g.head['aria-label']}"`);
-  assert.ok(!/\b0 ?%/.test(html), `${what}: a fake 0 %`);
+  // (a colour's own percentages — palette.js prints hsl(h,89.0%,…) — are not a figure: they are left out of the search)
+  assert.ok(!/\b0 ?%/.test(html.replace(/hsla?\([^)]*\)/g, '')), `${what}: a fake 0 %`);
   checks += 7;
 }
 // VRAM not reported on a card that has it: the chips are drawn (the card HAS VRAM), none lit, the figure says "—".

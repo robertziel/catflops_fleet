@@ -11,6 +11,11 @@
 # only sends hardware telemetry. lb/fleet.one-host.example.yml: one box with two cards and a one-host cluster.
 # Addresses are documentation ranges (RFC 5737); names are placeholders.
 
+panel:                              # the gateway panel (its web UI)
+  style: glass                      # the style it opens in for a browser that chose none — a key of
+                                    # vllm_lb/static/styles/index.json: vibe | clean | mono | glass | terminal. Each browser may
+                                    # still pick its own (the Style menu; kept in that browser only)
+
 boxes:                              # every box: its name is what leases, parks and the panel call it
   box-a:
     hostname: box-a-host            # as the hardware sender reports it (the box's own hostname)

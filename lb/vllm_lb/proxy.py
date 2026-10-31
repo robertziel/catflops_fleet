@@ -41,7 +41,7 @@ import urllib.parse
 from dataclasses import asdict, dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from vllm_lb import multipart, prompt_count, router, topology, websearch
+from vllm_lb import multipart, panel_styles, prompt_count, router, topology, websearch
 from vllm_lb.bench import BenchStore
 from vllm_lb.benchswarm import CAP_MIN_RANGE, BenchSwarm, SwarmRefused
 from vllm_lb.catalog import SGLANG as SGLANG_ENGINE
@@ -390,6 +390,10 @@ _CONTENT_TYPES = {
     ".svg": "image/svg+xml",
     ".ico": "image/x-icon",
     ".json": "application/json",
+    # A style's vendored fonts (static/styles/fonts/): a font sent as octet-stream under `nosniff` is a font the
+    # browser may refuse, and the style would draw in a fallback face the operator never chose.
+    ".woff2": "font/woff2",
+    ".txt": "text/plain; charset=utf-8",
 }
 
 
@@ -1608,7 +1612,12 @@ class Proxy:
                 found = static_file(path)
                 if found is not None:
                     target, ctype = found
-                    return h.send_own(200, target.read_bytes(), ctype, (("Cache-Control", "no-cache"),))
+                    body = target.read_bytes()
+                    # THE DEPLOYMENT'S DEFAULT STYLE (panel_styles.py), stamped onto <html> so styles.js applies it
+                    # before first paint. An LB with no fleet file stamps nothing; the page says so.
+                    if target.suffix == ".html" and self.cfg.fleet is not None:
+                        body = panel_styles.stamp(body, self.cfg.fleet.panel_style)
+                    return h.send_own(200, body, ctype, (("Cache-Control", "no-cache"),))
                 # No file of that name. A browse-shaped GET is NOT an API call, so it ends here
                 # rather than being forwarded to an inference backend — which is also what stops a
                 # traversal attempt turning into a proxied request.

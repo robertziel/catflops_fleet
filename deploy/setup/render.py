@@ -169,6 +169,9 @@ SOURCES: dict[str, Callable[[Path], list]] = {
     "gpu_runtimes": lambda r: _const(r / "lb/vllm_lb/hardware/facts.py", "GPU_RUNTIMES"),
     "memory_families": lambda r: re.findall(r'"(\w+)": \w+Profile',
                                             (r / "lb/vllm_lb/hardware/profiles.py").read_text(encoding="utf-8")),
+    # The gateway panel's styles (fleet `panel.style`): the registry the panel's menu and the fleet loader read.
+    "panel_styles": lambda r: [s["key"] for s in json.loads(
+        (r / "lb/vllm_lb/static/styles/index.json").read_text(encoding="utf-8"))["styles"]],
     "controls": lambda r: re.findall(r'^    "(\w+)": Control\(', (r / "lb/vllm_lb/fleet.py").read_text(encoding="utf-8"),
                                      re.M),
     # How a cluster's GPUs are joined (fleet `clusters.<name>.link`, executors.py): across hosts, then within one.

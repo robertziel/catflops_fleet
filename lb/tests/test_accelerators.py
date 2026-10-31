@@ -168,7 +168,7 @@ def test_an_accelerator_that_states_no_quant_formats_refuses_every_one_with_its_
 def test_a_box_whose_platform_its_cards_accelerator_never_comes_in_is_refused():
     """The fleet file: a box's CPU must be one its cards' accelerator comes in — no image is built for any other."""
     from vllm_lb.fleet import parse_fleet
-    text = ("boxes:\n  solo:\n    hostname: solo-host\n    platform: linux/arm64\n    cards:\n"
+    text = ("panel: {style: vibe}\nboxes:\n  solo:\n    hostname: solo-host\n    platform: linux/arm64\n    cards:\n"
             "      - {index: 0, type: rtx3090, serves: false}\nclusters: {}\nbackends: {}\n")
     with pytest.raises(ValueError) as e:
         parse_fleet(text, "fleet.yml")

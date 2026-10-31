@@ -18,6 +18,8 @@ from vllm_lb.fleet import parse_fleet
 
 #: One box, three cards: a 3090 that serves nothing and two 5090s one engine spans.
 TWO_5090 = """
+panel:
+  style: vibe
 boxes:
   solo:
     hostname: solo-host

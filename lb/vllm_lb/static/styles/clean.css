@@ -1,0 +1,202 @@
+/* THE "Clean" STYLE (key `clean`) — the gateway panel as a light, hairline style (2026-10-30).
+
+   WHAT IT IS: a calm LIGHT dashboard. Three surfaces in quiet steps — a cool grey page, white cards lifted by a
+   hairline and the faintest shadow, and a recessed band inside a card for each row of figures (fill, no border).
+   ONE sans (Inter) for words and figures; a figure is large, semibold and tabular in its value's colour; its label
+   is small, uppercase and grey — the label whispers, the figure speaks. Mono (Fragment Mono) only where the text
+   IS code: hosts, model ids, the peaks strip. ONE strong blue for the accent; green / amber / red only in data and
+   state. Graphs are a crisp line over a soft tint of itself. Glyphs (CPU chip, GPU card, rings) are drawn as light
+   outlines so only the lit parts carry colour. No glows: on white a halo is a smudge.
+
+   HOW IT IS APPLIED: a token set under `:root[data-style="clean"]` that re-values gateway.css's tokens, then the
+   component overrides the tokens cannot express. Nothing moves: the same grid and the same fixed-height cells —
+   only the skin changes. Text keeps AA (≥ 4.5:1) on white and on the band (#f6f7f9); every figure-scale stop and
+   every oklch mix between neighbours ≥ 4.5:1 on both.
+
+   FONTS ARE VENDORED (the panel loads nothing from a CDN at runtime), under fonts/ beside this file: Inter 400 /
+   500 / 600 and Fragment Mono 400, both SIL OFL 1.1 (fonts/Inter-OFL.txt, fonts/FragmentMono-OFL.txt; NOTICE). */
+
+@font-face { font-family: "Fragment Mono"; src: url("fonts/FragmentMono-Regular.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "Inter"; src: url("fonts/Inter-400.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "Inter"; src: url("fonts/Inter-500.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: "Inter"; src: url("fonts/Inter-600.woff2") format("woff2"); font-weight: 600; font-style: normal; font-display: swap; }
+
+:root[data-style="clean"] {
+  color-scheme: light;
+
+  /* ── surfaces and ink ───────────────────────────────────────────────────────────────────────────── */
+  --bg: #f2f4f7;            /* the page: cool grey, so a white card reads as lifted */
+  --panel: #ffffff;         /* a card */
+  --panel-2: #f6f7f9;       /* a band inside a card: recessed, a fill not a box */
+  --surface-3: #eef1f5;     /* a hover, a pressed control */
+  --line: #e4e7ec;          /* every hairline */
+  --line-strong: #c4cad4;   /* a control's border, an outline glyph */
+  --ink: #101828;           /* primary text: 17.7:1 */
+  --ink-dim: #475467;       /* secondary: 7.6:1 on white, 7.1:1 on the band */
+  --ink-faint: #667085;     /* labels and units: 4.8:1 on white, 4.6:1 on the band */
+  --neutral-rgb: 102, 112, 133;
+  --ink-faint-rgb: 102, 112, 133;
+  --muted: #98a2b3;         /* the dashed target rule: a graphic, not text */
+  --track: #eaecf0;         /* the unlit part of a ring or a fan */
+  --track-bar: #eaecf0;
+  --track-progress: #eaecf0;
+  --shade-rgb: 16, 24, 40;
+  --on-fill: #ffffff;
+  --scrim: rgba(16, 24, 40, .45);
+  --scrim-sheet: rgba(16, 24, 40, .35);
+
+  /* ── meaning ────────────────────────────────────────────────────────────────────────────────────── */
+  --ok-rgb: 21, 128, 61;     --ok: #15803d;      /* green-700: 5.0:1 */
+  --warn-rgb: 180, 83, 9;    --warn: #b45309;    /* amber-700: 5.0:1 */
+  --bad-rgb: 220, 38, 38;    --bad: #dc2626;     /* red-600: 4.8:1 */
+  --accent-rgb: 37, 99, 235; --accent: #2563eb;  /* THE blue: 5.2:1 */
+  --park: #4f46e5;           --park-rgb: 79, 70, 229;   /* standing by: indigo, never the fault's colour */
+  --ok-hi: #15803d;
+  --step-current-rgb: 180, 83, 9; --step-current: #b45309;
+  --hold-pill-ok: #ffffff;  --hold-pill-stop: #b42318;  --hold-pill-swarm: #1d4ed8;
+  --tag-vllm: 37, 99, 235;
+  --tag-sglang: 109, 40, 217;     /* violet-700 */
+  --tag-tensorfold: 190, 24, 93;  /* pink-700 */
+  --tag-drafter: 15, 118, 110;    /* teal-700 */
+  --core-mul: #16a34a;  --core-mem: #0891b2;  --core-other: #d0d5dd;
+  --core-idle: 152, 162, 179;
+
+  /* ── the figure scales: confident inks that read on white, mixed in oklch ───────────────────────── */
+  --scale-space: oklch;
+  --load-idle: #667085;  --load-ok: #15803d;  --load-warn: #b45309;  --load-bad: #dc2626;
+  --rate-rest: #667085;  --rate-mid: #2563eb;  --rate-high: #1d4ed8;  --rate-target: #1d4ed8;
+  --glow: 0;
+  --area-opacity: .1;
+  --glyph-blade: #98a2b3;
+  --diode-size: 10px;
+
+  /* ── the performance and sessions pages' own surfaces (benchmarks.css) ──────────────────────────── */
+  --chip-on: #e8efff;       /* a pressed segment / the open model: a tint of the blue, ink stays dark */
+  --row-sel: #eef4ff;       /* a selected row, the open run's column */
+  --tip: #ffffff;           /* the chart tooltip */
+  --row-rule: #eef0f3;      /* a table's row rule */
+  --grid: #eef0f3;
+  --axis: #d0d5dd;
+
+  /* ── the mark ───────────────────────────────────────────────────────────────────────────────────── */
+  --brand-mark: #344054; --brand-mark-pkg: #ffffff; --brand-mark-line: #98a2b3; --brand-mark-idle: #d0d5dd;
+  --brand-mark-a: #2563eb; --brand-mark-b: #16a34a;
+  --wm-cat: #101828; --wm-flops: #2563eb; --wm-fleet: #475467;
+
+  /* ── type ───────────────────────────────────────────────────────────────────────────────────────── */
+  --sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --sans-ui: var(--sans);
+  --mono: "Fragment Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --body-size: 14px;
+
+  /* ── shape ──────────────────────────────────────────────────────────────────────────────────────── */
+  --radius-card: 12px; --radius-menu: 10px; --radius-band: 8px; --radius-box: 8px;
+  --radius-ctl: 8px; --radius-ctl-sm: 7px; --radius-badge: 6px; --radius-chip: 6px; --radius-pill: 999px;
+  --shadow-card: 0 1px 2px rgba(16, 24, 40, .05);
+  --shadow-menu: 0 12px 24px -6px rgba(16, 24, 40, .14), 0 4px 8px -4px rgba(16, 24, 40, .06);
+  --shadow-pop: var(--shadow-menu);
+  --shadow-sheet: 0 -12px 32px rgba(16, 24, 40, .16);
+
+  /* ── components ─────────────────────────────────────────────────────────────────────────────────── */
+  & body { font-feature-settings: "cv11", "ss01"; -webkit-font-smoothing: antialiased; }
+
+  /* cards: white, a hairline, the faintest lift; bands recessed, no border */
+  & :is(.card, .cluster) { box-shadow: var(--shadow-card); }
+  & .machine.selected { border-color: rgba(var(--accent-rgb), .55); box-shadow: 0 0 0 3px rgba(var(--accent-rgb), .1), var(--shadow-card); }
+  & .card.server.down { background: var(--panel-2); }
+  & .rec-strip { background: var(--panel); }
+
+  /* labels: small uppercase grey, Inter 500 — the label whispers */
+  & :is(.t-label, .fig span, .cpu-label, .gpu-label, .ring-label, .sat-label, .kpi span, .rq-head > span, .rq-title,
+        .cluster-head h2, .section > summary h2, .cn-facts dt, .trail-head, .mp-group-name, .rec-h, .rec-fig > span,
+        .rec-plab, .unused-k) {
+    font-family: var(--sans); font-weight: 500; letter-spacing: .04em; color: var(--ink-faint);
+  }
+  /* figures: semibold, tight, tabular — the figure speaks */
+  & :is(.t-val, .ring-dial b, .fig b, .sat-val, .kpi b, .stat > b, .core-case .core-fig b, .rec-fig > b) {
+    font-weight: 600; letter-spacing: -.02em;
+  }
+  & .t-val { font-size: 1.3rem; }
+  & .t-unit { font-weight: 500; color: var(--ink-faint); letter-spacing: 0; }
+  & :is(.box-meta, .card-foot .job, .card-err, .cn-pre, .cn-door code) { font-family: var(--mono); }
+  & .rec-strip { font-family: var(--sans); font-variant-numeric: tabular-nums; }
+  & .box-name { font-weight: 600; letter-spacing: -.01em; }
+  & :is(.t-note, .c-note, .sat-note, .sat-sub) { color: var(--ink-faint); }
+  & .cl-links a { text-decoration: none; font-weight: 500; }
+  & .cl-links a:hover { text-decoration: underline; }
+
+  /* chips: a soft tint of their hue, no outline */
+  & .tag { color: var(--ink-dim); background: #f2f4f7; box-shadow: none; font-weight: 500; letter-spacing: 0; }
+  & :is(.tag.engine, .tag.drafter, .tag.running, .tag.rate) { background: rgba(var(--t, var(--neutral-rgb)), .09); box-shadow: none; }
+  & .tag.rate { --t: var(--ok-rgb); }
+  & .tag.running::before { box-shadow: none; }
+  & .tag.twin { color: #ffffff; background: var(--warn); }
+  & .badge { border: 0; font-weight: 600; letter-spacing: .04em; background: color-mix(in srgb, currentColor 10%, transparent); }
+  & :is(.cpu-tag, .gpu-tag) { background: color-mix(in srgb, var(--tag, var(--ink-faint)) 10%, transparent); border-color: transparent; font-weight: 600; }
+
+  /* the diode: flat */
+  & :is(.diode, .diode.park, .diode.ok, .diode.warn, .diode.bad, .diode.ok.soft) { box-shadow: none; }
+  & .diode.off { background: var(--line-strong); }
+
+  /* graphs and glyphs: crisp lines, soft fills, light outlines */
+  & .sparkline-target { stroke: var(--muted); }
+  /* the area under a line fades to the baseline: a slab of flat tint reads as a block on white */
+  & .sparkline path[fill-opacity] { mask-image: linear-gradient(to bottom, #000 0%, rgba(0, 0, 0, .15) 100%); }
+  & .cores .chip-pkg, .gpu-card .gpu-board, .gpu-card .gpu-hub { fill: #ffffff; stroke: var(--line-strong); stroke-opacity: 1; }
+  & .cores .chip-pins, .gpu-card .gpu-bracket, .gpu-card .gpu-fingers { fill: var(--line-strong); fill-opacity: 1; }
+  & .gpu-card .gpu-vram { stroke: var(--line-strong); stroke-opacity: 1; }
+  & .core-mul { fill: var(--core-mul); background: var(--core-mul); }
+  & .core-mem { fill: var(--core-mem); background: var(--core-mem); }
+  & .core-other { fill: var(--core-other); background: var(--core-other); }
+  & .ring-bg { stroke: var(--track); }
+  & .sat-bar { background: var(--track-bar); }
+
+  /* header and tabs */
+  & .top { background: rgba(255, 255, 255, .92); backdrop-filter: saturate(180%) blur(8px); }
+  & .brand h1 { font-weight: 600; letter-spacing: -.01em; }
+  & :is(.ly-open, .st-open) { background: var(--panel); border-color: var(--line); box-shadow: var(--shadow-card); color: var(--ink-dim); font-weight: 500; }
+  & :is(.ly-open, .st-open):hover { border-color: var(--line-strong); }
+  & :is(.ly-open, .st-open) b { font-weight: 600; }
+  & #tablist [role="tab"] { font-weight: 500; }
+  & #tablist [role="tab"][aria-selected="true"] { border-bottom-color: var(--accent); }
+
+  /* controls */
+  & :is(.cluster-settings, .swarm) :is(input, select), .mp-button, .seg-box, .cn-input { border-color: var(--line-strong); background: var(--panel); }
+  & .seg-box:has(input:checked) { border-color: var(--accent); background: rgba(var(--accent-rgb), .07); }
+  & .ly-act { background: var(--panel); }
+  & .ly-act.ly-primary { color: #ffffff; background: var(--accent); border-color: var(--accent); }
+  & .ly-act.ly-primary:hover { background: #1d4ed8; }
+  & .st-act { background: var(--panel); }
+
+  /* the hold buttons: Start filled green, Stop a red outline, the swarm a blue tint */
+  & .hold { font-weight: 600; box-shadow: var(--shadow-card); }
+  & .hold:not(.stop, .swarm, .kill) { background: var(--ok); border-color: var(--ok); color: #ffffff; }
+  & .hold:not(.stop, .swarm, .kill) .hold-icon { background: #ffffff; }
+  & .hold:not(.stop, .swarm, .kill) .hold-pill { background: rgba(255, 255, 255, .2); }
+  & .hold:not(.stop, .swarm, .kill) .hold-track { background: rgba(255, 255, 255, .3); }
+  & .hold:not(.stop, .swarm, .kill) .hold-track i { background: #ffffff; }
+  & .hold.stop { background: var(--panel); border-color: #fda29b; color: #b42318; }
+  & .hold.stop:hover:not(:disabled) { background: #fef3f2; }
+  & .hold.stop .hold-pill { background: #fee4e2; }
+  & .hold.swarm { background: #eff4ff; border-color: #c7d7fe; color: #1d4ed8; }
+  & .hold.swarm:hover:not(:disabled) { background: #e0eaff; }
+  & .hold.swarm .hold-pill { background: #dbe6ff; }
+  & .hold:disabled { background: var(--panel-2); border-color: var(--line); color: var(--ink-faint); box-shadow: none; }
+  & .hold.kill { box-shadow: none; }
+
+  /* menus */
+  & :is(.ly-menu, .st-menu, .mp-list) { border-color: var(--line); box-shadow: var(--shadow-menu); }
+  & .sat-verdict { background: var(--panel); }
+  & a { color: var(--accent); }
+  & :is(button, summary, input, select, a):focus-visible { outline-color: var(--accent); }
+
+  /* the sessions page: its figures and facts are numbers, not code — the sans, tabular */
+  & :is(.s-tile-v, .s-span, .s-facet-sum, .s-facet-rates, .s-ylab, .s-xlab, .s-table td) {
+    font-family: var(--sans); font-variant-numeric: tabular-nums;
+  }
+  & .s-tile-v { letter-spacing: -.02em; }
+
+  @media (max-width: 600px) {
+    & .conn #status-text { display: none; }
+  }
+}

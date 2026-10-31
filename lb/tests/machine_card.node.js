@@ -24,7 +24,8 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 
-const src = fs.readFileSync(path.join(__dirname, '..', 'vllm_lb', 'static', 'gateway.js'), 'utf8');
+// palette.js first: the colours this script computes are read from the style's tokens (tests/palette_env.js).
+const src = require('./palette_env').withPalette(fs.readFileSync(path.join(__dirname, '..', 'vllm_lb', 'static', 'gateway.js'), 'utf8'));
 const el = () => ({ addEventListener() {}, removeAttribute() {}, setAttribute() {}, append() {},
   classList: { toggle() {}, add() {}, remove() {} }, style: {}, hidden: false, innerHTML: '',
   textContent: '', value: '', dataset: {}, querySelectorAll: () => [], querySelector: () => null,
@@ -159,6 +160,9 @@ for (const box of Object.keys(STATUS.hardware)) {
 //    `--spin-delay` from the fixed clock above, the fan's centre as transform-origin); nothing else moved.
 //    Regenerated 2026-10-30: each graph's head carries its label as a `title` (its label is cut to one line with an
 //    ellipsis: every graph cell one fixed height, tests/cell_rows.node.js); nothing else moved.
+//    Regenerated 2026-10-30: the load scale's colours come from the style's tokens (palette.js), printed with one
+//    rule — "hsl(19.8,89.0%,54.6%)" where gateway.js wrote "89%" — and the gradient ids hash those strings; the same
+//    colours, nothing else moved.
 {
   const today = fs.readFileSync(path.join(__dirname, 'fixtures', 'machine-card', 'unified-today.html'), 'utf8');
   assert.strictEqual(api.machineBody(STATUS, 'box-a'), today, "the GB10's machine card is not today's");

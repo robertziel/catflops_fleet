@@ -60,7 +60,7 @@ def apu_sampler(tmp_path, *, network="host", containers=None, gpu=None) -> Sampl
 
 def collector(host: str, cards: tuple[str, ...], platform: str) -> HwCollector:
     listed = ", ".join(f"{{index: {i}, type: {k}, serves: false}}" for i, k in enumerate(cards))
-    fleet = parse_fleet(f"boxes:\n  box: {{hostname: '{host}', platform: {platform}, cards: [{listed}]}}\n"
+    fleet = parse_fleet(f"panel: {{style: vibe}}\nboxes:\n  box: {{hostname: '{host}', platform: {platform}, cards: [{listed}]}}\n"
                         "clusters: {}\nbackends: {}\n", "fleet.yml")
     return HwCollector(Config(hw_hosts=dict(fleet.hw_hosts), fleet=fleet))
 

@@ -201,7 +201,9 @@ class QuestionLibrary(unittest.TestCase):
                        # the engines × accelerators redesign (docs/design/engines.md): where each checkpoint sits, the
                        # link a pair's ranks are joined by, a new card's accelerator, an unmeasured first Start
                        "models.staged", "checkpoint.path", "checkpoint.uncensored", "checkpoint.draft",
-                       "cluster.link", "hwtype.accelerator", "accel.new", "accel.arch", "cluster.first_start"):
+                       "cluster.link", "hwtype.accelerator", "accel.new", "accel.arch", "cluster.first_start",
+                       # the gateway panel's default style (operator, 2026-10-31: "allow setup default in yml config")
+                       "panel.style"):
             self.assertIn(needed, ids)
 
     def test_exposure_beyond_localhost_cannot_be_answered_without_an_auth_layer(self):
@@ -340,7 +342,7 @@ class Libraries(unittest.TestCase):
     def test_each_library_source_is_what_the_repo_holds(self):
         """Each source against the library as the LB's OWN code reads it — the renderer reads the files without
         PyYAML (python:3.12-slim), so this is the independent read."""
-        from vllm_lb import blueprints, catalog, engine_library, executors, fleet
+        from vllm_lb import blueprints, catalog, engine_library, executors, fleet, panel_styles
         from vllm_lb.hardware import FAMILIES, accelerators, facts, types
         kv = json.loads((REPO / "lb/vllm_lb/kv_cache_dtypes.json").read_text())["layouts"]
         models = catalog.library_models()
@@ -363,6 +365,7 @@ class Libraries(unittest.TestCase):
             "gpu_runtimes": list(facts.GPU_RUNTIMES),
             "memory_families": list(FAMILIES),
             "controls": list(fleet.CONTROLS),
+            "panel_styles": list(panel_styles.keys()),
             "links": [*executors.LINKS_ACROSS_HOSTS, *executors.LINKS_ONE_HOST],
             "tasks": list(catalog.TASKS),
             "quant_methods": sorted({m["quant_method"]["value"] for m in models if m["quant_method"]["value"]}),

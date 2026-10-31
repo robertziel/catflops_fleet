@@ -43,31 +43,24 @@ body[data-tab="add"]:not(.ly-editing) #layout-tools { display: none; }
 
 /* ── an element the layout names and the panel lacks: a visible tile, never a quiet drop ────────── */
 .ly-unknown-body {
-  padding: .55rem .8rem; font-size: .82rem; color: var(--ink-dim);
-  background: var(--panel); border: 1px dashed var(--warn); border-radius: 8px;
+  padding: .55rem .8rem; font-size: var(--fs-82); color: var(--ink-dim);
+  background: var(--panel); border: 1px dashed var(--warn); border-radius: var(--radius-box);
 }
 .ly-unknown-body code { font-family: var(--mono); color: var(--warn); }
 
 /* ── the header control and its menu ──────────────────────────────────────────────────────────── */
-.top-right { display: flex; align-items: center; gap: .9rem; min-width: 0; }
-.ly-open {
-  font: inherit; font-size: .78rem; color: var(--ink-dim); background: none; cursor: pointer;
-  border: 1px solid var(--line); border-radius: 6px; padding: .2rem .55rem; white-space: nowrap;
-}
-.ly-open:hover, .ly-open[aria-expanded="true"] { color: var(--ink); border-color: var(--ink-faint); }
-.ly-open:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.ly-open b { font-weight: 600; color: var(--ink); }
+/* (.top-right and the header button live in gateway.css: the Style control shares them on every page) */
 .ly-menu {
   position: fixed; top: 3rem; right: var(--gutter); left: auto; margin: 0; z-index: 6; width: min(26rem, calc(100vw - 2 * var(--gutter)));
-  background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 12px; padding: .7rem .8rem;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, .45); font-size: .82rem;
+  background: var(--panel); color: var(--ink); border: var(--rule); border-radius: var(--radius-menu); padding: .7rem .8rem;
+  box-shadow: var(--shadow-menu); font-size: var(--fs-82);
 }
 .ly-menu-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: .5rem; }
-.ly-menu-head b { font-size: .9rem; }
+.ly-menu-head b { font-size: var(--fs-90); }
 .ly-templates { display: grid; gap: .35rem; margin-bottom: .6rem; }
 .ly-template {
   display: grid; gap: .1rem; text-align: left; font: inherit; color: var(--ink); cursor: pointer;
-  background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: .4rem .6rem;
+  background: var(--panel-2); border: var(--rule); border-radius: var(--radius-box); padding: .4rem .6rem;
 }
 .ly-template[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 2px 0 0 var(--accent); }
 .ly-template:hover { border-color: var(--ink-faint); }
@@ -77,8 +70,8 @@ body[data-tab="add"]:not(.ly-editing) #layout-tools { display: none; }
 .ly-menu-acts, .ly-io-acts { display: flex; flex-wrap: wrap; gap: .35rem; }
 .ly-io { margin-top: .6rem; display: grid; gap: .35rem; }
 .ly-io-text {
-  width: 100%; box-sizing: border-box; font-family: var(--mono); font-size: .72rem; color: var(--ink);
-  background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: .4rem; resize: vertical;
+  width: 100%; box-sizing: border-box; font-family: var(--mono); font-size: var(--fs-72); color: var(--ink);
+  background: var(--bg); border: var(--rule); border-radius: var(--radius-ctl-sm); padding: .4rem; resize: vertical;
 }
 .ly-io-err { margin: 0; color: var(--bad); font-size: var(--small); overflow-wrap: anywhere; }
 .ly-store { margin: .6rem 0 0; font-size: var(--small); }
@@ -86,41 +79,41 @@ body[data-tab="add"]:not(.ly-editing) #layout-tools { display: none; }
 
 /* ── buttons: one small kind everywhere the layout speaks ──────────────────────────────────────── */
 .ly-act {
-  font: inherit; font-size: .74rem; line-height: 1.2; color: var(--ink-dim); background: var(--panel-2); cursor: pointer;
-  border: 1px solid var(--line); border-radius: 6px; padding: .2rem .5rem; text-decoration: none; min-height: 1.7rem;
+  font: inherit; font-size: var(--fs-74); line-height: 1.2; color: var(--ink-dim); background: var(--panel-2); cursor: pointer;
+  border: var(--rule); border-radius: var(--radius-ctl-sm); padding: .2rem .5rem; text-decoration: none; min-height: 1.7rem;
   display: inline-flex; align-items: center; justify-content: center;
 }
 .ly-act:hover { color: var(--ink); border-color: var(--ink-faint); }
 .ly-act:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-.ly-act.ly-primary { color: var(--ink); border-color: rgba(88, 166, 255, .55); background: rgba(88, 166, 255, .14); }
-.ly-act.ly-primary:hover { background: rgba(88, 166, 255, .24); }
+.ly-act.ly-primary { color: var(--ink); border-color: rgba(var(--accent-rgb), .55); background: rgba(var(--accent-rgb), .14); }
+.ly-act.ly-primary:hover { background: rgba(var(--accent-rgb), .24); }
 
 /* ── the notice line: an unknown element, a lost store, a template that did not load ───────────── */
 .ly-notice { margin: var(--gap) var(--gutter) 0; display: grid; gap: .3rem; }
 .ly-note {
-  display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .6rem; padding: .4rem .7rem; font-size: .78rem;
-  color: var(--ink-dim); background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--warn); border-radius: 8px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .6rem; padding: .4rem .7rem; font-size: var(--fs-78);
+  color: var(--ink-dim); background: var(--panel); border: var(--rule); border-left: 3px solid var(--warn); border-radius: var(--radius-box);
 }
 
 /* ── edit mode ─────────────────────────────────────────────────────────────────────────────────── */
 .ly-tools {
   position: sticky; top: 2.6rem; z-index: 4; display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .7rem;
-  margin: 0; padding: .4rem var(--gutter); font-size: .78rem; color: var(--ink-dim);
+  margin: 0; padding: .4rem var(--gutter); font-size: var(--fs-78); color: var(--ink-dim);
   background: var(--panel-2); border-bottom: 1px solid var(--accent);
 }
 .ly-tools b { color: var(--ink); }
 .ly-tools .ly-grow { flex: 1 1 auto; }
 .ly-bar { display: none; }
 .ly-colbar { display: none; }
-body.ly-editing .ly-slot { outline: 1px dashed var(--line); outline-offset: 2px; border-radius: 14px; }
+body.ly-editing .ly-slot { outline: 1px dashed var(--line); outline-offset: 2px; border-radius: var(--radius-card); }
 body.ly-editing .ly-slot:hover { outline-color: var(--ink-faint); }
 body.ly-editing .ly-bar {
   display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .3rem;
-  margin-bottom: .35rem; padding: .25rem .4rem; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px;
+  margin-bottom: .35rem; padding: .25rem .4rem; background: var(--panel-2); border: var(--rule); border-radius: var(--radius-box);
 }
 .ly-grip {
-  display: inline-flex; align-items: center; gap: .4rem; font: inherit; font-size: .78rem; font-weight: 600; color: var(--ink);
-  background: none; border: 1px solid transparent; border-radius: 6px; padding: .15rem .4rem; cursor: grab; touch-action: none;
+  display: inline-flex; align-items: center; gap: .4rem; font: inherit; font-size: var(--fs-78); font-weight: 600; color: var(--ink);
+  background: none; border: 1px solid transparent; border-radius: var(--radius-ctl-sm); padding: .15rem .4rem; cursor: grab; touch-action: none;
 }
 .ly-grip i { font-style: normal; color: var(--ink-faint); }
 .ly-grip s { text-decoration: none; color: var(--warn); font-weight: 400; }
@@ -130,7 +123,7 @@ body.ly-editing .ly-bar {
 .ly-acts .ly-act { min-width: 1.9rem; padding: .15rem .4rem; }
 /* The tray: a hidden tile is its bar alone — its label, `show` — and nothing it draws. */
 body.ly-editing #layout-hidden { display: flex; flex-wrap: wrap; gap: .4rem; align-items: flex-start; margin: 0 var(--gutter); padding: .5rem .6rem;
-  border: 1px dashed var(--line); border-radius: 10px; }
+  border: 1px dashed var(--line); border-radius: var(--radius-band); }
 #layout-hidden::before { content: "hidden"; font-size: var(--small); color: var(--ink-faint); text-transform: uppercase; letter-spacing: .08em; align-self: center; }
 #layout-hidden .ly-slot { outline: none; }
 #layout-hidden .ly-slot > :not(.ly-bar) { display: none; }
@@ -139,7 +132,7 @@ body.ly-editing #layout-hidden { display: flex; flex-wrap: wrap; gap: .4rem; ali
 .ly-act[data-act="show"] { display: none; }
 #layout-hidden .ly-act[data-act="show"] { display: inline-flex; }
 .ly-unknown .ly-act[data-act="size"] { display: none; }
-body.ly-editing .ly-col { min-height: 3rem; border-radius: 10px; }
+body.ly-editing .ly-col { min-height: 3rem; border-radius: var(--radius-band); }
 body.ly-editing .ly-col.ly-empty { display: grid; }
 body.ly-editing .ly-row.ly-empty { display: flex; }
 body.ly-editing .ly-colbar {
@@ -153,4 +146,4 @@ body.ly-editing .ly-col:not(:has(.ly-slot)) { border: 1px dashed var(--line); pa
 .ly-col.ly-drop-end { box-shadow: inset 0 -3px 0 0 var(--accent); }
 @media (prefers-reduced-motion: no-preference) { .ly-slot { transition: opacity .12s; } }
 /* A phone's header has room for the template's name, not the word before it. */
-@media (max-width: 600px) { .ly-word { display: none; } .ly-menu { top: 2.8rem; } }
+@media (max-width: 600px) { .ly-menu { top: 2.8rem; } }

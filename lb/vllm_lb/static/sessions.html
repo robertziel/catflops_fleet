@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-style-default="" data-style-default-href="">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,6 +11,11 @@
   <link rel="stylesheet" href="/gateway.css">
   <link rel="stylesheet" href="/benchmarks.css">
   <link rel="stylesheet" href="/sessions.css">
+  <!-- THE STYLE (styles.js): runs here, in <head>, before the body paints — this browser's stored style, else the
+       deployment's default (the fleet's panel.style, which the LB stamps on <html> above), its key on <html> and its
+       sheet linked render-blocking, so the page never opens in another style first. A choice is this browser's alone
+       (localStorage); the server holds only the deployment's default. -->
+  <script src="/styles.js"></script>
 </head>
 <body class="benchmarks sessions">
   <header class="top">
@@ -19,11 +24,19 @@
       <span class="crumbs"><a href="/">&larr; Gateway</a> &middot; <a href="/benchmarks">performance</a>
         &middot; every model loaded here, what it served and what it cost</span>
     </div>
-    <div id="connection-status" class="conn">
-      <span class="dot"></span>
-      <span id="status-text">loading&hellip;</span>
+    <div class="top-right">
+      <!-- THE STYLE (styles.js): which look this browser shows — "Vibe coded" (gateway.css) or a sheet under
+           styles/. -->
+      <div id="style-slot" class="st-slot"></div>
+      <div id="connection-status" class="conn">
+        <span class="dot"></span>
+        <span id="status-text">loading&hellip;</span>
+      </div>
     </div>
   </header>
+  <!-- THE STYLE'S NOTICES (styles.js `say`): a stored style the registry does not list, a sheet that did not load, a
+       browser that keeps nothing — each a line with its action, never a silent substitute. -->
+  <div id="style-notice" class="st-notice" role="status" hidden></div>
 
   <!-- `?server=<name>`: the page is one server's — the title and this line say its
        name: the figures below are that server's own (server-scope.js). -->

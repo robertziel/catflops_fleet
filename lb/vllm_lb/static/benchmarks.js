@@ -90,34 +90,17 @@ function fmtAgo(ts) {
 }
 
 // ── the gateway's two value scales, for a FIGURE printed as text ────────────────────────────────────
-// The context table wears the fleet app's colours (FleetStats `scaleColor` / `rateColor`, and the
-// gateway page's own copies in gateway.js): a LOAD — a share of a ceiling, here KV occupancy — reads
-// blue near zero, then green, yellow, red; a RATE — tok/s — stays in the blue family, steel at rest and
-// a bright cyan at the best of the rows it is read against, so a throughput is never read as "hot".
+// The context table wears the fleet app's colours (FleetStats `scaleColor` / `rateColor`; the panel's one copy is
+// palette.js, reading the active style's --scale-load / --scale-rate tokens): a LOAD — a share of a ceiling, here KV
+// occupancy — reads blue near zero, then green, yellow, red; a RATE — tok/s — stays in the blue family, steel at rest
+// and a bright cyan at the best of the rows it is read against, so a throughput is never read as "hot".
 // PRESENTATION ONLY: the colour is a function of the number already printed in the cell, and nothing is
-// computed, pooled or compared with it. The same HSB→HSL arithmetic as gateway.js, returned as channels
-// because a figure in a table is SMALL TEXT, which the gateway's graph lines and 19 px headlines are
-// not: `figureInk` lifts the lightness until the figure holds 4.6:1 on the lighter of this page's two
-// card surfaces (--panel-2 #1b2129) — the floor gateway.css sets for its faintest text. The hue, which
-// is what the scale says, is never touched.
-function loadHSL(t) {
-  const x = Math.min(Math.max(Number(t) || 0, 0), 1);
-  if (x < 0.12) {
-    const u = x / 0.12, sat = 0.40 + 0.45 * u, v = 1.0 - 0.05 * u, l = v * (1 - sat / 2);
-    return { h: 360 * (0.52 - 0.16 * u), s: l === 0 || l === 1 ? 0 : (v - l) / Math.min(l, 1 - l), l };
-  }
-  const hue = x < 0.60 ? 0.36 - 0.21 * ((x - 0.12) / 0.48) : 0.15 - 0.15 * ((x - 0.60) / 0.40);
-  return { h: hue * 360, s: 0.89, l: 0.546 };
-}
-function rateHSL(t) {
-  const x = Math.min(Math.max(Number(t) || 0, 0), 1);
-  let h, sat, v;
-  if (x < 0.4) { const u = x / 0.4; h = 0.60; sat = 0.05 + 0.25 * u; v = 0.50 + 0.12 * u; }
-  else if (x < 0.8) { const u = (x - 0.4) / 0.4; h = 0.60 - 0.02 * u; sat = 0.30 + 0.45 * u; v = 0.62 + 0.23 * u; }
-  else { const u = (x - 0.8) / 0.2; h = 0.58 - 0.04 * u; sat = 0.75 + 0.20 * u; v = 0.85 + 0.15 * u; }
-  const l = v * (1 - sat / 2);
-  return { h: 360 * h, s: l === 0 || l === 1 ? 0 : (v - l) / Math.min(l, 1 - l), l };
-}
+// computed, pooled or compared with it. A figure in a table is SMALL TEXT, which the gateway's graph lines and 19 px
+// headlines are not: `figureInk` lifts the lightness until the figure holds 4.6:1 on the lighter of this page's two
+// card surfaces (the style's --panel-2) — the floor gateway.css sets for its faintest text. The hue, which is what
+// the scale says, is never touched.
+const loadHSL = (t) => palette.hsl('--scale-load', t);
+const rateHSL = (t) => palette.hsl('--scale-rate', t);
 /** WCAG relative luminance of an HSL colour. */
 function hslLuminance({ h, s, l }) {
   const a = s * Math.min(l, 1 - l);
@@ -125,11 +108,11 @@ function hslLuminance({ h, s, l }) {
     return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
   return 0.2126 * ch(0) + 0.7152 * ch(8) + 0.0722 * ch(4);
 }
-const FIGURE_SURFACE_LUM = 0.0148;               // --panel-2 #1b2129
 const FIGURE_MIN_CONTRAST = 4.6;
 function figureInk(hsl) {
+  const surface = palette.luminance('--panel-2');
   const c = { ...hsl };
-  while (c.l < 0.95 && (hslLuminance(c) + 0.05) / (FIGURE_SURFACE_LUM + 0.05) < FIGURE_MIN_CONTRAST) c.l += 0.01;
+  while (c.l < 0.95 && (hslLuminance(c) + 0.05) / (surface + 0.05) < FIGURE_MIN_CONTRAST) c.l += 0.01;
   return `hsl(${c.h.toFixed(1)},${(100 * c.s).toFixed(1)}%,${(100 * c.l).toFixed(1)}%)`;
 }
 
@@ -3422,6 +3405,12 @@ window.addEventListener('resize', () => {
     if (state.index && state.index.runs.length) { render(); renderDetail(); }
     retip();
   }, 150);
+});
+
+// A STYLE SWITCH (styles.js) changes the tokens the figures' colours are computed from: redraw what was drawn.
+document.addEventListener('fleet:style', () => {
+  renderPerf();
+  if (state.index && state.index.runs.length) { render(); renderDetail(); }
 });
 
 boot();

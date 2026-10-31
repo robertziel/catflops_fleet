@@ -68,55 +68,31 @@ const SPARKLINE_COLS = 18;
 const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
 
 /** THE ONE COLOUR SCALE every figure uses — the app's `scaleColor`: blue near zero, green, yellow,
- *  red at the top (hue 0.60 → 0.36 at 12 % → 0.15 at 60 % → 0 at 100 %). `t` is 0…1: a percentage
- *  over 100, a rate over its own series' peak. The app's HSB(h, 0.85, 0.95) is HSL(h, 89 %, 54.6 %).
- *  It says HOW LOADED: red is a pinned GPU, a full queue. A figure where HIGHER IS BETTER — tok/s — is
- *  not read on it: see `goodColor`. */
-function scaleColor(t) {
-  const x = Math.min(Math.max(Number(t) || 0, 0), 1);
-  if (x < 0.12) {
-    // Near zero: a pale, half-transparent cyan — idle reads as quiet, not as a dark blue mass —
-    // filling in to the solid green by 12 %. The app's HSB(0.52→0.36, 0.40→0.85, 1.0→0.95, α 0.80→1).
-    const u = x / 0.12;
-    const h = 360 * (0.52 - 0.16 * u), sat = 0.40 + 0.45 * u, v = 1.0 - 0.05 * u;
-    const l = v * (1 - sat / 2);
-    const sl = l === 0 || l === 1 ? 0 : (v - l) / Math.min(l, 1 - l);
-    return `hsla(${h.toFixed(1)},${(100 * sl).toFixed(1)}%,${(100 * l).toFixed(1)}%,${(0.80 + 0.20 * u).toFixed(2)})`;
-  }
-  const hue = x < 0.60 ? 0.36 - 0.21 * ((x - 0.12) / 0.48) : 0.15 - 0.15 * ((x - 0.60) / 0.40);
-  return `hsl(${(hue * 360).toFixed(1)},89%,54.6%)`;
-}
+ *  red at the top. `t` is 0…1: a percentage over 100, a rate over its own series' peak. It says HOW LOADED: red is a
+ *  pinned GPU, a full queue. A figure where HIGHER IS BETTER — tok/s — is not read on it: see `rateColor`.
+ *  The stops are the ACTIVE STYLE's `--scale-load` token (gateway.css; palette.js does the arithmetic): near zero a
+ *  pale, half-transparent cyan — idle reads as quiet, not as a dark blue mass — filling in to the solid green by
+ *  12 %, yellow at 60 %, red at 100 % in "Vibe coded". */
+const scaleColor = (t) => palette.css(palette.hsl('--scale-load', t));
 
 /** THE SCALE FOR A RATE (generated / prompt / prefill tok/s, GB/s, TFLOPS): the blue family — a dim
  *  steel-blue at rest, a bright cyan at its TARGET — so a throughput is never read as "hot". `t` is
  *  the rate over its target (the best minute recorded at this cluster setup,
  *  `/lb/status.throughput_target`; a ceiling's peak for a share) or, with none, over the graph's own
- *  peak. The app's HSB(0.60−0.08t, 0.45+0.45t, 0.55+0.45t). */
-function rateColor(t) {
-  // Grey while the rate is low (under 40 % of the target), blue around 40 %, a glowing bright blue
-  // from 80 % up — the eye finds the minutes that reached the target and ignores the rest. The
-  // app's rateColor, HSB → HSL.
-  const x = Math.min(Math.max(Number(t) || 0, 0), 1);
-  let h, sat, v;
-  if (x < 0.4) { const u = x / 0.4; h = 0.60; sat = 0.05 + 0.25 * u; v = 0.50 + 0.12 * u; }
-  else if (x < 0.8) { const u = (x - 0.4) / 0.4; h = 0.60 - 0.02 * u; sat = 0.30 + 0.45 * u; v = 0.62 + 0.23 * u; }
-  else { const u = (x - 0.8) / 0.2; h = 0.58 - 0.04 * u; sat = 0.75 + 0.20 * u; v = 0.85 + 0.15 * u; }
-  const l = v * (1 - sat / 2);                                       // HSV → HSL
-  const sl = l === 0 || l === 1 ? 0 : (v - l) / Math.min(l, 1 - l);
-  return `hsl(${(360 * h).toFixed(1)},${(100 * sl).toFixed(1)}%,${(100 * l).toFixed(1)}%)`;
-}
+ *  peak. Grey under 40 % of the target, blue around 40 %, a glowing bright blue from 80 % up — the eye finds the
+ *  minutes that reached the target and ignores the rest. The style's `--scale-rate` token. */
+const rateColor = (t) => palette.css(palette.hsl('--scale-rate', t));
 
-/** A rate at this share of its target or better GLOWS: its figure and line get a halo of their colour. */
+/** A rate at this share of its target or better GLOWS: its figure and line get a halo of their colour — in a style
+ *  that glows (its --glow token: 1 in "Vibe coded"; a style without halos sets 0 and nothing glows). */
 const RATE_GLOW_FROM = 0.8;
+const styleGlows = () => Number(palette.token('--glow')) > 0;
 
 /** THE SCALE FOR A QUEUE, against the engine's CONCURRENCY (max_num_seqs): red when nearly empty (the
  *  pair is starved), green when about as deep as the concurrency, red again at three times it (work
- *  piles up in the waiting line). Without a concurrency to read against, a queue is a load. */
-function queueColor(depth, concurrency) {
-  const t = depth / concurrency;
-  const hue = t < 1 ? 0.36 * t : (t < 3 ? 0.36 * (1 - (t - 1) / 2) : 0);
-  return `hsl(${(hue * 360).toFixed(1)},89%,54.6%)`;
-}
+ *  piles up in the waiting line). Without a concurrency to read against, a queue is a load. The style's
+ *  `--scale-queue` token, its t in multiples of the concurrency. */
+const queueColor = (depth, concurrency) => palette.css(palette.hsl('--scale-queue', depth / concurrency));
 
 /** The window a graph draws — the last `cols` samples, right-aligned, so a short history sits at the
  *  newest end instead of being stretched across the axis — and what its colours are measured against
@@ -137,7 +113,7 @@ function windowOf(series, o) {
   const ceil = (o.kind === 'rate' && o.target) || o.max || peak;
   const scale = o.kind === 'rate' ? rateColor : scaleColor;
   return { cells, nums, peak, colourOf: (v) => scale(ceil > 0 ? v / ceil : 0),
-           glows: (v) => o.kind === 'rate' && ceil > 0 && v / ceil >= RATE_GLOW_FROM };
+           glows: (v) => o.kind === 'rate' && ceil > 0 && v / ceil >= RATE_GLOW_FROM && styleGlows() };
 }
 
 /** The gradient's id is a function of what it paints (and whose graph it is), so an unchanged poll
@@ -216,7 +192,7 @@ function sparkline(series, opts) {
     + `<line class="sparkline-base" x1="0" y1="${SPARKLINE_H - 0.25}" x2="${SPARKLINE_W}" y2="${SPARKLINE_H - 0.25}" vector-effect="non-scaling-stroke"/>`
     // THE TARGET, a dashed rule at its own height: what this setup has reached, to be read against.
     + (rule != null ? `<line class="sparkline-target" x1="0" y1="${y(rule).toFixed(2)}" x2="${SPARKLINE_W}" y2="${y(rule).toFixed(2)}" vector-effect="non-scaling-stroke"/>` : '')
-    + (fill ? `<path d="${fill}" fill="${ink}" fill-opacity=".18"/>` : '')
+    + (fill ? `<path d="${fill}" fill="${ink}" fill-opacity="${palette.token('--area-opacity')}"/>` : '')
     + (quiet ? `<path class="sparkline-per-req" d="${quiet}" fill="none" stroke-width="1"
          stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>` : '')
     + (line ? `<path d="${line}" fill="none" stroke="${ink}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>` : '')
@@ -4636,11 +4612,11 @@ function renderBusy() {
 // control back when a card is ADDED to #lb-backends. So each card is built once and kept — only its
 // insides are repainted — and the control, with any keyboard focus on it, survives every poll.
 
-/** An idle core is grey, not the scale's blue: under 10 % it reads as "not in use", and only a core
- *  doing real work takes a colour (the app's `CoreMatrix.color`). */
+/** An idle core is grey (the style's --core-idle), not the scale's blue: under 10 % it reads as "not in use",
+ *  and only a core doing real work takes a colour (the app's `CoreMatrix.color`). */
 const CORE_IDLE = 10;
 const coreColour = (pct) => (pct < CORE_IDLE
-  ? `rgba(139,148,158,${(0.35 + (0.25 * Math.max(pct, 0)) / CORE_IDLE).toFixed(2)})` : scaleColor(pct / 100));
+  ? `rgba(${palette.rgb('--core-idle')},${(0.35 + (0.25 * Math.max(pct, 0)) / CORE_IDLE).toFixed(2)})` : scaleColor(pct / 100));
 
 /** The chip's drawing, in the units of the tile's 5:4 frame (gateway.css `.cores`): the gap between cores, the
  *  package's margin around them and its corner, and a pin's length, width and pitch along a side. */
@@ -5500,7 +5476,7 @@ function ceilingTile(label, c, unit, digits, series, kind, model) {
   const has = isNum(o.rate);
   const pct = isNum(o.pct) ? o.pct : null;
   const colour = pct == null ? null : (kind === 'rate' ? rateColor(pct / 100) : scaleColor(pct / 100));
-  const glow = kind === 'rate' && pct != null && pct / 100 >= RATE_GLOW_FROM;
+  const glow = kind === 'rate' && pct != null && pct / 100 >= RATE_GLOW_FROM && styleGlows();
   const share = !has ? `<span class="sat-why">${whyText(o.why)}</span>`
     : (pct != null ? `${pct.toFixed(0)} % of ${fmtNum(o.peak).text} ${esc(unit)}${o.peak_precision ? ` (${esc(o.peak_precision)})` : ''}`
       : (o.why ? `<span class="sat-why">${whyText(o.why)}</span>` : 'no peak configured'));
@@ -5611,7 +5587,7 @@ function coresTile(c) {
   const title = `estimate, per GPU: ${c.tflops} TFLOP/s ${flops} · ${c.gbps} GB/s ${bytes} · ${c.steps_s} steps/s · ${c.tokens_step} tok/step · ${Math.round(100 * c.mixed_share)} % of steps carry prefill`;
   const k = c.cases || {};
   return `<div class="ceil gpu-cores" title="${esc(title)}">
-    <div class="t-head"><span class="t-label">cuda cores / gpu <span class="info" tabindex="0" role="note" aria-label="${esc(CORES_INFO)}" data-tip="${esc(CORES_INFO)}">i</span></span>
+    <div class="t-head"><span class="t-label">CUDA cores / GPU <span class="info" tabindex="0" role="note" aria-label="${esc(CORES_INFO)}" data-tip="${esc(CORES_INFO)}">i</span></span>
     <b class="t-val">${fmtInt(c.multiplying)}<span class="t-unit"> / ${fmtInt(c.cores)}</span></b></div>
     <div class="core-cases">${coreCase('decode', k.decode, c.cores)}${coreCase('prefill', k.prefill, c.cores)}</div>
     <span class="c-note core-legend"><span><i class="core-key core-mul"></i>multiplying</span><span title="waiting on memory"><i class="core-key core-mem"></i>memory</span><span><i class="core-key core-other"></i>other</span><span>&#9632; = ${Math.round(c.cores / (CORE_COLS * CORE_ROWS))}</span></span>
@@ -6992,6 +6968,9 @@ if ($('swarm-cap')) {
     if (el.value === CUSTOM && custom) custom.focus();
   });
 }
+// A STYLE SWITCH (styles.js) changes the tokens every computed colour reads (palette.js): the page is drawn again
+// from the status it has, not three seconds later from the next poll.
+document.addEventListener('fleet:style', () => { if (lastStatus) renderStatus(lastStatus); });
 // A graph's reference label is placed in the graph's own pixels, so a new width places it again.
 window.addEventListener('resize', () => placeMarks());
 poll();

@@ -29,6 +29,14 @@ THIRD-PARTY CODE SHIPPED IN THIS REPOSITORY
    copied into this repository and rewritten here. It is this repository's own code, under this repository's
    license; nothing of that project is imported or tracked.
 
+4. Fonts of the panel's styles — lb/vllm_lb/static/styles/fonts/
+   Inter (Copyright 2020 The Inter Project Authors, github.com/rsms/inter) at weights 400 / 500 / 600 and
+   Fragment Mono (Copyright 2022 The Fragment-Mono Project Authors, github.com/weiweihuanghuang/fragment-mono)
+   at 400, for the "Clean" style and, where the system offers no UI face of its own, the "Glass" style; JetBrains Mono (Copyright 2020 The JetBrains Mono Project Authors,
+   github.com/JetBrains/JetBrainsMono) at 400 / 500 / 600 / 700, for the "Mono" and "Terminal" styles. Each is subset and served
+   as woff2 by the gateway itself (the panel fetches nothing from a CDN). All under the SIL Open Font License
+   1.1; the full texts sit beside the fonts: Inter-OFL.txt, FragmentMono-OFL.txt, JetBrainsMono-OFL.txt.
+
 THIRD-PARTY SOFTWARE USED BUT NOT SHIPPED
 -----------------------------------------
 

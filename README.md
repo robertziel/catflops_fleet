@@ -49,6 +49,18 @@ edit mode — drag a tile's grip, or its arrows (keyboard and touch), full/half 
 rows and columns — and exports/imports the arrangement as JSON. The server stores none of it: the chosen template
 and the arrangement live in that browser's `localStorage`, and a browser that keeps nothing says so.
 
+<table>
+  <tr>
+    <td align="center" width="25%"><a href="docs/images/layout-default.png"><img src="docs/images/layout-default.png" alt="Default layout: the boxes on top, the server card in a side column, throughput, requests and saturation beside it"></a><br><b>Default</b></td>
+    <td align="center" width="25%"><a href="docs/images/layout-compact.png"><img src="docs/images/layout-compact.png" alt="Compact layout: tabs first, the server card beside throughput and saturation, requests and the cluster sharing a row"></a><br><b>Compact</b></td>
+    <td align="center" width="25%"><a href="docs/images/layout-wall.png"><img src="docs/images/layout-wall.png" alt="Wall layout: the boxes on top, throughput and saturation beside the requests, no controls"></a><br><b>Wall</b></td>
+    <td align="center" width="25%"><a href="docs/images/layout-column.png"><img src="docs/images/layout-column.png" alt="Column layout: one column in a phone's order"></a><br><b>Column</b></td>
+  </tr>
+</table>
+
+Your own template — the format, the element ids, and the rules for vibe coding one with an agent:
+[docs/guides/layout-templates.md](docs/guides/layout-templates.md).
+
 ---
 
 ## Contents
@@ -176,6 +188,22 @@ choices and KV dtypes) and the pair's first Start. A fleet file naming a bluepri
 
 ![Hardware: the fleet file names each card's type; each type names its accelerator (nvidia-sm121, nvidia-sm120, nvidia-sm86, amd-gfx1151: arch, runtime, platforms, precisions, quant formats); the type library (gb10, radeon8060s, rtx5090, rtx3090) holds every figure with its source; the loader picks UnifiedProfile or DiscreteProfile by the type's memory family, which decides how memory is read and drawn; hw.py, saturation.py, memory_estimate.py and fleet.py read the profile, never the type name](docs/images/hardware.svg)
 
+### Panel styles
+
+| key | label | look |
+|---|---|---|
+| `vibe` | Vibe coded | dark, the original |
+| `clean` | Clean | light, quiet |
+| `mono` | Mono | monospace, dark |
+| `glass` | Glass | translucent; follows the system light / dark |
+| `terminal` | Terminal | green-phosphor CRT terminal; one dark appearance |
+
+- **Style menu** in the panel header: each browser picks its own, kept in its `localStorage` only.
+- **Deployment default**: `lb/fleet.yml` `panel: {style: <key>}` (required). It is shown to every browser that has
+  not picked one, applied before first paint, and tagged `default` in the menu.
+  The examples and the setup wizard ship `glass`.
+- Adding a style, the token list, the tests that gate it: [docs/guides/panel-styles.md](docs/guides/panel-styles.md).
+
 ## The services
 
 | Piece | What it is |
@@ -195,7 +223,7 @@ gitignored env file; the `.env.example` next to it is the list of what that serv
 |---|---|---|
 | `.env` (repo root) | `dashboard/.env` (a symlink, for compose interpolation); the `frpc` client of `power/` | `FRP_SERVER`, `FRP_TOKEN`, `VLLM_SERVERS`, `LB_URL`, `CHAT_MODEL` (the dashboard's) |
 | `lb/.env` | `lb/` | `SEARXNG_SECRET` and `LB_ALLOWED_HOSTS` (required), the `LB_CLUSTER_*` tuning knobs; with the broker on, `LB_BROKER_ENABLED=1`, `COMPOSE_FILE`, `LB_BROKER_CHECKOUT`, `LB_BROKER_NETWORK` and `PG_*` (the broker's Postgres) |
-| `lb/fleet.yml` | `lb/` (mounted read-only, `LB_FLEET`) | WHAT the fleet is: boxes (hostname, label, ssh), every card (nvidia-smi index, hardware type from `lb/vllm_lb/hardware/types/`, serves), the cluster (ranks, url, control) and classic servers — validated at start, refused naming the value (`lb/fleet.example.yml`) |
+| `lb/fleet.yml` | `lb/` (mounted read-only, `LB_FLEET`) | WHAT the fleet is: boxes (hostname, label, ssh), every card (nvidia-smi index, hardware type from `lb/vllm_lb/hardware/types/`, serves), the cluster (ranks, url, control), classic servers and the panel's default style (`panel.style`) — validated at start, refused naming the value (`lb/fleet.example.yml`) |
 | `power/.env` | `power/` | `POWER_ORIGINS`, `POWER_ALLOWED_HOSTS` (required), `POWER_BOXES`, `POWER_DRY_RUN` |
 | `deploy/*.example.*` | your edge proxy | copy each next to itself without `.example` (gitignored) and fill in your hosts; the `frpc` tunnels read `FRP_SERVER` / `FRP_TOKEN` from the root `.env` |
 
@@ -323,7 +351,9 @@ importable, and `lb/tests/test_broker_off.py` runs either way. `lb/pytest.ini` r
 - `lb/fleet.example.yml` and its siblings — the fleet file's shape; `lb/vllm_lb/hardware/types/` and
   `hardware/accelerators/` — the card-type and accelerator libraries (AGENTS.md "Hardware").
 - `docs/design/engines.md` — the five axes, resolution at Start, the estimate, open items;
-  `docs/guides/bring-your-own-hardware.md` — a new card, architecture, engine or model.
+  `docs/guides/bring-your-own-hardware.md` — a new card, architecture, engine or model;
+  `docs/guides/panel-styles.md` — the panel's styles, the fleet's default, adding a style.
+  `docs/guides/layout-templates.md` — the panel's layout templates, their format, vibe coding your own.
 - `deploy/standalone/` — a one-box fleet with a systemd applier; `deploy/images/<engine>/` — one Dockerfile per
   engine, a BASE pin per accelerator (`deploy/images/build.sh`), and their NOTICE files.
 - `CHANGELOG.md` — what each release changed; `SECURITY.md` — how to report a vulnerability.

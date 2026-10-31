@@ -14,27 +14,136 @@
 [hidden] { display: none !important; }
 
 :root {
+  /* ── THE TOKENS: every colour, typeface, type size, radius, rule and elevation the panel draws with, defined ONCE.
+     These values ARE the style "Vibe coded" (key `vibe`, styles/index.json): the default, the look the panel had
+     before styles existed (operator 2026-10-30: "Add switch between styles, current is 'Vibe coded'"). Another style
+     is a sheet under styles/ scoped to :root[data-style="<key>"] that re-values these names and, where a token cannot
+     say it, overrides a rule. Outside this block no stylesheet of the panel writes a colour, a font family, a type
+     size or a radius as a literal (tests/test_style_tokens.py). Scripts that COMPUTE a colour (the load, rate and
+     queue scales, an idle core, a figure's contrast) read these through palette.js — never a copy of their own. ── */
+
+  /* SURFACES AND INK */
   --bg: #0d1117;
   --panel: #161b22;
   --panel-2: #1b2129;
+  --surface-3: var(--panel-2);   /* a hover / pressed surface: this style has no third surface */
   --line: #2b313c;
+  --line-strong: var(--line);    /* a control's border, the "off" diode */
   --ink: #e6edf3;
-  --ink-dim: #8b949e;
-  --ink-faint: #818a94;   /* the faintest text still reads: 4.6:1 on --panel-2 (#6e7681 was 3.5:1) */
-  --ok: #3fb950;
-  --warn: #d29922;
-  --bad: #f85149;
-  --accent: #58a6ff;
-  --park: #6ea8fe;        /* parked: deliberate, standing by — never the fault colour */
+  --neutral-rgb: 139, 148, 158;  /* the neutral hue a tag or a button tints its ground with */
+  --ink-dim: rgb(var(--neutral-rgb));
+  --ink-faint-rgb: 129, 138, 148;
+  --ink-faint: rgb(var(--ink-faint-rgb));   /* the faintest text still reads: 4.6:1 on --panel-2 (#6e7681 was 3.5:1) */
+  --muted: #8b93a1;              /* a graph's dashed target line */
+  --track: var(--line);          /* the unlit part of a ring or a fan */
+  --track-bar: #30363d;          /* a saturation bar's empty part */
+  --track-progress: #222831;     /* a progress bar's empty part */
+  --shade-rgb: 0, 0, 0;          /* shadows */
+  --on-fill: rgba(var(--shade-rgb), .75);   /* the tick drawn over a filled (green) step */
+  --scrim: rgba(1, 4, 9, .72);   /* behind a modal dialog */
+  --scrim-sheet: rgba(var(--shade-rgb), .5);   /* behind the phone's bottom sheet */
+
+  /* MEANING. Each hue is an RGB triplet first, so a rule can tint a ground with the same hue it writes in
+     (rgba(var(--ok-rgb), .15)); the plain colour is that triplet — one place per value. */
+  --ok-rgb: 63, 185, 80;
+  --ok: rgb(var(--ok-rgb));
+  --ok-hi: #7ee787;              /* the bright green: a multiplying core, a held Start's pill */
+  --warn-rgb: 210, 153, 34;
+  --warn: rgb(var(--warn-rgb));
+  --bad-rgb: 248, 81, 73;
+  --bad: rgb(var(--bad-rgb));
+  --accent-rgb: 88, 166, 255;
+  --accent: rgb(var(--accent-rgb));
+  --park: #6ea8fe;               /* parked: deliberate, standing by — never the fault colour */
+  --park-rgb: var(--accent-rgb); /* a parked diode's halo: the accent's, as it always was here */
+  --step-current-rgb: 227, 179, 65;
+  --step-current: rgb(var(--step-current-rgb));   /* a step in progress: the startup strip, its spinner and bar */
+  --hold-pill-ok: var(--ok-hi);  /* the seconds-left pill on a held Start … */
+  --hold-pill-stop: #ffa198;     /* … a held Stop … */
+  --hold-pill-swarm: #79c0ff;    /* … a held swarm */
   /* THE TAG HUES (`.tag`, below): RGB triplets, so a tag can tint its ground with the same hue it writes in.
      vLLM is the accent blue; SGLang violet and the drafter teal are used by nothing else on the page, so each
      reads as its kind at a glance. All three keep AA (≥ 4.5:1) as text over their 14 % tint on --panel. */
-  --tag-vllm: 88, 166, 255;
+  --tag-vllm: 88, 166, 255;     /* the accent's hue, as its own token: a style may part them */
   --tag-sglang: 188, 140, 255;
   --tag-tensorfold: 236, 132, 199;   /* TensorFold (2026-10-29): pink, used by nothing else; AA as the other two */
   --tag-drafter: 57, 197, 187;
+  /* A CPU's cores (gateway.js `cpuChip`): multiplying, waiting on memory, other work; an idle core's RGB (gateway.js
+     `coreColour` draws it at alpha .35 → .60 across 0–10 %). */
+  --core-mul: var(--ok-hi);
+  --core-mem: #1f8fa8;
+  --core-other: #434d5c;
+  --core-idle: var(--neutral-rgb);
+  /* THE GLYPHS AND GRAPHS: a GPU fan's blades; the fill under a graph's line (gateway.js `sparkline` writes it as the
+     path's fill-opacity); a status diode's size; and whether a style GLOWS — 1 here: a rate at its target lights its
+     figure and line (gateway.js), a pulsing diode breathes a halo. A style that sets 0 draws neither. */
+  --glyph-blade: var(--ink-faint);
+  --area-opacity: .18;
+  --diode-size: 11px;
+  --glow: 1;
+
+  /* THE FIGURE SCALES (palette.js; gateway.js `scaleColor` / `rateColor` / `queueColor`, benchmarks.js's figures).
+     A scale is a list of stops "<t> <colour>", interpolated in --scale-space: `hsb` is the Fleet app's arithmetic
+     (hue, saturation, brightness and alpha each linear — these stops are hwb(), which is HSB written exactly), `oklch`
+     is CSS color-mix(in oklch). LOAD: a pale, half-transparent cyan near zero (idle reads as quiet), solid green by
+     12 %, yellow at 60 %, red at 100 %. RATE: steel at rest, blue at 40 % of the target, a bright cyan from 80 %.
+     QUEUE: t is depth over the engine's concurrency — red when starved, green at 1×, red again at 3×. */
+  --scale-space: hsb;
+  --load-idle: hwb(187.2 60% 0% / .8);
+  --load-ok: hwb(129.6 14.25% 5%);
+  --load-warn: hwb(54 14.25% 5%);
+  --load-bad: hwb(0 14.25% 5%);
+  --rate-rest: hwb(216 47.5% 50%);
+  --rate-mid: hwb(216 43.4% 38%);
+  --rate-high: hwb(208.8 21.25% 15%);
+  --rate-target: hwb(194.4 5% 0%);
+  --scale-load: 0 var(--load-idle), .12 var(--load-ok), .6 var(--load-warn), 1 var(--load-bad);
+  --scale-rate: 0 var(--rate-rest), .4 var(--rate-mid), .8 var(--rate-high), 1 var(--rate-target);
+  --scale-queue: 0 var(--load-bad), 1 var(--load-ok), 3 var(--load-bad);
+
+  /* THE MARK (index.html's catflops card-flop) and the wordmark beside it: silver, the low-load cyan and green. */
+  --brand-mark: #B1B8C0;
+  --brand-mark-pkg: #1B2129;
+  --brand-mark-line: #818A94;
+  --brand-mark-idle: #8B949E;
+  --brand-mark-a: #78F9E5;
+  --brand-mark-b: #3FF27A;
+  --wm-cat: #CBD2D9;
+  --wm-flops: #64EBDB;
+  --wm-fleet: #7BEE98;
+
+  /* TYPE. Families, then the size scale, named by hundredths of a rem (--fs-76 is .76rem), so a style can rescale a
+     step without hunting for its rules. */
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --sans-ui: system-ui, sans-serif;   /* the (i) tooltip's */
+  --serif: Georgia, serif;            /* the italic (i) mark */
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --body-size: 14px;
   --small: .7rem;         /* the smallest text on the page, 11.2px: below 11px a label is a smudge */
+  --fs-62: .62rem; --fs-72: .72rem; --fs-74: .74rem; --fs-75: .75rem; --fs-76: .76rem; --fs-78: .78rem;
+  --fs-80: .8rem; --fs-82: .82rem; --fs-84: .84rem; --fs-86: .86rem; --fs-90: .9rem; --fs-95: .95rem;
+  --fs-100: 1rem; --fs-105: 1.05rem; --fs-115: 1.15rem; --fs-117: 1.17rem; --fs-120: 1.2rem; --fs-125: 1.25rem;
+  --fs-svg-tiny: 5.5px;   /* inside the GPU glyph's 64-unit drawing: the VRAM label */
+  --fs-svg-figure: 10px;  /* inside the GPU glyph: its VRAM percentage */
+
+  /* SHAPE: the radius scale, a rule, three elevations. */
+  --radius-card: 14px;    /* a card, the connect dialog, a tile in edit mode */
+  --radius-menu: 12px;    /* the header menus */
+  --radius-band: 10px;    /* a band inside a card: the tile row, the ceilings, a hold button */
+  --radius-box: 8px;      /* an alert, a strip, a box inside a band */
+  --radius-ctl: 7px;      /* a control: a select, a segment, a route button */
+  --radius-ctl-sm: 6px;   /* a small control: an input, a header button */
+  --radius-badge: 5px;
+  --radius-chip: 4px;     /* a tag, a code chip, a progress bar */
+  --radius-3: 3px; --radius-2: 2px; --radius-1: 1px;   /* the small parts of a drawing: a key square, a bar */
+  --radius-pill: 999px;
+  --radius-tally: .6rem;  /* the trail's "again" / "taken" counters */
+  --rule: 1px solid var(--line);
+  --shadow-menu: 0 10px 30px rgba(var(--shade-rgb), .45);   /* the Layout and Style menus */
+  --shadow-pop: 0 12px 32px rgba(var(--shade-rgb), .45);    /* the model picker's list */
+  --shadow-sheet: 0 -12px 40px rgba(var(--shade-rgb), .55); /* that list as a phone's bottom sheet */
+
+  /* SPACING */
   --gutter: 1rem;
   --gap: .6rem;
 }
@@ -43,7 +152,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--ink);
-  font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font: var(--body-size)/1.5 var(--sans);
   -webkit-font-smoothing: antialiased;
   /* Nothing on this page may scroll sideways — a monitoring page that hides half a number at
      phone width is not readable. */
@@ -61,100 +170,143 @@ body {
 .top {
   display: flex; align-items: center; justify-content: space-between; gap: 1rem;
   padding: .5rem var(--gutter);
-  border-bottom: 1px solid var(--line);
+  border-bottom: var(--rule);
   background: var(--panel);
   position: sticky; top: 0; z-index: 5;
 }
-.brand h1 { margin: 0; font-size: 1.05rem; letter-spacing: .01em; display: flex; align-items: center; gap: .45rem; }
+.brand h1 { margin: 0; font-size: var(--fs-105); letter-spacing: .01em; display: flex; align-items: center; gap: .45rem; }
 /* catflops' mark (operator 2026-10-28: "silver logo on dark mode", "similar colors to CPU svg icon IDLE with little
    sparks on some CPUs"): a silver cat on a card drawn as the CPU chip (.cores: package, pins, idle cores), two of its
    cores and two sparks lit in the low-load cyan and green of gateway.js `scaleColor`. */
-.mark { flex: none; --mark-cat: #B1B8C0; --mark-pkg: #1B2129; --mark-pkg-line: #818A94; --mark-idle: #8B949E; --mark-cyan: #78F9E5; --mark-green: #3FF27A; }
-.mark-cat { fill: var(--mark-cat); }
-.mark-tail { fill: none; stroke: var(--mark-cat); stroke-width: 4; stroke-linecap: round; }
-.mark-card { fill: var(--mark-pkg); stroke: var(--mark-pkg-line); stroke-width: 2; }
-.mark-pins { fill: var(--mark-pkg-line); fill-opacity: .55; }
-.mark-core-idle { fill: var(--mark-idle); fill-opacity: .5; }
-.mark-core-cyan, .mark-box-a-cyan { fill: var(--mark-cyan); }
-.mark-core-green, .mark-box-a-green { fill: var(--mark-green); }
+.mark { flex: none; }
+.mark-cat { fill: var(--brand-mark); }
+.mark-tail { fill: none; stroke: var(--brand-mark); stroke-width: 4; stroke-linecap: round; }
+.mark-card { fill: var(--brand-mark-pkg); stroke: var(--brand-mark-line); stroke-width: 2; }
+.mark-pins { fill: var(--brand-mark-line); fill-opacity: .55; }
+.mark-core-idle { fill: var(--brand-mark-idle); fill-opacity: .5; }
+.mark-core-cyan, .mark-box-a-cyan { fill: var(--brand-mark-a); }
+.mark-core-green, .mark-box-a-green { fill: var(--brand-mark-b); }
 /* The name beside it (operator 2026-10-28: "each in different color but keep them equal"): one hue per word, the mark's
    silver, cyan and green, all at OKLCH lightness 0.86, so no word outweighs another. */
-.wm-cat { color: #CBD2D9; }
-.wm-flops { color: #64EBDB; }
-.wm-fleet { color: #7BEE98; }
-.brand .sub { font-size: .74rem; color: var(--ink-faint); }
+.wm-cat { color: var(--wm-cat); }
+.wm-flops { color: var(--wm-flops); }
+.wm-fleet { color: var(--wm-fleet); }
+.brand .sub { font-size: var(--fs-74); color: var(--ink-faint); }
+
+/* THE HEADER'S CONTROLS (every page): the right-hand row, and its one small button — Layout (layout.js, index only)
+   and Style (styles.js) — in one visual language. A phone's header keeps the chosen name, not the word before it. */
+.top-right { display: flex; align-items: center; gap: .9rem; min-width: 0; }
+.ly-open, .st-open {
+  font: inherit; font-size: var(--fs-78); color: var(--ink-dim); background: none; cursor: pointer;
+  border: var(--rule); border-radius: var(--radius-ctl-sm); padding: .2rem .55rem; white-space: nowrap;
+}
+.ly-open:hover, .ly-open[aria-expanded="true"], .st-open:hover, .st-open[aria-expanded="true"] { color: var(--ink); border-color: var(--ink-faint); }
+.ly-open:focus-visible, .st-open:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ly-open b, .st-open b { font-weight: 600; color: var(--ink); }
+@media (max-width: 600px) { .ly-word { display: none; } }
+
+/* THE STYLE MENU (styles.js): a short list under its button, one radio item per style, the checked one marked as the
+   Layout menu marks its template; the line under it says where the choice is kept. */
+.st-slot { position: relative; flex: none; }
+.st-menu {
+  position: absolute; top: calc(100% + .35rem); right: 0; z-index: 6; min-width: 13rem; display: grid; gap: .15rem;
+  padding: .35rem; background: var(--panel); color: var(--ink); border: var(--rule); border-radius: var(--radius-menu);
+  box-shadow: var(--shadow-menu); font-size: var(--fs-82);
+}
+.st-item {
+  font: inherit; text-align: left; color: var(--ink); background: none; cursor: pointer; border: 0;
+  border-radius: var(--radius-ctl-sm); padding: .35rem .55rem;
+}
+.st-item:hover, .st-item:focus-visible { background: var(--surface-3); outline: none; }
+.st-item[aria-checked="true"] { font-weight: 600; box-shadow: inset 2px 0 0 var(--accent); }
+/* The deployment's default (the fleet's panel.style): inherits the item's colour, so a style's hover keeps it legible. */
+.st-tag { margin-left: .4rem; font-size: var(--small); font-weight: 400; color: inherit; opacity: .7; }
+.st-store, .st-dim { margin: .2rem .55rem .1rem; font-size: var(--small); color: var(--ink-faint); }
+
+/* THE STYLE'S NOTICES: the Layout notice's line (layout.css .ly-note), on every page. */
+.st-notice { margin: var(--gap) var(--gutter) 0; display: grid; gap: .3rem; }
+.st-note {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .6rem; padding: .4rem .7rem; font-size: var(--fs-78);
+  color: var(--ink-dim); background: var(--panel); border: var(--rule); border-left: 3px solid var(--warn); border-radius: var(--radius-box);
+}
+.st-act {
+  font: inherit; font-size: var(--fs-74); line-height: 1.2; color: var(--ink-dim); background: var(--panel-2); cursor: pointer;
+  border: var(--rule); border-radius: var(--radius-ctl-sm); padding: .2rem .5rem; min-height: 1.7rem;
+}
+.st-act:hover { color: var(--ink); border-color: var(--ink-faint); }
+.st-act:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .brand a { color: var(--accent); }
-.conn { display: flex; align-items: center; gap: .45rem; font-size: .78rem; color: var(--ink-dim); min-width: 0; }
+.conn { display: flex; align-items: center; gap: .45rem; font-size: var(--fs-78); color: var(--ink-dim); min-width: 0; }
 .conn .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-faint); flex: none; }
-.conn.ok .dot   { background: var(--ok); box-shadow: 0 0 0 3px rgba(63,185,80,.15); }
-.conn.bad .dot  { background: var(--bad); box-shadow: 0 0 0 3px rgba(248,81,73,.15); }
+.conn.ok .dot   { background: var(--ok); box-shadow: 0 0 0 3px rgba(var(--ok-rgb),.15); }
+.conn.bad .dot  { background: var(--bad); box-shadow: 0 0 0 3px rgba(var(--bad-rgb),.15); }
 .conn.bad { color: var(--bad); }
 
 /* ── connect an agent (gateway.js): the top bar's button and its modal dialog ── */
 .cn-open {
-  margin-left: .35rem; padding: .05rem .5rem; font: inherit; font-size: .72rem; line-height: 1.4;
-  color: var(--accent); background: transparent; border: 1px solid var(--line); border-radius: 999px; cursor: pointer;
+  margin-left: .35rem; padding: .05rem .5rem; font: inherit; font-size: var(--fs-72); line-height: 1.4;
+  color: var(--accent); background: transparent; border: var(--rule); border-radius: var(--radius-pill); cursor: pointer;
 }
 .cn-open:hover, .cn-open:focus-visible { border-color: var(--accent); }
 .cn {
   padding: 0; border: 0; background: transparent; color: var(--ink);
   max-width: none; max-height: none; width: 100%; height: 100%;
 }
-.cn::backdrop { background: rgba(1, 4, 9, .72); }
+.cn::backdrop { background: var(--scrim); }
 .cn-box {
   position: relative; margin: 6vh auto 0; width: calc(100% - 2 * var(--gutter)); max-width: 720px;
   max-height: 88vh; overflow: auto; overscroll-behavior: contain;
-  background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: .75rem .9rem .9rem;
+  background: var(--panel); border: var(--rule); border-radius: var(--radius-card); padding: .75rem .9rem .9rem;
   display: flex; flex-direction: column; gap: .55rem;
 }
 .cn-head { display: flex; align-items: center; justify-content: space-between; gap: .6rem; }
-.cn-title { margin: 0; font-size: 1rem; font-weight: 600; }
+.cn-title { margin: 0; font-size: var(--fs-100); font-weight: 600; }
 .cn-x {
-  flex: none; width: 1.9rem; height: 1.9rem; font: inherit; font-size: 1.15rem; line-height: 1;
-  color: var(--ink-dim); background: transparent; border: 1px solid var(--line); border-radius: 8px; cursor: pointer;
+  flex: none; width: 1.9rem; height: 1.9rem; font: inherit; font-size: var(--fs-115); line-height: 1;
+  color: var(--ink-dim); background: transparent; border: var(--rule); border-radius: var(--radius-box); cursor: pointer;
 }
 .cn-x:hover, .cn-x:focus-visible { color: var(--ink); border-color: var(--ink-faint); }
-.cn-facts { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: .35rem .7rem; margin: 0; font-size: .8rem; }
+.cn-facts { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: .35rem .7rem; margin: 0; font-size: var(--fs-80); }
 .cn-facts dt {
   color: var(--ink-faint); font-size: var(--small); font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
   padding-top: .15rem;
 }
 .cn-facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; color: var(--ink-dim); }
 .cn-facts dd b { color: var(--ink); font-weight: 600; }
-.cn-facts .cn-model { color: var(--ink); font-family: var(--mono); font-size: .76rem; }
+.cn-facts .cn-model { color: var(--ink); font-family: var(--mono); font-size: var(--fs-76); }
 .cn-facts .cn-model.bad, .cn-door .bad, .cn-note { color: var(--bad); }
 .cn-door .ok { color: var(--ok); }
-.cn-door code, .cn-pre { font-family: var(--mono); font-size: .74rem; }
-.cn-door code { color: var(--ink); background: var(--panel-2); border-radius: 4px; padding: 0 .25rem; }
+.cn-door code, .cn-pre { font-family: var(--mono); font-size: var(--fs-74); }
+.cn-door code { color: var(--ink); background: var(--panel-2); border-radius: var(--radius-chip); padding: 0 .25rem; }
 .cn-route { display: flex; flex-direction: column; gap: .4rem; }
 .cn-routes { display: flex; flex-wrap: wrap; gap: .35rem; }
 .cn-routes:empty { display: none; }
 .cn-route-btn, .cn-tab, .cn-copy {
-  font: inherit; font-size: .74rem; color: var(--ink-dim); background: transparent; cursor: pointer;
-  border: 1px solid var(--line); border-radius: 7px; padding: .15rem .55rem;
+  font: inherit; font-size: var(--fs-74); color: var(--ink-dim); background: transparent; cursor: pointer;
+  border: var(--rule); border-radius: var(--radius-ctl); padding: .15rem .55rem;
 }
 .cn-route-btn[aria-pressed="true"], .cn-tab[aria-selected="true"] {
-  color: var(--ink); border-color: var(--accent); background: rgba(88, 166, 255, .12);
+  color: var(--ink); border-color: var(--accent); background: rgba(var(--accent-rgb), .12);
 }
 .cn-route-btn:focus-visible, .cn-tab:focus-visible, .cn-copy:focus-visible, .cn-input:focus-visible {
   outline: 2px solid var(--accent); outline-offset: 1px;
 }
-.cn-note { margin: 0; font-size: .76rem; }
+.cn-note { margin: 0; font-size: var(--fs-76); }
 .cn-ssh { display: flex; flex-direction: column; gap: .4rem; }
 .cn-fields { display: flex; flex-wrap: wrap; gap: .4rem .8rem; }
-.cn-field { display: flex; align-items: center; gap: .4rem; font-size: .72rem; color: var(--ink-faint); }
+.cn-field { display: flex; align-items: center; gap: .4rem; font-size: var(--fs-72); color: var(--ink-faint); }
 .cn-input {
-  font: inherit; font-family: var(--mono); font-size: .76rem; color: var(--ink); background: var(--panel-2);
-  border: 1px solid var(--line); border-radius: 6px; padding: .15rem .4rem; width: 11ch;
+  font: inherit; font-family: var(--mono); font-size: var(--fs-76); color: var(--ink); background: var(--panel-2);
+  border: var(--rule); border-radius: var(--radius-ctl-sm); padding: .15rem .4rem; width: 11ch;
 }
 .cn-input[data-field="host"] { width: 18ch; }
 .cn-input[aria-invalid="true"] { border-color: var(--bad); }
-.cn-tabs { display: flex; flex-wrap: wrap; gap: .35rem; border-top: 1px solid var(--line); padding-top: .55rem; }
+.cn-tabs { display: flex; flex-wrap: wrap; gap: .35rem; border-top: var(--rule); padding-top: .55rem; }
 .cn-panel { display: flex; flex-direction: column; gap: .5rem; }
-.cn-snip { min-width: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
+.cn-snip { min-width: 0; border: var(--rule); border-radius: var(--radius-box); background: var(--bg); }
 .cn-snip-head {
   display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: .25rem .25rem .25rem .55rem;
-  border-bottom: 1px solid var(--line); font-size: var(--small); color: var(--ink-faint);
+  border-bottom: var(--rule); font-size: var(--small); color: var(--ink-faint);
 }
 .cn-copy { padding: .05rem .5rem; font-size: var(--small); }
 .cn-pre {
@@ -173,19 +325,19 @@ body {
 .cn-key-new .cn-pre { white-space: pre-wrap; word-break: break-all; user-select: all; }
 /* the one-time warning: set apart from every other note — the only thing the person must not miss */
 .cn-key-once {
-  margin: 0; padding: .35rem .6rem; border-top: 1px solid var(--line); font-size: .76rem; font-weight: 600;
+  margin: 0; padding: .35rem .6rem; border-top: var(--rule); font-size: var(--fs-76); font-weight: 600;
   color: var(--warn);
 }
-.cn-key-msg { margin: 0; font-size: .76rem; color: var(--ink-dim); }
+.cn-key-msg { margin: 0; font-size: var(--fs-76); color: var(--ink-dim); }
 .cn-key-msg.bad { color: var(--bad); }
 .cn-key-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .25rem; }
 .cn-key {
   display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: .05rem .6rem;
-  padding: .3rem .3rem .3rem .5rem; border: 1px solid var(--line); border-radius: 7px; background: var(--bg);
+  padding: .3rem .3rem .3rem .5rem; border: var(--rule); border-radius: var(--radius-ctl); background: var(--bg);
 }
 .cn-key-who { display: flex; flex-wrap: wrap; align-items: baseline; gap: .1rem .5rem; min-width: 0; }
 .cn-key-name { color: var(--ink); font-weight: 600; overflow-wrap: anywhere; }
-.cn-key-hint { font-family: var(--mono); font-size: .72rem; color: var(--ink-dim); }
+.cn-key-hint { font-family: var(--mono); font-size: var(--fs-72); color: var(--ink-dim); }
 .cn-key-when { grid-column: 1; font-size: var(--small); color: var(--ink-faint); }
 .cn-key.expired .cn-key-when { color: var(--warn); }
 .cn-key-revoke { grid-column: 2; grid-row: 1 / span 2; }
@@ -196,7 +348,7 @@ body {
   .cn-key-name-in { flex: 1 1 12ch; width: auto; min-width: 0; }
   .cn-facts { grid-template-columns: minmax(0, 1fr); gap: .1rem; }
   .cn-facts dd { margin-bottom: .3rem; }
-  .cn-pre { font-size: .7rem; }
+  .cn-pre { font-size: var(--small); }
 }
 
 /* ── what stops the LB serving ──────────────────────────────────────────── */
@@ -204,18 +356,18 @@ body {
    not paraphrased — the LB's text is the only thing that names it. */
 .alert {
   margin: var(--gap) var(--gutter) 0; padding: .55rem .8rem;
-  background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--bad);
-  border-radius: 8px; font-size: .82rem; color: var(--ink-dim); overflow-wrap: anywhere;
+  background: var(--panel); border: var(--rule); border-left: 3px solid var(--bad);
+  border-radius: var(--radius-box); font-size: var(--fs-82); color: var(--ink-dim); overflow-wrap: anywhere;
 }
 .alert b { color: var(--bad); font-weight: 600; }
-.alert .why { color: var(--ink); font-family: var(--mono); font-size: .76rem; }
+.alert .why { color: var(--ink); font-family: var(--mono); font-size: var(--fs-76); }
 
 /* ── queued leases (no server yet) ──────────────────────────────────────── */
 
 .queued { padding: var(--gap) var(--gutter) 0; }
 .queued .strip {
-  background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--warn);
-  border-radius: 8px; padding: .5rem .8rem; font-size: .82rem; color: var(--ink-dim);
+  background: var(--panel); border: var(--rule); border-left: 3px solid var(--warn);
+  border-radius: var(--radius-box); padding: .5rem .8rem; font-size: var(--fs-82); color: var(--ink-dim);
   margin-bottom: .4rem; overflow-wrap: anywhere;
 }
 .queued .strip b { color: var(--ink); font-weight: 600; }
@@ -235,20 +387,20 @@ body {
    so a card reads the same in a phone's one column and in a desk's grid. */
 
 .card, .cluster {
-  background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+  background: var(--panel); border: var(--rule); border-radius: var(--radius-card);
   padding: .65rem .75rem; display: flex; flex-direction: column; gap: .5rem; min-width: 0;
   container-type: inline-size;
 }
 .card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: .6rem; min-width: 0; }
 .box-id { display: flex; align-items: flex-start; gap: .55rem; min-width: 0; flex-wrap: wrap; }
-.box-name { font-size: 1rem; font-weight: 600; letter-spacing: .01em; overflow-wrap: anywhere; }
+.box-name { font-size: var(--fs-100); font-weight: 600; letter-spacing: .01em; overflow-wrap: anywhere; }
 /* A kind is one word to the eye: "TP=2 vLLM" split over two lines read as two facts. */
 .box-kind { color: var(--ink-faint); font-weight: 400; white-space: nowrap; }
-.box-host { color: var(--ink-faint); font-weight: 400; font-size: .86rem; }
-.box-meta { font-size: .72rem; color: var(--ink-faint); font-family: var(--mono); word-break: break-all; }
+.box-host { color: var(--ink-faint); font-weight: 400; font-size: var(--fs-86); }
+.box-meta { font-size: var(--fs-72); color: var(--ink-faint); font-family: var(--mono); word-break: break-all; }
 .badge {
   flex: none; font-size: var(--small); font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
-  padding: .2rem .45rem; border-radius: 5px; border: 1px solid currentColor;
+  padding: .2rem .45rem; border-radius: var(--radius-badge); border: 1px solid currentColor;
 }
 .badge.ok   { color: var(--ok); }
 .badge.warn { color: var(--warn); }
@@ -267,25 +419,25 @@ body {
 .tag {
   display: inline-flex; align-items: center; gap: .3rem; flex: none; max-width: 100%;
   font-size: var(--small); font-weight: 600; line-height: 1.25; letter-spacing: .01em; white-space: nowrap;
-  padding: .1rem .42rem; border-radius: 4px; overflow: hidden; text-overflow: ellipsis;
+  padding: .1rem .42rem; border-radius: var(--radius-chip); overflow: hidden; text-overflow: ellipsis;
   color: var(--ink-dim); background: var(--panel-2); box-shadow: inset 0 0 0 1px var(--line);
   font-variant-numeric: tabular-nums;
 }
 .tag.engine, .tag.drafter, .tag.twin, .tag.running { text-transform: uppercase; letter-spacing: .06em; font-weight: 700; }
-.tag.engine, .tag.drafter { --t: 139, 148, 158; color: rgb(var(--t)); background: rgba(var(--t), .14); box-shadow: inset 0 0 0 1px rgba(var(--t), .45); }
+.tag.engine, .tag.drafter { --t: var(--neutral-rgb); color: rgb(var(--t)); background: rgba(var(--t), .14); box-shadow: inset 0 0 0 1px rgba(var(--t), .45); }
 .tag.engine.vllm { --t: var(--tag-vllm); }
 .tag.engine.sglang { --t: var(--tag-sglang); }
 .tag.engine.tensorfold { --t: var(--tag-tensorfold); }
 .tag.drafter { --t: var(--tag-drafter); }
 /* A setup with the drafter off: the kind's slot, quiet. */
-.tag.drafter.off { --t: 129, 138, 148; text-transform: none; letter-spacing: .01em; font-weight: 500; }
+.tag.drafter.off { --t: var(--ink-faint-rgb); text-transform: none; letter-spacing: .01em; font-weight: 500; }
 .tag.twin { color: var(--bg); background: var(--warn); box-shadow: none; }
-.tag.running { --t: 63, 185, 80; color: rgb(var(--t)); background: rgba(var(--t), .12); box-shadow: inset 0 0 0 1px rgba(var(--t), .45); }
+.tag.running { --t: var(--ok-rgb); color: rgb(var(--t)); background: rgba(var(--t), .12); box-shadow: inset 0 0 0 1px rgba(var(--t), .45); }
 .tag.running::before { content: ""; width: .4rem; height: .4rem; border-radius: 50%; background: rgb(var(--t)); box-shadow: 0 0 5px 1px rgba(var(--t), .6); }
 /* The same slot in the state's own colour while the pair is not serving yet, or did not make it (the diode's hues). */
-.tag.running.reserving, .tag.running.starting, .tag.running.stopping, .tag.running.finishing { --t: 210, 153, 34; }
-.tag.running.failed, .tag.running.blocked { --t: 248, 81, 73; }
-.tag.rate { color: var(--ok); font-weight: 700; background: transparent; box-shadow: inset 0 0 0 1px rgba(63, 185, 80, .4); }
+.tag.running.reserving, .tag.running.starting, .tag.running.stopping, .tag.running.finishing { --t: var(--warn-rgb); }
+.tag.running.failed, .tag.running.blocked { --t: var(--bad-rgb); }
+.tag.rate { color: var(--ok); font-weight: 700; background: transparent; box-shadow: inset 0 0 0 1px rgba(var(--ok-rgb), .4); }
 .tag.rate.other { color: var(--ink-faint); font-weight: 500; box-shadow: inset 0 0 0 1px var(--line); }
 .tag.gone { color: var(--warn); background: transparent; box-shadow: inset 0 0 0 1px currentColor; }
 .tag.note { color: var(--warn); background: transparent; box-shadow: none; padding-inline: .15rem; font-weight: 500; }
@@ -297,23 +449,23 @@ body {
    but not carrying our traffic, red = broken, dark = no server (this fleet's resting state,
    not a fault). The glow is what makes it read as a diode rather than a bullet. */
 .diode {
-  width: 11px; height: 11px; border-radius: 50%; flex: none; margin-top: .28rem;
-  background: var(--ink-faint); box-shadow: 0 0 0 1px rgba(0, 0, 0, .5) inset;
+  width: var(--diode-size); height: var(--diode-size); border-radius: 50%; flex: none; margin-top: .28rem;
+  background: var(--ink-faint); box-shadow: 0 0 0 1px rgba(var(--shade-rgb), .5) inset;
 }
 /* PARKED — a deliberate off, so it gets its own calm colour rather than the alarm red.
    Blue reads as "standing by", which is exactly what a parked box is doing. */
-.diode.park { background: var(--park); box-shadow: 0 0 6px 1px rgba(88, 166, 255, .45); }
-.diode.ok   { background: var(--ok);   box-shadow: 0 0 7px 1px rgba(63, 185, 80, .75); }
-.diode.warn { background: var(--warn); box-shadow: 0 0 7px 1px rgba(210, 153, 34, .7); }
-.diode.bad  { background: var(--bad);  box-shadow: 0 0 7px 1px rgba(248, 81, 73, .75); }
+.diode.park { background: var(--park); box-shadow: 0 0 6px 1px rgba(var(--park-rgb), .45); }
+.diode.ok   { background: var(--ok);   box-shadow: 0 0 7px 1px rgba(var(--ok-rgb), .75); }
+.diode.warn { background: var(--warn); box-shadow: 0 0 7px 1px rgba(var(--warn-rgb), .7); }
+.diode.bad  { background: var(--bad);  box-shadow: 0 0 7px 1px rgba(var(--bad-rgb), .75); }
 /* Leased but with nothing in flight: lit, not blazing. */
-.diode.ok.soft { box-shadow: 0 0 4px 0 rgba(63, 185, 80, .45); opacity: .85; }
+.diode.ok.soft { box-shadow: 0 0 4px 0 rgba(var(--ok-rgb), .45); opacity: .85; }
 /* No server on a healthy box — dark glass, deliberately not a colour. */
-.diode.off { background: #2b313c; box-shadow: none; }
+.diode.off { background: var(--line-strong); box-shadow: none; }
 .diode.pulse { animation: diode-pulse 1.6s ease-in-out infinite; }
 @keyframes diode-pulse {
-  0%, 100% { box-shadow: 0 0 6px 1px rgba(63, 185, 80, .55); }
-  50%      { box-shadow: 0 0 12px 3px rgba(63, 185, 80, .95); }
+  0%, 100% { box-shadow: 0 0 6px 1px rgba(var(--ok-rgb), calc(.55 * var(--glow))); }
+  50%      { box-shadow: 0 0 12px 3px rgba(var(--ok-rgb), calc(.95 * var(--glow))); }
 }
 @media (prefers-reduced-motion: reduce) { .diode.pulse { animation: none; } }
 
@@ -333,7 +485,7 @@ body {
    (It was `display: contents` with every part placed by hand; a tile was no box, so there was nothing to divide.) */
 :is(.tiles3, .tiles4, .tiles5, .tiles6) {
   display: grid; column-gap: 0; row-gap: .15rem; min-width: 0;
-  padding: .4rem .55rem .45rem; background: var(--panel-2); border-radius: 10px;
+  padding: .4rem .55rem .45rem; background: var(--panel-2); border-radius: var(--radius-band);
 }
 .tiles3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .tiles4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
@@ -341,7 +493,7 @@ body {
 .tiles6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 :is(.tiles3, .tiles4, .tiles5, .tiles6) > .tile {
   display: grid; grid-template-rows: subgrid; grid-row: span 3; row-gap: .15rem; min-width: 0;
-  padding: 0 .55rem; border-left: 1px solid var(--line);
+  padding: 0 .55rem; border-left: var(--rule);
 }
 :is(.tiles3, .tiles4, .tiles5, .tiles6).flat > .tile { grid-row: span 2; }
 :is(.tiles3, .tiles4, .tiles5, .tiles6) > .tile > * { grid-column: 1; min-width: 0; }
@@ -399,7 +551,7 @@ body {
 /* 19.2px bold, not less: the figure wears its value's colour, and the scales' grey, blue and red clear
    the 3:1 that large text needs (WCAG 1.4.3: 18.66px bold and up), not the 4.5:1 below it. */
 .t-val {
-  font-size: 1.2rem; font-weight: 700; line-height: 1.15; font-variant-numeric: tabular-nums;
+  font-size: var(--fs-120); font-weight: 700; line-height: 1.15; font-variant-numeric: tabular-nums;
   letter-spacing: -.01em; white-space: nowrap; flex: none;
 }
 .t-unit { font-size: var(--small); font-weight: 500; color: var(--ink-dim); margin-left: .1em; letter-spacing: 0; text-shadow: none; }
@@ -415,11 +567,11 @@ body {
 .t-graph { position: relative; height: 40px; min-width: 0; }
 .sparkline { display: block; width: 100%; height: 24px; overflow: visible; margin: .1rem 0 .15rem; }
 .t-graph .sparkline { height: 100%; margin: 0; }
-.sparkline-base { stroke: var(--line); stroke-width: 1; }
+.sparkline-base { stroke: var(--track); stroke-width: 1; }
 /* The target a rate is read against: a quiet dashed rule, never louder than the line itself. */
 /* A rate at its target glows: the line gets a halo of its own colour (the figure's is inline). */
 .sparkline.glow path { filter: drop-shadow(0 0 3px currentColor); }
-.sparkline-target { stroke: var(--muted, #8b93a1); stroke-width: 1; stroke-dasharray: 3 3; opacity: .55; }
+.sparkline-target { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; opacity: .55; }
 /* THE SAME MEASURE PER RUNNING REQUEST (gateway.js `perRequestOf`): a second line on the SAME axis,
    thinner, grey and half-transparent — context under the headline's line, never a second reading to
    compare colours with. Colour on this card means "how close to the target"; this line is deliberately
@@ -450,14 +602,14 @@ body {
    so a narrow card still shows engine · checkpoint · drafter beside the name. WHICH MODEL is never given up:
    see `.ambiguous` below. */
 .model-badge {
-  display: flex; align-items: center; gap: .4rem; min-width: 0; font-size: .82rem; line-height: 1.4; color: var(--ink-dim);
+  display: flex; align-items: center; gap: .4rem; min-width: 0; font-size: var(--fs-82); line-height: 1.4; color: var(--ink-dim);
 }
 .model-badge > span { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem .3rem; min-width: 0; }
 .model-badge > span > b { flex: none; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .model-badge b { color: var(--ink); font-weight: 600; }
 .model-badge .mb-short { display: none; }
 .mb-icon {
-  flex: none; width: .7rem; height: .7rem; align-self: center; border-radius: 3px;
+  flex: none; width: .7rem; height: .7rem; align-self: center; border-radius: var(--radius-3);
   border: 1.5px solid var(--ink-faint); box-shadow: inset 0 0 0 2px var(--panel), inset 0 0 0 5px var(--ink-faint);
 }
 .model-badge.pending .mb-icon { border-style: dashed; border-color: var(--warn); box-shadow: none; }
@@ -478,7 +630,7 @@ body {
 /* What the server itself says it holds, one line under the badge. A narrow card cuts it with an
    ellipsis; the whole line is in its `title`. */
 .model-line {
-  font-size: .74rem; color: var(--ink-dim); font-family: var(--mono); min-width: 0;
+  font-size: var(--fs-74); color: var(--ink-dim); font-family: var(--mono); min-width: 0;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
@@ -489,12 +641,12 @@ body {
    a note's length. The cores tile spans the same four rows with its own insides; the last row is the
    flexible one, so a taller cores tile stretches only the graphs' row, never pushes the bars apart. */
 .ceils { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: auto auto auto minmax(0, 1fr);
-  gap: .5rem 0; min-width: 0; padding: .4rem .55rem .45rem; background: var(--panel-2); border-radius: 10px; }
+  gap: .5rem 0; min-width: 0; padding: .4rem .55rem .45rem; background: var(--panel-2); border-radius: var(--radius-band); }
 /* Option D (operator 2026-10-30): a hairline before every ceiling but the first of its visual row — four, three or
    two across by the row's class and the card's width. */
-.ceils > .ceil { padding: 0 .55rem; border-left: 1px solid var(--line); }
+.ceils > .ceil { padding: 0 .55rem; border-left: var(--rule); }
 .ceils > .ceil:nth-child(4n+1), .ceils3 > .ceil:nth-child(3n+1), .ceils2 > .ceil:nth-child(odd) { padding-left: 0; border-left: 0; }
-.ceils3 > .ceil:nth-child(4n+1):not(:nth-child(3n+1)) { padding-left: .55rem; border-left: 1px solid var(--line); }
+.ceils3 > .ceil:nth-child(4n+1):not(:nth-child(3n+1)) { padding-left: .55rem; border-left: var(--rule); }
 .ceils > .ceil:last-child { padding-right: 0; }
 .ceils .t-head { flex-direction: column; align-items: flex-start; flex-wrap: nowrap; --t-head-h: 2.3rem; }
 /* A per-box ceiling's label carries its box ("memory bandwidth · site-b"): ONE line inside its own column, cut with
@@ -514,7 +666,7 @@ body {
   .ceils { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ceils3 > .ceil:last-child { grid-column: 1 / -1; } .ceils3 > .gpu-cores:last-child { grid-row: span 1; }
   .ceils > .ceil:nth-child(odd), .ceils3 > .ceil:last-child { padding-left: 0; border-left: 0; }
-  .ceils > .ceil:nth-child(even) { padding-left: .55rem; border-left: 1px solid var(--line); padding-right: 0; }
+  .ceils > .ceil:nth-child(even) { padding-left: .55rem; border-left: var(--rule); padding-right: 0; }
 }
 /* CUDA cores: decode and prefill side by side, two sub-columns inside the tile's one column. Each: the
    name and its share of the time, the cores multiplying and the step time, the field, the cores
@@ -524,10 +676,10 @@ body {
 .core-case { display: grid; gap: .05rem; align-content: start; min-width: 0; font-size: var(--small); line-height: 1.3; }
 .core-case > span { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 .3rem; min-width: 0; }
 .core-case .core-name { color: var(--ink-dim); }
-.core-case .core-fig b { font-size: .9rem; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.core-case .core-fig b { font-size: var(--fs-90); line-height: 1.15; font-variant-numeric: tabular-nums; }
 .core-case .core-fig > span, .core-case .core-rest { color: var(--ink-dim); font-variant-numeric: tabular-nums; }
 .core-case .core-rest > span { white-space: nowrap; }
-.core-case.dim > b { color: var(--ink-faint); font-size: .9rem; }
+.core-case.dim > b { color: var(--ink-faint); font-size: var(--fs-90); }
 /* The field: 128 × 48 cores filled in order — green multiplying, cyan waiting on memory, grey the rest
    (three paths, gateway.js `coreStair`). The cells are a texture over it, a 4 px pitch in the panel's
    colour — one square is not one core at any width the tile has. */
@@ -544,20 +696,20 @@ body {
 .info {
   position: relative; display: inline-grid; place-items: center; width: .95rem; height: .95rem; margin-left: .2rem;
   border: 1px solid var(--ink-faint); border-radius: 50%; color: var(--ink-dim); cursor: help;
-  font: italic 600 .62rem/1 Georgia, serif; text-transform: none; letter-spacing: 0; vertical-align: 1px;
+  font: italic 600 var(--fs-62)/1 var(--serif); text-transform: none; letter-spacing: 0; vertical-align: 1px;
 }
 .info:hover::after, .info:focus::after {
   content: attr(data-tip); position: absolute; z-index: 5; top: 135%; left: -.3rem; width: max-content; max-width: 11rem;
-  padding: .35rem .45rem; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink);
-  font: 400 var(--small)/1.35 system-ui, sans-serif; white-space: normal; text-align: left;
+  padding: .35rem .45rem; border: var(--rule); border-radius: var(--radius-ctl-sm); background: var(--bg); color: var(--ink);
+  font: 400 var(--small)/1.35 var(--sans-ui); white-space: normal; text-align: left;
 }
 .info:focus { outline: 1px solid var(--accent); outline-offset: 1px; }
 /* In a tile the note spans the tile, so it never runs off the card's edge. */
 .ceil { position: relative; }
 .ceil .info { position: static; }
 .ceil .info:hover::after, .ceil .info:focus::after { top: 1.5rem; left: 0; right: 0; width: auto; max-width: none; }
-.core-mul { fill: #7ee787; background: #7ee787; } .core-mem { fill: #1f8fa8; background: #1f8fa8; } .core-other { fill: #434d5c; background: #434d5c; }
-.core-key { display: inline-block; width: .55rem; height: .55rem; border-radius: 2px; margin-right: .25rem; vertical-align: -1px; }
+.core-mul { fill: var(--core-mul); background: var(--core-mul); } .core-mem { fill: var(--core-mem); background: var(--core-mem); } .core-other { fill: var(--core-other); background: var(--core-other); }
+.core-key { display: inline-block; width: .55rem; height: .55rem; border-radius: var(--radius-2); margin-right: .25rem; vertical-align: -1px; }
 .core-legend { display: flex; flex-wrap: wrap; gap: 0 .3rem; }
 .core-legend > span { white-space: nowrap; }
 .core-legend .core-key { margin-right: .2rem; }
@@ -584,14 +736,14 @@ body {
 .stat:not(:first-child) { margin-left: .45rem; }
 .stat:not(:first-child)::before { content: "\00b7"; color: var(--ink-faint); margin-right: .15rem; }
 .stat > span { color: var(--ink-faint); margin-right: .3rem; }
-.stat > b { font-size: .8rem; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+.stat > b { font-size: var(--fs-80); font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
 .stat.dim > b { color: var(--ink-faint); }
 
-.card-foot { font-size: .74rem; color: var(--ink-dim); border-top: 1px solid var(--line); padding-top: .35rem; overflow-wrap: anywhere; }
+.card-foot { font-size: var(--fs-74); color: var(--ink-dim); border-top: var(--rule); padding-top: .35rem; overflow-wrap: anywhere; }
 .card-foot .job { font-family: var(--mono); color: var(--ink); }
 .card-foot .warn { color: var(--warn); }
 .card-foot .bad  { color: var(--bad); }
-.card-err { font-size: .72rem; color: var(--bad); word-break: break-word; font-family: var(--mono); }
+.card-err { font-size: var(--fs-72); color: var(--bad); word-break: break-word; font-family: var(--mono); }
 
 /* ── a machine's card ───────────────────────────────────────────────────── */
 /* The app's `BoxRings` and `BoxGraphs`: the cores, then the CPU they belong to, the GPU and memory as
@@ -602,7 +754,7 @@ body {
 .card.machine .box-id { align-items: baseline; gap: .1rem .6rem; }
 .card.machine .stale { font-size: var(--small); }
 .machine-body { display: grid; gap: .5rem; min-width: 0; }
-.machine-none { margin: 0; font-size: .8rem; color: var(--ink-faint); }
+.machine-none { margin: 0; font-size: var(--fs-80); color: var(--ink-faint); }
 /* `--rings`: how many rings the box draws — one per GPU row (hw.py `rows`: one for a unified box, one per card for a
    discrete one), MEM. Unset is a one-GPU box's two. The CPU is the first column, never a ring (gateway.js `cpuColumn`). */
 .rings {
@@ -620,7 +772,7 @@ body {
 .cpu-label, .gpu-label { font-size: var(--small); color: var(--ink-faint); letter-spacing: .06em; white-space: nowrap; }
 .cpu-tag, .gpu-tag {
   font-size: var(--small); font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.25; white-space: nowrap;
-  padding: 0 .35rem; border-radius: 999px; color: var(--tag, var(--ink-faint));
+  padding: 0 .35rem; border-radius: var(--radius-pill); color: var(--tag, var(--ink-faint));
   background: color-mix(in srgb, var(--tag, var(--ink-faint)) 16%, transparent);
   border: 1px solid color-mix(in srgb, var(--tag, var(--ink-faint)) 45%, transparent);
 }
@@ -635,7 +787,7 @@ body {
    in their load's colours, carry a hue. The fan's track is the ring's (`.ring-bg`), thinner for the card's scale. */
 .gpu-card .gpu-board, .gpu-card .gpu-hub { fill: var(--panel-2); stroke: var(--ink-faint); stroke-opacity: .55; stroke-width: 1; }
 .gpu-card .gpu-bracket, .gpu-card .gpu-fingers { fill: var(--ink-faint); fill-opacity: .55; }
-.gpu-card .gpu-blades { fill: var(--ink-faint); fill-opacity: .3; }
+.gpu-card .gpu-blades { fill: var(--glyph-blade); fill-opacity: .3; }
 /* The blades turn at the GPU's utilisation (gateway.js `fanSpin`): the period and the clock's phase come on the group as
    `--spin` / `--spin-delay`, its fan centre as `transform-origin` in the card's own units (view-box), so they turn about
    the fan wherever the layout put it. Only the blades: the arc, track and hub hold still. */
@@ -644,30 +796,30 @@ body {
 }
 @keyframes gpu-fan-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .gpu-card .gpu-blades.spin { animation: none; } }
-.gpu-card .gpu-fan-bg { fill: none; stroke: #2b313c; stroke-width: 4; }
+.gpu-card .gpu-fan-bg { fill: none; stroke: var(--track); stroke-width: 4; }
 .gpu-card .gpu-fan-fg { fill: none; stroke-width: 4; stroke-linecap: round; }
 .gpu-card .gpu-vram { fill: var(--panel); stroke: var(--ink-faint); stroke-opacity: .45; stroke-width: .8; }
 .gpu-card .gpu-vram.none { stroke-dasharray: 1.5 1.2; }
 /* The VRAM's name and share beside the fan, inside the card (2026-10-30): the board's small type, the share bold. */
-.gpu-card .gpu-vram-label { font: 600 5.5px/1 var(--mono, ui-monospace, monospace); fill: var(--ink-faint); letter-spacing: .3px; }
-.gpu-card .gpu-vram-pct { font: 700 10px/1 var(--mono, ui-monospace, monospace); font-variant-numeric: tabular-nums; }
+.gpu-card .gpu-vram-label { font: 600 var(--fs-svg-tiny)/1 var(--mono); fill: var(--ink-faint); letter-spacing: .3px; }
+.gpu-card .gpu-vram-pct { font: 700 var(--fs-svg-figure)/1 var(--mono); font-variant-numeric: tabular-nums; }
 .gpu-card .gpu-vram-pct.none { fill: var(--ink-faint); }
 /* No utilisation reported: the card dims as a stale box's glyphs do — no arc, the tag "—" says why. */
 .gpu-card.none { opacity: .45; }
 .ring { display: grid; justify-items: center; gap: .15rem; min-width: 0; }
 .ring-dial { position: relative; display: block; width: 100%; max-width: 64px; aspect-ratio: 1; }
 .ring-dial svg { display: block; width: 100%; height: 100%; }
-.ring-bg { fill: none; stroke: #2b313c; stroke-width: 5; }
+.ring-bg { fill: none; stroke: var(--track); stroke-width: 5; }
 .ring-fg { fill: none; stroke-width: 5; stroke-linecap: round; }
 /* 18.7px bold: the number wears its value's colour, as every figure does (see .t-val). */
 .ring-dial b {
   position: absolute; inset: 0; display: grid; place-items: center;
-  font-size: 1.17rem; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.02em;
+  font-size: var(--fs-117); font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.02em;
 }
 .ring-label { font-size: var(--small); color: var(--ink-faint); letter-spacing: .06em; }
 .figs { display: grid; gap: .25rem; align-content: center; align-self: center; }
 .fig span { display: block; font-size: var(--small); text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); line-height: 1.2; }
-.fig b { font-size: .86rem; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fig b { font-size: var(--fs-86); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
 /* A card too narrow for rings AND figures in one row moves the figures under the rings — the rings
    would otherwise shrink below the size their number reads at. */
 @container (max-width: 300px) {
@@ -707,13 +859,13 @@ body {
 /* The headline: the state word, coloured by its diode, and how long it has been that. The age is
    outside the live region (index.html), set at the headline's right end. */
 .cp-state { position: relative; min-width: 0; }
-.cluster-state { display: grid; gap: .35rem; font-size: .84rem; min-width: 0; }
+.cluster-state { display: grid; gap: .35rem; font-size: var(--fs-84); min-width: 0; }
 .cp-headline { display: flex; align-items: center; gap: .6rem; min-height: 1.9rem; padding-right: 6.5rem; }
 .cp-headline .diode { margin-top: 0; width: 12px; height: 12px; }
-.cp-title { font-size: 1.25rem; font-weight: 600; line-height: 1.2; text-transform: capitalize; overflow-wrap: anywhere; }
+.cp-title { font-size: var(--fs-125); font-weight: 600; line-height: 1.2; text-transform: capitalize; overflow-wrap: anywhere; }
 .cp-since {
   position: absolute; top: 0; right: 0; height: 1.9rem; display: flex; align-items: center; gap: .3rem;
-  font-size: .82rem; font-weight: 500; color: var(--ink-dim); font-variant-numeric: tabular-nums; white-space: nowrap;
+  font-size: var(--fs-82); font-weight: 500; color: var(--ink-dim); font-variant-numeric: tabular-nums; white-space: nowrap;
 }
 .clock {
   width: .78rem; height: .78rem; border: 1.5px solid currentColor; border-radius: 50%; position: relative; flex: none;
@@ -734,7 +886,7 @@ body {
 .steps { list-style: none; margin: .1rem 0 0; padding: 0; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
 .step {
   position: relative; display: grid; justify-items: center; gap: .3rem;
-  font-size: .75rem; color: var(--ink-faint); white-space: nowrap; line-height: 1.2;
+  font-size: var(--fs-75); color: var(--ink-faint); white-space: nowrap; line-height: 1.2;
 }
 .step i {
   position: relative; z-index: 1; width: 13px; height: 13px; border-radius: 50%;
@@ -742,20 +894,20 @@ body {
 }
 .step::before {
   content: ""; position: absolute; top: 5.5px; right: calc(50% + 11px); width: calc(100% - 22px);
-  height: 2px; border-radius: 1px; background: var(--line);
+  height: 2px; border-radius: var(--radius-1); background: var(--line);
 }
 .step:first-child::before { display: none; }
-.step:is(.done, .current, .failed, .stalled)::before { background: rgba(63, 185, 80, .7); }
+.step:is(.done, .current, .failed, .stalled)::before { background: rgba(var(--ok-rgb), .7); }
 .step.done i { background: var(--ok); border-color: var(--ok); }
 .step.done i::after {
   content: ""; position: absolute; left: 3.4px; top: 1.2px; width: 3px; height: 6px;
-  border: solid rgba(0, 0, 0, .75); border-width: 0 1.6px 1.6px 0; transform: rotate(42deg);
+  border: solid var(--on-fill); border-width: 0 1.6px 1.6px 0; transform: rotate(42deg);
 }
-.step.current i { background: #e3b341; border-color: #e3b341; box-shadow: 0 0 0 3px rgba(227, 179, 65, .35); }
-.step.failed i { background: var(--bad); border-color: var(--bad); box-shadow: 0 0 0 3px rgba(248, 81, 73, .3); }
-.step.stalled i { background: var(--warn); border-color: var(--warn); box-shadow: 0 0 0 3px rgba(210, 153, 34, .3); }
+.step.current i { background: var(--step-current); border-color: var(--step-current); box-shadow: 0 0 0 3px rgba(var(--step-current-rgb), .35); }
+.step.failed i { background: var(--bad); border-color: var(--bad); box-shadow: 0 0 0 3px rgba(var(--bad-rgb), .3); }
+.step.stalled i { background: var(--warn); border-color: var(--warn); box-shadow: 0 0 0 3px rgba(var(--warn-rgb), .3); }
 .step.done span { color: var(--ink); }
-.step.current span { color: #e3b341; font-weight: 600; }
+.step.current span { color: var(--step-current); font-weight: 600; }
 .step.failed span { color: var(--bad); font-weight: 600; }
 .step.stalled span { color: var(--warn); font-weight: 600; }
 
@@ -765,37 +917,37 @@ body {
 .fact { display: flex; flex-wrap: wrap; align-items: baseline; gap: .1rem .45rem; min-width: 0; }
 .fact b { font-weight: 600; }
 .fact-what { color: var(--ink-dim); min-width: 0; overflow-wrap: anywhere; }
-.fact-free { margin-left: auto; color: var(--ink-dim); font-variant-numeric: tabular-nums; white-space: nowrap; font-size: .78rem; }
+.fact-free { margin-left: auto; color: var(--ink-dim); font-variant-numeric: tabular-nums; white-space: nowrap; font-size: var(--fs-78); }
 /* Why this box is not free for the pair yet — one line each, under its row. */
-.fact-block { flex-basis: 100%; padding-left: 1.25rem; color: var(--warn); font-size: .76rem; overflow-wrap: anywhere; }
-.fact.quiet { font-size: .78rem; }
+.fact-block { flex-basis: 100%; padding-left: 1.25rem; color: var(--warn); font-size: var(--fs-76); overflow-wrap: anywhere; }
+.fact.quiet { font-size: var(--fs-78); }
 .tick { flex: none; align-self: center; width: 12px; height: 12px; border-radius: 50%; position: relative; }
 .tick.done { background: var(--ok); }
 .tick.done::after {
   content: ""; position: absolute; left: 4.2px; top: 2.2px; width: 3px; height: 5.5px;
-  border: solid rgba(0, 0, 0, .75); border-width: 0 1.5px 1.5px 0; transform: rotate(42deg);
+  border: solid var(--on-fill); border-width: 0 1.5px 1.5px 0; transform: rotate(42deg);
 }
-.tick.wait { border: 1.5px dotted #e3b341; }
+.tick.wait { border: 1.5px dotted var(--step-current); }
 
 /* The load passes: one bar per LoadPass with its count over it; a StartupPhase with no count is named
    below them all. Drawn in the page's own colours — the unlit slot and the band it reached — rather
    than the browser's white track, which glared on this page. */
-.startup-progress { display: grid; gap: .4rem; font-size: .78rem; color: var(--ink-dim); min-width: 0; }
+.startup-progress { display: grid; gap: .4rem; font-size: var(--fs-78); color: var(--ink-dim); min-width: 0; }
 .startup-progress .load-pass { display: flex; flex-direction: column-reverse; gap: .2rem; }
 .startup-progress .load-pass span { font-variant-numeric: tabular-nums; }
 .startup-progress progress {
   -webkit-appearance: none; appearance: none;
-  width: 100%; height: .35rem; border: 0; border-radius: 4px; background: #222831;
+  width: 100%; height: .35rem; border: 0; border-radius: var(--radius-chip); background: var(--track-progress);
 }
-.startup-progress progress::-webkit-progress-bar { background: #222831; border-radius: 4px; }
-.startup-progress progress::-webkit-progress-value { background: #e3b341; border-radius: 4px; }
-.startup-progress progress::-moz-progress-bar { background: #e3b341; border-radius: 4px; }
+.startup-progress progress::-webkit-progress-bar { background: var(--track-progress); border-radius: var(--radius-chip); }
+.startup-progress progress::-webkit-progress-value { background: var(--step-current); border-radius: var(--radius-chip); }
+.startup-progress progress::-moz-progress-bar { background: var(--step-current); border-radius: var(--radius-chip); }
 .startup-progress .full progress::-webkit-progress-value { background: var(--ok); }
 .startup-progress .full progress::-moz-progress-bar { background: var(--ok); }
-.startup-phase { color: var(--ink); font-size: .9rem; padding-left: 1.25rem; position: relative; }
+.startup-phase { color: var(--ink); font-size: var(--fs-90); padding-left: 1.25rem; position: relative; }
 .startup-phase::before {
   content: ""; position: absolute; left: 0; top: .28rem; width: .72rem; height: .72rem; border-radius: 50%;
-  border: 2px solid rgba(227, 179, 65, .3); border-top-color: #e3b341; animation: spin 1s linear infinite;
+  border: 2px solid rgba(var(--step-current-rgb), .3); border-top-color: var(--step-current); animation: spin 1s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 /* A STEP THAT HAS STOPPED MOVING DOES NOT KEEP SPINNING. Past the threshold at which the planner
@@ -823,7 +975,7 @@ body {
 .trail { list-style: none; margin: 0; padding: 0; display: grid; gap: .08rem; min-width: 0; }
 .trail-step {
   display: flex; align-items: baseline; gap: .4rem; min-width: 0;
-  font-size: .78rem; line-height: 1.35; color: var(--ink-dim);
+  font-size: var(--fs-78); line-height: 1.35; color: var(--ink-dim);
 }
 .trail-step i {
   width: .45rem; height: .45rem; border-radius: 50%; flex: none; background: var(--ok); opacity: .5;
@@ -831,40 +983,40 @@ body {
 }
 .trail-what { overflow-wrap: anywhere; min-width: 0; }
 .trail-again {
-  font-size: var(--small); color: var(--ink-faint); border: 1px solid var(--line);
-  border-radius: .6rem; padding: 0 .3rem; flex: none; font-weight: 400;
+  font-size: var(--small); color: var(--ink-faint); border: var(--rule);
+  border-radius: var(--radius-tally); padding: 0 .3rem; flex: none; font-weight: 400;
 }
 .trail-clock { margin-left: auto; padding-left: .4rem; font-variant-numeric: tabular-nums; white-space: nowrap; flex: none; }
 .trail-taken {
   color: var(--ink-dim); font-weight: 400; font-variant-numeric: tabular-nums; white-space: nowrap; flex: none;
-  font-size: var(--small); border: 1px solid var(--line); border-radius: .6rem; padding: 0 .3rem;
+  font-size: var(--small); border: var(--rule); border-radius: var(--radius-tally); padding: 0 .3rem;
 }
 .trail-step.now { color: var(--ink); font-weight: 600; }
-.trail-step.now i { background: var(--warn); opacity: 1; box-shadow: 0 0 0 3px rgba(210, 153, 34, .3); }
+.trail-step.now i { background: var(--warn); opacity: 1; box-shadow: 0 0 0 3px rgba(var(--warn-rgb), .3); }
 .trail-step.now.slow { color: var(--warn); }
 .trail-step.now.long { color: var(--warn); font-weight: 700; }
-.trail-step.now.long i { background: var(--warn); box-shadow: 0 0 0 3px rgba(210, 153, 34, .5); }
-.trail-note { margin: .2rem 0 0; font-size: .78rem; line-height: 1.35; overflow-wrap: anywhere; }
+.trail-step.now.long i { background: var(--warn); box-shadow: 0 0 0 3px rgba(var(--warn-rgb), .5); }
+.trail-note { margin: .2rem 0 0; font-size: var(--fs-78); line-height: 1.35; overflow-wrap: anywhere; }
 .trail-note.slow { color: var(--warn); }
 .trail-note.long { color: var(--warn); font-weight: 600; }
 
 .cp-model { min-width: 0; }
 /* A node's fleet file and its own report disagree: both values, loud, on the card — never one chosen. */
 .cp-mismatch {
-  margin: 0; font-size: .76rem; line-height: 1.4; color: var(--bad); overflow-wrap: anywhere;
+  margin: 0; font-size: var(--fs-76); line-height: 1.4; color: var(--bad); overflow-wrap: anywhere;
   font-variant-numeric: tabular-nums; border-left: 2px solid var(--bad); padding: .1rem 0 .1rem .55rem;
 }
 .cp-mismatch b { font-weight: 700; }
 /* A node the LB requests: who on its host applies the panel's intent — quiet while it listens, red in its own words
    when it does not or what it ran failed, the node's last log lines under it. */
-.cp-applier { margin: 0; font-size: .76rem; line-height: 1.4; color: var(--ink-dim); overflow-wrap: anywhere;
+.cp-applier { margin: 0; font-size: var(--fs-76); line-height: 1.4; color: var(--ink-dim); overflow-wrap: anywhere;
   font-variant-numeric: tabular-nums; min-width: 0; }
 .cp-applier.bad { color: var(--bad); border-left: 2px solid var(--bad); padding: .1rem 0 .1rem .55rem; }
 .cp-alert { color: var(--warn); border-left: 2px solid var(--warn); padding: .1rem 0 .1rem .55rem; margin: 0 0 .5rem; }
-.cp-applier .cp-log { margin: .3rem 0 0; padding: .35rem .5rem; font-family: var(--mono); font-size: .7rem;
+.cp-applier .cp-log { margin: .3rem 0 0; padding: .35rem .5rem; font-family: var(--mono); font-size: var(--small);
   line-height: 1.35; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--ink-dim);
-  background: rgba(var(--tint), .05); border-radius: 6px; max-height: 12rem; overflow: auto; }
-.cs-force { margin-top: .35rem; font-size: .76rem; padding: .3rem .7rem; border-radius: 6px; cursor: pointer;
+  background: rgba(var(--tint), .05); border-radius: var(--radius-ctl-sm); max-height: 12rem; overflow: auto; }
+.cs-force { margin-top: .35rem; font-size: var(--fs-76); padding: .3rem .7rem; border-radius: var(--radius-ctl-sm); cursor: pointer;
   color: var(--bad); background: transparent; box-shadow: inset 0 0 0 1px var(--bad); border: 0; }
 .cs-force:disabled { opacity: .5; cursor: default; }
 .cluster-hint { font-size: var(--small); color: var(--ink-faint); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
@@ -879,11 +1031,11 @@ summary::before {
 }
 details[open] > summary::before { transform: rotate(45deg); }
 @media (prefers-reduced-motion: reduce) { summary::before { transition: none; } }
-summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: var(--radius-chip); }
 .sum-note { font-size: var(--small); color: var(--ink-faint); font-weight: 400; min-width: 0; }
 
 .cluster-settings > summary, .cp-more > summary, .advanced > summary {
-  font-size: .82rem; font-weight: 600; color: var(--ink); min-height: 1.75rem; align-items: center;
+  font-size: var(--fs-82); font-weight: 600; color: var(--ink); min-height: 1.75rem; align-items: center;
 }
 .cluster-settings[open] > summary, .cp-more[open] > summary, .advanced[open] > summary { margin-bottom: .35rem; }
 .advanced > summary { font-weight: 500; color: var(--ink-dim); }
@@ -904,10 +1056,10 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; b
 /* THE TEST SWARM'S DURATION IS ONE OF THESE FIELDS TOO — a label with its variable, a select of steps,
    the number field `custom…` opens, a unit — so it is lent these rules instead of being given a second
    set of its own to drift from them. It is the only input and the only label inside .swarm. */
-:is(.cluster-settings, .swarm) label { font-size: .82rem; color: var(--ink-dim); line-height: 1.3; }
+:is(.cluster-settings, .swarm) label { font-size: var(--fs-82); color: var(--ink-dim); line-height: 1.3; }
 :is(.cluster-settings, .swarm) :is(input, select) {
-  background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 7px;
-  padding: .3rem .5rem; font: inherit; font-size: .82rem; min-height: 44px; min-width: 0; max-width: 100%;
+  background: var(--panel); color: var(--ink); border: var(--rule); border-radius: var(--radius-ctl);
+  padding: .3rem .5rem; font: inherit; font-size: var(--fs-82); min-height: 44px; min-width: 0; max-width: 100%;
   transition: border-color .12s;
 }
 /* The figure is bold, as a tile's figure is. (The model is no select any more: see the model picker below.) */
@@ -926,13 +1078,13 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; b
 .swarm :is(input, select):disabled { color: var(--ink-faint); cursor: not-allowed; }
 
 .choosers { display: grid; gap: .5rem; min-width: 0; }
-.cs-group { display: grid; background: var(--panel-2); border-radius: 8px; min-width: 0; }
+.cs-group { display: grid; background: var(--panel-2); border-radius: var(--radius-box); min-width: 0; }
 .chooser {
   display: grid; grid-template-columns: minmax(0, 1fr); gap: .25rem .9rem; align-items: center;
-  background: var(--panel-2); border-radius: 8px; padding: .5rem .6rem; min-width: 0;
+  background: var(--panel-2); border-radius: var(--radius-box); padding: .5rem .6rem; min-width: 0;
 }
 .cs-group > .chooser { background: none; border-radius: 0; }
-.cs-group > .chooser + .chooser { border-top: 1px solid var(--line); }
+.cs-group > .chooser + .chooser { border-top: var(--rule); }
 /* The label line: the name left, the vLLM variable at its right in the page's mono. */
 .cs-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0 .6rem; min-width: 0; }
 .cs-var { font-family: var(--mono); font-size: var(--small); color: var(--ink-faint); overflow-wrap: anywhere; }
@@ -948,15 +1100,15 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; b
 .seg { display: flex; flex-wrap: wrap; gap: .25rem; min-width: 0; flex: 0 1 auto; }   /* the unit follows the boxes on their line */
 .seg-box {
   position: relative; display: flex; flex-direction: column; justify-content: center; align-items: center;
-  min-height: 36px; min-width: 2.4rem; padding: .15rem .55rem; border: 1px solid var(--line); border-radius: 7px;
+  min-height: 36px; min-width: 2.4rem; padding: .15rem .55rem; border: var(--rule); border-radius: var(--radius-ctl);
   background: var(--panel); cursor: pointer; line-height: 1.2; font-variant-numeric: tabular-nums;
   transition: border-color .12s, background-color .12s;
 }
 .cluster-settings .seg-box input { position: absolute; opacity: 0; width: 1px; height: 1px; min-height: 0; margin: 0; padding: 0; border: 0; pointer-events: none; }
-.seg-v { font-size: .82rem; font-weight: 600; color: var(--ink); white-space: nowrap; }
+.seg-v { font-size: var(--fs-82); font-weight: 600; color: var(--ink); white-space: nowrap; }
 .seg-s { font-size: var(--small); color: var(--ink-faint); white-space: nowrap; }
 .seg-box:hover { border-color: var(--ink-faint); }
-.seg-box:has(input:checked) { border-color: var(--accent); background: rgba(88, 166, 255, .14); }
+.seg-box:has(input:checked) { border-color: var(--accent); background: rgba(var(--accent-rgb), .14); }
 .seg-box:has(input:checked) .seg-s { color: var(--ink-dim); }
 .seg-box:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
 .seg-box.seg-mode { order: -1; border-style: dashed; margin-right: .45rem; }   /* the mode leads, whatever the option order */
@@ -966,7 +1118,7 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; b
 .seg-box:has(input:disabled) .seg-v { text-decoration: line-through; color: var(--ink-faint); }
 .seg-box:has(input:disabled) .seg-s { display: none; }   /* struck says refused; the reason is its title */
 .seg.off .seg-box:has(input:disabled) .seg-v { text-decoration: none; }
-.seg.changed .seg-box:has(input:checked) { border-color: var(--warn); background: rgba(210, 153, 34, .14); }
+.seg.changed .seg-box:has(input:checked) { border-color: var(--warn); background: rgba(var(--warn-rgb), .14); }
 .seg.invalid .seg-box:has(input:checked) { border-color: var(--bad); }
 .cs-note { font-size: var(--small); line-height: 1.4; color: var(--ink-dim); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 /* A node this LB only observes: what it says it runs with that has no field — one line of the notes' own ink. */
@@ -979,7 +1131,7 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; b
 .cs-note .cs-pending { color: var(--warn); }
 .cs-warn {
   font-size: var(--small); line-height: 1.4; color: var(--warn); overflow-wrap: anywhere;
-  border-left: 2px solid rgba(210, 153, 34, .55); padding-left: .5rem;
+  border-left: 2px solid rgba(var(--warn-rgb), .55); padding-left: .5rem;
 }
 /* From 540 px of card the row is two columns — the label and its variable left, the control, its note
    and its warning right — every select starting on the one line. Under that (a phone, and the cluster
@@ -1003,8 +1155,8 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; b
 .model-picker { position: relative; min-width: 0; }
 .mp-button {
   display: flex; align-items: center; gap: .5rem; width: 100%; min-height: 44px; min-width: 0;
-  padding: .4rem .6rem .45rem .65rem; text-align: left; cursor: pointer; font: inherit; font-size: .82rem;
-  background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 7px;
+  padding: .4rem .6rem .45rem .65rem; text-align: left; cursor: pointer; font: inherit; font-size: var(--fs-82);
+  background: var(--panel); color: var(--ink); border: var(--rule); border-radius: var(--radius-ctl);
   transition: border-color .12s;
 }
 .mp-button:not(:disabled):hover { border-color: var(--ink-faint); }
@@ -1033,22 +1185,22 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; b
 .mp-chips { display: flex; flex-wrap: wrap; gap: .2rem .3rem; min-width: 0; }
 
 .mp-list {
-  --tint: 88, 166, 255;
+  --tint: var(--accent-rgb);
   position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 20;
   max-height: 60vh; overflow-y: auto; overscroll-behavior: contain; padding: .3rem;
-  background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, .45);
+  background: var(--panel); border: var(--rule); border-radius: var(--radius-band);
+  box-shadow: var(--shadow-pop);
 }
 .mp-list.up { top: auto; bottom: calc(100% + 4px); }
 .mp-group { min-width: 0; }
-.mp-group + .mp-group { border-top: 1px solid var(--line); margin-top: .3rem; padding-top: .3rem; }
+.mp-group + .mp-group { border-top: var(--rule); margin-top: .3rem; padding-top: .3rem; }
 .mp-group-name {
   font-size: var(--small); text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint);
   padding: .3rem .6rem .15rem; overflow-wrap: anywhere;
 }
 .mp-option {
   position: relative; display: grid; gap: .22rem; min-height: 44px; min-width: 0; align-content: center;
-  padding: .45rem .6rem .5rem 1.6rem; border-radius: 7px; cursor: pointer; font-size: .82rem; color: var(--ink);
+  padding: .45rem .6rem .5rem 1.6rem; border-radius: var(--radius-ctl); cursor: pointer; font-size: var(--fs-82); color: var(--ink);
 }
 .mp-option + .mp-option { margin-top: 1px; }
 .mp-option:hover, .mp-option.active { background: rgba(var(--tint), .1); }
@@ -1093,14 +1245,14 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; b
 @media (max-width: 600px) {
   .mp-list {
     position: fixed; top: auto; left: 0; right: 0; bottom: 0; z-index: 30; max-height: min(80vh, 100%);
-    border-radius: 14px 14px 0 0; border-bottom: 0;
+    border-radius: var(--radius-card) var(--radius-card) 0 0; border-bottom: 0;
     padding: .6rem var(--gutter) calc(.6rem + env(safe-area-inset-bottom, 0px));
-    box-shadow: 0 -12px 40px rgba(0, 0, 0, .55);
+    box-shadow: var(--shadow-sheet);
   }
   .mp-list.up { bottom: 0; }
-  .mp-list::before { content: ""; position: fixed; inset: 0; z-index: -1; background: rgba(0, 0, 0, .5); }
+  .mp-list::before { content: ""; position: fixed; inset: 0; z-index: -1; background: var(--scrim-sheet); }
   .mp-list::after {
-    content: ""; display: block; order: -1; width: 2.2rem; height: 3px; border-radius: 2px; margin: 0 auto .5rem;
+    content: ""; display: block; order: -1; width: 2.2rem; height: 3px; border-radius: var(--radius-2); margin: 0 auto .5rem;
     background: var(--line);
   }
   .mp-list { display: flex; flex-direction: column; }
@@ -1114,16 +1266,16 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; b
    hold that cannot be held is. The list of what would be sent is its own line under them. */
 .cs-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .6rem; min-width: 0; }
 .cluster-apply, .cs-defaults, .cc-go, .cc-cancel {
-  --tint: 139, 148, 158;
-  flex: none; border: 0; border-radius: 8px; padding: .5rem 1.1rem; font: inherit; font-size: .82rem;
+  --tint: var(--neutral-rgb);
+  flex: none; border: 0; border-radius: var(--radius-box); padding: .5rem 1.1rem; font: inherit; font-size: var(--fs-82);
   font-weight: 600; cursor: pointer; min-height: 44px; background: transparent; color: var(--ink-dim);
   box-shadow: inset 0 0 0 1px var(--line); transition: background-color .12s, box-shadow .12s, color .12s;
 }
 .cluster-apply, .cc-go {
-  --tint: 210, 153, 34; color: var(--warn);
+  --tint: var(--warn-rgb); color: var(--warn);
   background: rgba(var(--tint), .12); box-shadow: inset 0 0 0 1px rgba(var(--tint), .45);
 }
-.cluster-apply.save { --tint: 88, 166, 255; color: var(--accent); }
+.cluster-apply.save { --tint: var(--accent-rgb); color: var(--accent); }
 .cluster-apply:not(:disabled):hover, .cc-go:not(:disabled):hover { background: rgba(var(--tint), .22); box-shadow: inset 0 0 0 1px rgba(var(--tint), .7); }
 .cs-defaults, .cc-cancel { font-weight: 500; }
 .cs-defaults:not(:disabled):hover, .cc-cancel:not(:disabled):hover { color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink-faint); }
@@ -1132,13 +1284,13 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; b
   background: rgba(var(--tint), .05); box-shadow: inset 0 0 0 1px rgba(var(--tint), .18);
 }
 .cluster-settings button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.cs-changes { flex-basis: 100%; font-size: .74rem; color: var(--ink-dim); font-variant-numeric: tabular-nums; min-width: 0; overflow-wrap: anywhere; }
+.cs-changes { flex-basis: 100%; font-size: var(--fs-74); color: var(--ink-dim); font-variant-numeric: tabular-nums; min-width: 0; overflow-wrap: anywhere; }
 .cs-changes:empty { display: none; }
 /* The restart's confirm: inline, so the panel keeps polling under it, and in words that name the cost. */
 .cluster-confirm {
   display: grid; gap: .4rem; min-width: 0; overflow-wrap: anywhere;
-  background: var(--panel-2); border: 1px solid var(--line); border-left: 3px solid var(--warn);
-  border-radius: 8px; padding: .55rem .75rem; font-size: .8rem; color: var(--ink-dim);
+  background: var(--panel-2); border: var(--rule); border-left: 3px solid var(--warn);
+  border-radius: var(--radius-box); padding: .55rem .75rem; font-size: var(--fs-80); color: var(--ink-dim);
 }
 .cluster-confirm b { color: var(--ink); font-weight: 600; }
 .cluster-confirm p { margin: 0; }
@@ -1146,31 +1298,31 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; b
 @container (max-width: 480px) { .cs-actions > button, .cc-buttons > button { flex: 1 1 auto; } }
 
 /* What the selection needs on each GB10 box, under the choosers: one block per box. */
-.cluster-estimate { display: grid; gap: .35rem; font-size: .76rem; color: var(--ink-dim); min-width: 0; }
+.cluster-estimate { display: grid; gap: .35rem; font-size: var(--fs-76); color: var(--ink-dim); min-width: 0; }
 .cluster-estimate .est-box { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 .5rem; min-width: 0; overflow-wrap: anywhere; }
 .cluster-estimate .est-box b { color: var(--ink); font-weight: 600; }
 .cluster-estimate .est-role { color: var(--ink-faint); font-size: var(--small); }
-.cluster-estimate .est-uncal { color: var(--warn); font-size: var(--small); border: 1px solid currentColor; border-radius: 4px; padding: 0 .3rem; line-height: 1.35; }
+.cluster-estimate .est-uncal { color: var(--warn); font-size: var(--small); border: 1px solid currentColor; border-radius: var(--radius-chip); padding: 0 .3rem; line-height: 1.35; }
 .cluster-estimate .est-warn { color: var(--warn); flex-basis: 100%; font-size: var(--small); line-height: 1.45; }
 /* A warning every box carries alike, said once under them (gateway.js `renderClusterEstimate`). */
-.cluster-estimate .est-shared { padding-left: .5rem; border-left: 2px solid rgba(210, 153, 34, .55); }
+.cluster-estimate .est-shared { padding-left: .5rem; border-left: 2px solid rgba(var(--warn-rgb), .55); }
 
 /* ── press and hold ─────────────────────────────────────────────────────── */
 /* The app's `HoldToConfirm`, prominent: the icon in the action's tint, the title, a tinted "hold 5 s"
    pill and a track along the bottom that the hold fills — visible before any press, so the hold is
    announced rather than discovered. Start is green; Stop is the expensive direction — a cold start is
    most of an hour — and wears red; a test swarm reconfigures nothing and wears blue. */
-.cp-action, .swarm { display: grid; gap: .35rem; padding-top: .5rem; border-top: 1px solid var(--line); min-width: 0; }
+.cp-action, .swarm { display: grid; gap: .35rem; padding-top: .5rem; border-top: var(--rule); min-width: 0; }
 .hold {
-  --tint: 63, 185, 80; --pill: #7ee787;
+  --tint: var(--ok-rgb); --pill: var(--hold-pill-ok);
   position: relative; overflow: hidden; display: flex; align-items: center; gap: .6rem; width: 100%;
-  min-height: 44px; padding: .4rem .8rem .55rem; border: 1px solid rgba(var(--tint), .55); border-radius: 10px;
-  background: rgba(var(--tint), .16); color: var(--ink); font: inherit; font-size: 1rem; font-weight: 600;
+  min-height: 44px; padding: .4rem .8rem .55rem; border: 1px solid rgba(var(--tint), .55); border-radius: var(--radius-band);
+  background: rgba(var(--tint), .16); color: var(--ink); font: inherit; font-size: var(--fs-100); font-weight: 600;
   text-align: left; cursor: pointer;
   touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
 }
-.hold.stop  { --tint: 248, 81, 73; --pill: #ffa198; }
-.hold.swarm { --tint: 88, 166, 255; --pill: #79c0ff; min-height: 44px; font-size: .95rem; }
+.hold.stop  { --tint: var(--bad-rgb); --pill: var(--hold-pill-stop); }
+.hold.swarm { --tint: var(--accent-rgb); --pill: var(--hold-pill-swarm); min-height: 44px; font-size: var(--fs-95); }
 .hold:hover:not(:disabled) { background: rgba(var(--tint), .22); }
 .hold:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .hold.holding { box-shadow: 0 0 0 3px rgba(var(--tint), .25); }
@@ -1182,7 +1334,7 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; b
 }
 .hold-icon { position: relative; flex: none; width: .8rem; height: .8rem; background: rgb(var(--tint)); }
 .hold.start .hold-icon { clip-path: polygon(8% 0, 100% 50%, 8% 100%); }
-.hold.stop  .hold-icon { border-radius: 2px; }
+.hold.stop  .hold-icon { border-radius: var(--radius-2); }
 .hold.swarm .hold-icon { width: .7rem; height: 1rem; clip-path: polygon(62% 0, 8% 58%, 44% 58%, 34% 100%, 92% 40%, 55% 40%); }
 .hold.busy .hold-icon {
   clip-path: none; width: .85rem; height: .85rem; border-radius: 50%; background: none;
@@ -1190,12 +1342,12 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; b
 }
 .hold-label { position: relative; flex: 1 1 auto; min-width: 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .hold-pill {
-  position: relative; flex: none; font-size: .78rem; font-weight: 500; line-height: 1.3; white-space: nowrap;
-  padding: .12rem .5rem; border-radius: 999px; background: rgba(var(--tint), .18); color: var(--pill);
+  position: relative; flex: none; font-size: var(--fs-78); font-weight: 500; line-height: 1.3; white-space: nowrap;
+  padding: .12rem .5rem; border-radius: var(--radius-pill); background: rgba(var(--tint), .18); color: var(--pill);
 }
 .hold.holding .hold-pill, .hold:disabled .hold-pill { display: none; }
 .hold-track {
-  position: absolute; left: 12px; right: 12px; bottom: 5px; height: 2px; border-radius: 2px;
+  position: absolute; left: 12px; right: 12px; bottom: 5px; height: 2px; border-radius: var(--radius-2);
   background: rgba(var(--tint), .28); overflow: hidden; pointer-events: none;
 }
 .hold-track i { display: block; height: 100%; background: rgb(var(--tint)); transform-origin: left center; transform: scaleX(0); }
@@ -1213,10 +1365,10 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; b
 .hold.swarm.live .hold-track i { transition: transform .4s linear; }
 @media (prefers-reduced-motion: reduce) { .hold.swarm.live .hold-track i { transition: none; } }
 
-.cp-caption { margin: 0; font-size: .76rem; color: var(--ink-dim); overflow-wrap: anywhere; }
+.cp-caption { margin: 0; font-size: var(--fs-76); color: var(--ink-dim); overflow-wrap: anywhere; }
 .cp-caption.bad { color: var(--warn); }
 .cluster-error, .swarm-error {
-  font-size: .76rem; color: var(--bad); word-break: break-word;
+  font-size: var(--fs-76); color: var(--bad); word-break: break-word;
   border-left: 2px solid var(--bad); padding: .1rem 0 .1rem .55rem;
 }
 
@@ -1224,8 +1376,8 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; b
 /* Ruled off under the cluster's own action: what the pair IS and what a swarm is DOING to it are two
    different nouns and must not read as one sentence. Under the button only data lines (`.sw-sub`);
    what a swarm is, is the button's title. */
-.swarm-why { margin: 0; font-size: .76rem; color: var(--ink-dim); }
-.swarm-state { font-size: .8rem; line-height: 1.5; min-width: 0; overflow-wrap: anywhere; }
+.swarm-why { margin: 0; font-size: var(--fs-76); color: var(--ink-dim); }
+.swarm-state { font-size: var(--fs-80); line-height: 1.5; min-width: 0; overflow-wrap: anywhere; }
 .swarm-state .sw-head { color: var(--ink); font-weight: 600; }
 .swarm-state .sw-sub { display: block; color: var(--ink-dim); }
 .swarm-state .sw-faint { color: var(--ink-faint); }
@@ -1236,11 +1388,11 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; b
 
 /* ── what the planner sees on each GB10 box ────────────────────────────────── */
 /* One row per GB10 box. A long name wraps inside its row rather than pushing the row past a phone's edge. */
-.cp-more { padding-top: .45rem; border-top: 1px solid var(--line); min-width: 0; }
+.cp-more { padding-top: .45rem; border-top: var(--rule); min-width: 0; }
 .cluster-boxes { display: grid; gap: .3rem; }
 .cluster-box {
-  background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px;
-  padding: .4rem .65rem; font-size: .74rem; color: var(--ink-faint); min-width: 0;
+  background: var(--panel-2); border: var(--rule); border-radius: var(--radius-box);
+  padding: .4rem .65rem; font-size: var(--fs-74); color: var(--ink-faint); min-width: 0;
   display: flex; flex-wrap: wrap; align-items: baseline; gap: .15rem .9rem; overflow-wrap: anywhere;
 }
 .cluster-box .cb-name { color: var(--ink); font-weight: 600; }
@@ -1265,7 +1417,7 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; b
 .requests { gap: .35rem; }
 .rq-top { align-items: baseline; flex-wrap: wrap; }
 .rq-title { margin: 0; font-size: var(--small); font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-dim); }
-.rq-counts { display: flex; flex-wrap: wrap; align-items: baseline; gap: .1rem .4rem; font-size: .76rem; color: var(--ink-faint); min-width: 0; }
+.rq-counts { display: flex; flex-wrap: wrap; align-items: baseline; gap: .1rem .4rem; font-size: var(--fs-76); color: var(--ink-faint); min-width: 0; }
 .rq-counts b, .rq-recent > summary b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
 .rq-fig.warn b { color: var(--warn); }
 .rq-fig.park b { color: var(--park); }
@@ -1273,7 +1425,7 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; b
 .rq-fig.bad b  { color: var(--bad); }
 .rq-sep { color: var(--ink-faint); }
 /* The two counts' difference: ONE line, its height held when empty (the table under it never jumps), cut, not wrapped. */
-.rq-gap { margin: 0; height: 1.3em; line-height: 1.3em; font-size: .72rem; color: var(--ink-faint);
+.rq-gap { margin: 0; height: 1.3em; line-height: 1.3em; font-size: var(--fs-72); color: var(--ink-faint);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rq-gap b { color: var(--ink-dim); font-weight: 600; font-variant-numeric: tabular-nums; }
 /* A just-ended row in the live list: the badge's own box (the row keeps the live rows' height), muted. */
@@ -1282,7 +1434,7 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; b
 .rq-scroll { max-height: 26rem; overflow: auto; overscroll-behavior: contain; min-width: 0; }
 .rq-table {
   display: grid; grid-template-columns: repeat(11, auto) minmax(0, 1fr); column-gap: .75rem;
-  font-size: .76rem; color: var(--ink-dim); min-width: 0;
+  font-size: var(--fs-76); color: var(--ink-dim); min-width: 0;
 }
 /* The finished have no WAIT column: one fewer. */
 .rq-table.rq-finished { grid-template-columns: repeat(10, auto) minmax(0, 1fr); }
@@ -1292,7 +1444,7 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; b
    like the row — is no box at all: its cells are the table's own. */
 .rq-cells, .rq-st { display: contents; }
 /* A figure cell is never narrower than its figure (no `min-width: 0` here): only the prompt's line may shrink. */
-.rq-row > span, .rq-cells > span { padding: .26rem 0; border-bottom: 1px solid var(--line); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.rq-row > span, .rq-cells > span { padding: .26rem 0; border-bottom: var(--rule); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .rq-head > span {
   position: sticky; top: 0; z-index: 2; background: var(--panel); padding: .1rem 0 .2rem;
   font-size: var(--small); text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint);
@@ -1317,7 +1469,7 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; b
    Every colour is a token, so the × follows the page's theme. */
 .hold.kill {
   flex: none; align-self: center; justify-content: center; gap: 0;
-  width: 1.5rem; height: 1.5rem; min-height: 0; padding: 0; border-radius: 6px; font-size: .95rem; line-height: 1;
+  width: 1.5rem; height: 1.5rem; min-height: 0; padding: 0; border-radius: var(--radius-ctl-sm); font-size: var(--fs-95); line-height: 1;
   color: var(--ink-faint); border-color: var(--line); background: transparent;
   transition: color .12s, border-color .12s, background-color .12s;
 }
@@ -1334,8 +1486,8 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; b
 /* THE PRIORITY SQUARE beside the ×: the same 24 px square; green while the row's priority is on; faint when locked. */
 .rq-prio {
   flex: none; align-self: center; display: inline-flex; align-items: center; justify-content: center;
-  width: 1.5rem; height: 1.5rem; padding: 0; border: 1px solid var(--line); border-radius: 6px; background: transparent;
-  color: var(--ink-faint); font: inherit; font-size: .62rem; line-height: 1; cursor: pointer;
+  width: 1.5rem; height: 1.5rem; padding: 0; border: var(--rule); border-radius: var(--radius-ctl-sm); background: transparent;
+  color: var(--ink-faint); font: inherit; font-size: var(--fs-62); line-height: 1; cursor: pointer;
   transition: color .12s, border-color .12s, background-color .12s;
 }
 .rq-prio:hover:not(:disabled), .rq-prio:focus-visible { color: var(--ok); border-color: var(--ok); }
@@ -1346,7 +1498,7 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; b
 @media (prefers-reduced-motion: reduce) { .rq-prio { transition: none; } }
 /* A row this page killed, kept a moment after the poll stopped listing it: the word "killed" where it was held. */
 .rq-row.gone > span:not(.rq-state), .rq-row.gone .rq-cells > span { color: var(--ink-faint); }
-.rq-recent > summary { font-size: .76rem; color: var(--ink-faint); min-height: 1.75rem; flex-wrap: wrap; gap: .1rem .4rem; }
+.rq-recent > summary { font-size: var(--fs-76); color: var(--ink-faint); min-height: 1.75rem; flex-wrap: wrap; gap: .1rem .4rem; }
 @container (max-width: 1100px) {
   .rq-table { grid-template-columns: repeat(9, auto) minmax(0, 1fr); }
   .rq-table.rq-finished { grid-template-columns: repeat(8, auto) minmax(0, 1fr); }
@@ -1375,10 +1527,10 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; b
 /* Scalars that have no past to draw (the benchmarks' run figures): a fact, not a trend. */
 .kpis { display: flex; flex-wrap: wrap; gap: .5rem; }
 .kpi {
-  background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px;
+  background: var(--panel-2); border: var(--rule); border-radius: var(--radius-band);
   padding: .35rem .65rem; min-width: 6.5rem; flex: 0 1 auto;
 }
-.kpi b { display: block; font-size: 1.15rem; font-weight: 600; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.kpi b { display: block; font-size: var(--fs-115); font-weight: 600; line-height: 1.2; font-variant-numeric: tabular-nums; }
 .kpi span { font-size: var(--small); text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); }
 @media (max-width: 560px) { .kpi { flex: 1 1 6.5rem; min-width: 0; } }
 
@@ -1387,9 +1539,9 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; b
    evidence under it. The verdict line is what the operator reads at a glance; the meters say why. */
 .sat { display: grid; gap: .35rem; }
 .sat-verdict {
-  display: flex; align-items: flex-start; gap: .55rem; font-size: .82rem; color: var(--ink-dim);
-  background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--line);
-  border-radius: 8px; padding: .35rem .6rem; min-width: 0; overflow-wrap: anywhere;
+  display: flex; align-items: flex-start; gap: .55rem; font-size: var(--fs-82); color: var(--ink-dim);
+  background: var(--panel); border: var(--rule); border-left: 3px solid var(--line);
+  border-radius: var(--radius-box); padding: .35rem .6rem; min-width: 0; overflow-wrap: anywhere;
 }
 .sat-verdict .diode { margin-top: .3rem; flex: none; }
 .sat-verdict b { color: var(--ink); font-weight: 600; }
@@ -1400,22 +1552,22 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; b
 
 .sat-meters { display: grid; gap: .4rem; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
 .sat-meter {
-  background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+  background: var(--panel); border: var(--rule); border-radius: var(--radius-box);
   padding: .4rem .6rem; display: grid; gap: .2rem; align-content: start; min-width: 0;
 }
 .sat-label { font-size: var(--small); text-transform: uppercase; letter-spacing: .09em; color: var(--ink-faint);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-.sat-val { font-size: 1.05rem; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sat-val { font-size: var(--fs-105); font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .sat-meter.dim .sat-val { color: var(--ink-faint); }
 .sat-note { font-size: var(--small); line-height: 1.3; color: var(--ink-faint); min-width: 0;
   height: 1.3em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* The reason a figure is not a number, in the LB's own words. Warn-coloured because it is a gap in
    what can be measured, not a fault in what is running. */
 .sat-why { color: var(--warn); }
-.sat-bar { display: block; height: 4px; border-radius: 2px; background: #30363d; overflow: hidden; }
-.sat-bar i { display: block; height: 100%; background: var(--accent); border-radius: 2px; }
+.sat-bar { display: block; height: 4px; border-radius: var(--radius-2); background: var(--track-bar); overflow: hidden; }
+.sat-bar i { display: block; height: 100%; background: var(--accent); border-radius: var(--radius-2); }
 /* No bar at all rather than an empty one at 0 %: a 0-width bar reads as "measured, and none". */
-.sat-bar.none { background: repeating-linear-gradient(90deg, #30363d 0 3px, transparent 3px 6px); }
+.sat-bar.none { background: repeating-linear-gradient(90deg, var(--track-bar) 0 3px, transparent 3px 6px); }
 .sat-foot { font-size: var(--small); color: var(--ink-faint); }
 /* Three groups, because the readings are of three KINDS, and the order is the argument the row makes:
    what each box measured (one meter per rank), what the pair is PRODUCING in tokens, and what that costs
@@ -1456,46 +1608,46 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; b
   .card, .cluster { padding: .6rem .65rem; }
   /* Nineteen steps have to fit a phone: the rows tighten and the ordinal's pill loses its padding,
      so a long step name keeps the width. Nothing is dropped — the clock least of all. */
-  .trail-step, .trail-note { font-size: .74rem; line-height: 1.3; }
+  .trail-step, .trail-note { font-size: var(--fs-74); line-height: 1.3; }
   .trail-again { padding: 0 .25rem; }
 }
 
 /* ── THE SERVER TABS and the + tab's cards (clusters.js; worklog/parallel-clusters.md, "Servers, not clusters") ── */
-.tabs { padding: 0 var(--gutter); border-bottom: 1px solid var(--line); }
+.tabs { padding: 0 var(--gutter); border-bottom: var(--rule); }
 #tablist { display: flex; flex-wrap: wrap; gap: .25rem; }
 #tablist [role="tab"] {
   display: inline-flex; align-items: center; gap: .4rem;
-  font: inherit; font-size: .84rem; font-weight: 600; color: var(--ink-dim); background: none; border: 0; cursor: pointer;
+  font: inherit; font-size: var(--fs-84); font-weight: 600; color: var(--ink-dim); background: none; border: 0; cursor: pointer;
   padding: .5rem .8rem; border-bottom: 2px solid transparent; min-width: 2.5rem;
 }
 #tablist [role="tab"][aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
 #tablist [role="tab"]:hover { color: var(--ink); }
-#tablist [role="tab"]:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 4px; }
+#tablist [role="tab"]:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: var(--radius-chip); }
 /* A server tab is the page itself; the + tab hides every other tile (layout.css, `body[data-tab="add"]`). */
 .tabpanel { padding: var(--gap) var(--gutter) 0; }
-.tab-empty { margin: 0; font-size: .84rem; color: var(--ink-dim); }
+.tab-empty { margin: 0; font-size: var(--fs-84); color: var(--ink-dim); }
 /* auto-FIT: two cards share the row instead of leaving its right half to empty tracks (AUDIT-01/02 P2). */
 .clusters { display: grid; gap: var(--gap); grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
 .cl-card {
   display: grid; gap: .4rem; min-width: 0; padding: .65rem .8rem; align-content: start;
-  background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--line); border-radius: 10px;
+  background: var(--panel); border: var(--rule); border-left: 3px solid var(--line); border-radius: var(--radius-band);
 }
 .cl-card.ok   { border-left-color: var(--ok); }
 .cl-card.warn { border-left-color: var(--warn); }
 .cl-card.bad  { border-left-color: var(--bad); }
 .cl-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 .5rem; min-width: 0; }
-.cl-head h3 { margin: 0; font-size: 1rem; font-weight: 700; overflow-wrap: anywhere; }
+.cl-head h3 { margin: 0; font-size: var(--fs-100); font-weight: 700; overflow-wrap: anywhere; }
 .cl-control { font-family: var(--mono); font-size: var(--small); color: var(--ink-dim); text-transform: uppercase; letter-spacing: .06em; }
 .cl-topo, .cl-boot { font-size: var(--small); color: var(--ink-faint); }
-.cl-model { font-size: .84rem; color: var(--ink); overflow-wrap: anywhere; }
+.cl-model { font-size: var(--fs-84); color: var(--ink); overflow-wrap: anywhere; }
 .cl-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; min-height: 1.4rem; }
 .cl-act {
-  --tint: 88, 166, 255;
-  font: inherit; font-size: .9rem; font-weight: 600; min-height: 40px; padding: .3rem .9rem; cursor: pointer; color: var(--ink);
-  border: 1px solid rgba(var(--tint), .55); border-radius: 8px; background: rgba(var(--tint), .14);
+  --tint: var(--accent-rgb);
+  font: inherit; font-size: var(--fs-90); font-weight: 600; min-height: 40px; padding: .3rem .9rem; cursor: pointer; color: var(--ink);
+  border: 1px solid rgba(var(--tint), .55); border-radius: var(--radius-box); background: rgba(var(--tint), .14);
 }
-.cl-act.join { --tint: 63, 185, 80; }
-.cl-act.leave { --tint: 248, 81, 73; }
+.cl-act.join { --tint: var(--ok-rgb); }
+.cl-act.leave { --tint: var(--bad-rgb); }
 .cl-act:hover:not(:disabled) { background: rgba(var(--tint), .24); }
 .cl-act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .cl-act:disabled { opacity: .55; cursor: default; }
@@ -1507,7 +1659,7 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; b
 .machine.selected { border-color: var(--accent); }
 /* A section inside a layout tile keeps no gutter of its own (layout.css `.ly-slot > .section`). */
 .cl-default { font-size: var(--small); font-weight: 600; color: var(--accent); border: 1px solid var(--accent);
-  border-radius: 999px; padding: 0 .45rem; }
+  border-radius: var(--radius-pill); padding: 0 .45rem; }
 .tab-n { margin-left: .3rem; font-family: var(--mono); font-size: var(--small); color: var(--ink-faint); }
 .tab-n:empty { display: none; }
 /* The server's own pages, in its card's head: performance · sessions (`?server=`) · connect (its served model). */

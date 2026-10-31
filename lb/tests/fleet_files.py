@@ -10,6 +10,8 @@ from __future__ import annotations
 from pathlib import Path
 
 PAIR = """
+panel:
+  style: vibe
 boxes:
   node-1:
     hostname: node-1-host
@@ -57,6 +59,8 @@ ENV_OF_PAIR = {
 }
 
 ONE_HOST = """
+panel:
+  style: vibe
 boxes:
   solo:
     hostname: solo-host
@@ -159,6 +163,8 @@ def one_box(url: str) -> str:
     temporary directory — what a test that boots the LB on one fake server needs; its path, as LB_FLEET takes it."""
     import tempfile
     return write(Path(tempfile.mkdtemp()), f"""
+panel:
+  style: vibe
 boxes:
   box-a: {{hostname: box-a-host, label: box-a-gpu, platform: linux/arm64, cards: [{{index: 0, type: gb10, serves: true}}]}}
 clusters: {{}}
@@ -174,6 +180,8 @@ def gb10_pair(a: str = "box-a", b: str = "box-b"):
     from vllm_lb.fleet import parse_fleet
     card = "[{index: 0, type: gb10, serves: true}]"
     return parse_fleet(f"""
+panel:
+  style: vibe
 boxes:
   {a}: {{hostname: {a}-host, label: {a}-gpu, platform: linux/arm64, ssh: op@192.0.2.10, cards: {card}}}
   {b}: {{hostname: {b}-host, label: {b}-gpu, platform: linux/arm64, ssh: op@192.0.2.11, cards: {card}}}

@@ -37,6 +37,8 @@ IMAGE = "vllm/vllm-openai@sha256:" + "2" * 64
 #: The two checkpoints of the catalog's 27B row the panel may select, the twin the boot default.
 TWIN, ORIGINAL = "qwen3.8-27b-nvidia-nvfp4@uncensored", "qwen3.8-27b-nvidia-nvfp4"
 FLEET = f"""
+panel:
+  style: vibe
 boxes:
   node-a:
     hostname: node-a-host

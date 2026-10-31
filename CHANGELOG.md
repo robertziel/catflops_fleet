@@ -5,6 +5,30 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [1.0.0-beta.2] — 2026-10-31
+
+### Added
+- **README screenshots in the Glass style**; the hardware view full height with every container listed.
+- **Layout gallery and guide.** README shows the four layout templates side by side; `docs/guides/layout-templates.md` gives the template format, the element ids and the rules for vibe coding a template with an agent.
+- **Panel styles with a deployment default.** The panel's Style menu offers `vibe` (Vibe coded), `clean` (light,
+  quiet), `mono` (monospace), `glass` (translucent; follows the system light / dark) and `terminal` (green-phosphor
+  CRT; reduced motion stops its cursor). Every colour, font and radius is a token; a style is one scoped sheet. Each browser's pick is kept in its `localStorage` only. The fleet file sets the default for every browser
+  that has not picked one: `panel: {style: <key>}`. The LB writes it onto each page's `<html>`, so it applies before
+  first paint with no extra request, and the menu tags it `default`. Picking the default clears the browser's
+  choice. Setup wizard: question `panel.style`. Guide: `docs/guides/panel-styles.md`.
+
+### Changed
+- **Glass is the shipped default style.** The fleet examples, the setup answer examples and the wizard's recommendation use `panel.style: glass`; a fleet file without `panel` is refused with `style: glass` as the line to add (`vibe` keeps the original look).
+- **`lb/fleet.yml` requires `panel.style`.** An existing fleet file is refused at boot until it gets these lines
+  (`vibe` keeps today's look):
+  ```yaml
+  panel:
+    style: vibe
+  ```
+  An unknown key is refused too, and the refusal lists the keys in `lb/vllm_lb/static/styles/index.json`.
+
 ## [1.0.0-beta] — 2026-10-30
 
 The first public release, under Apache-2.0. It is a beta: the services are in daily production use, but the

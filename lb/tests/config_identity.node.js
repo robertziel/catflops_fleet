@@ -26,7 +26,8 @@ const path = require('path');
 
 const STATIC = path.join(__dirname, '..', 'vllm_lb', 'static');
 // the page loads server-scope.js first (its `serverScope`): so does this harness
-const src = fs.readFileSync(path.join(STATIC, 'server-scope.js'), 'utf8') + '\n' + fs.readFileSync(path.join(STATIC, 'benchmarks.js'), 'utf8');
+// palette.js first: the colours this script computes are read from the style's tokens (tests/palette_env.js).
+const src = require('./palette_env').withPalette(fs.readFileSync(path.join(STATIC, 'server-scope.js'), 'utf8') + '\n' + fs.readFileSync(path.join(STATIC, 'benchmarks.js'), 'utf8'));
 const html = fs.readFileSync(path.join(STATIC, 'benchmarks.html'), 'utf8');
 const els = new Map();
 const mk = () => ({ addEventListener() {}, setAttribute() {}, append() {}, prepend() {}, remove() {},

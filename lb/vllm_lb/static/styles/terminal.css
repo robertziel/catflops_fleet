@@ -1,0 +1,360 @@
+/* THE "Terminal" STYLE (key `terminal`) — the gateway panel as a green-phosphor CRT terminal (2026-10-31).
+
+   WHAT IT IS: a black screen lit in one phosphor. Every word and figure is green, in ONE monospace face: the figures
+   at full brightness with a faint bloom, secondary lines a step dimmer, labels dimmer still and in capitals. Cards
+   are terminal panes — a 1 px green hairline, square corners, a dim title bar across the top. Actions are bracketed
+   words, `[ START SERVER ]`; hover and the chosen item INVERT (green ground, black text), as a terminal's selection
+   does. Two hues besides green, used only where they mean something: amber (warn, a step in progress) and red (bad).
+
+   THE CRT, kept cheap: a faint scanline overlay and a soft vignette (one fixed pseudo-element over the page, two
+   gradients, `pointer-events: none` — nothing is repainted per frame); a bloom on figures and headings (text-shadow)
+   and on rings, fans and graph lines (a small drop-shadow); a block cursor blinking after the wordmark. Under
+   `prefers-reduced-motion` the cursor stands still and nothing else moves. No canvas, no full-page animation.
+
+   COLOUR IS STILL MEANING. The load scale runs dim green → bright green → amber → red, the rate scale dim → bright →
+   a white-hot green at its target (which glows: --glow 1), both mixed in oklch. Engine tags are outlines in four
+   greens told apart by hue (green, lime, aqua-green, pale) and by their word.
+
+   CONTRAST (WCAG, on --panel #020b05 / --panel-2 #061a0c; tests/palette.node.js pins AA for every text token, every
+   load / rate / queue share and every tag on its tint):
+     ink #33ff66 14.9 / 13.5 · ink-dim #2ad457 10.1 / 9.2 · ink-faint #1fa344 6.1 / 5.5 · accent #8cffaa 16.2 / 14.6
+     warn #ffcc33 13.2 / 12.0 · bad #ff5c5c 6.6 / 6.0 · park #8fd9b0 12.1 / 11.0 · black on ink (inverted) 15.6
+     every load and rate share ≥ 5.5 (the dim end); every tag on its 12 % tint ≥ 11.8
+
+   HOW IT IS APPLIED: a token set under `:root[data-style="terminal"]` that re-values gateway.css's tokens, then the
+   component overrides the tokens cannot express. Nothing moves: the same grid, the same fixed-height cells — only the
+   skin changes.
+
+   FONT IS VENDORED (the panel loads nothing from a CDN): JetBrains Mono 400 / 500 / 600 / 700, the files "Mono" ships
+   under fonts/, SIL OFL 1.1 (fonts/JetBrainsMono-OFL.txt; NOTICE). */
+
+@font-face { font-family: "JetBrains Mono"; src: url("fonts/JetBrainsMono-400.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "JetBrains Mono"; src: url("fonts/JetBrainsMono-500.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: "JetBrains Mono"; src: url("fonts/JetBrainsMono-600.woff2") format("woff2"); font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: "JetBrains Mono"; src: url("fonts/JetBrainsMono-700.woff2") format("woff2"); font-weight: 700; font-style: normal; font-display: swap; }
+
+:root[data-style="terminal"] {
+  color-scheme: dark;
+
+  /* ── surfaces and ink: a black screen, three greens of phosphor ─────────────────────────────────── */
+  --bg: #000000;
+  --panel: #020b05;          /* a pane: black with a breath of green */
+  --panel-2: #061a0c;        /* a band inside a pane, a title bar */
+  --surface-3: #0b2a14;      /* a pressed control */
+  --line: #12592a;           /* the pane's hairline */
+  --line-strong: #1c8a3d;    /* a control's edge, an outline glyph */
+  --ink: #33ff66;            /* figures and primary text: the bright phosphor */
+  --ink-dim: #2ad457;        /* secondary lines */
+  --ink-faint: #1fa344;      /* labels, units */
+  --neutral-rgb: 31, 163, 68;
+  --ink-faint-rgb: 31, 163, 68;
+  --muted: #1c8a3d;          /* a graph's dashed target: a graphic */
+  --track: #0d3519;          /* the unlit part of a ring, a fan */
+  --track-bar: #0d3519;
+  --track-progress: #0d3519;
+  --shade-rgb: 0, 0, 0;
+  --on-fill: #000000;        /* text on a lit (inverted) ground */
+  --scrim: rgba(0, 0, 0, .8);
+  --scrim-sheet: rgba(0, 0, 0, .7);
+  --bloom: 0 0 1px rgba(51, 255, 102, .35), 0 0 7px rgba(51, 255, 102, .28);   /* the phosphor's halo on a figure */
+  --bloom-stroke: drop-shadow(0 0 2px rgba(51, 255, 102, .5));                    /* … on a ring, a fan, a line */
+
+  /* ── meaning: green is ok; amber and red the only other hues ──────────────────────────────────────── */
+  --ok-rgb: 51, 255, 102;     --ok: #33ff66;
+  --ok-hi: #8cffaa;
+  --warn-rgb: 255, 204, 51;   --warn: #ffcc33;
+  --bad-rgb: 255, 92, 92;     --bad: #ff5c5c;
+  --accent-rgb: 140, 255, 170; --accent: #8cffaa;
+  --park-rgb: 143, 217, 176;  --park: #8fd9b0;
+  --step-current-rgb: 255, 204, 51; --step-current: #ffcc33;
+  --hold-pill-ok: #33ff66;  --hold-pill-stop: #ff5c5c;  --hold-pill-swarm: #8cffaa;
+  --tag-vllm: 51, 255, 102;        /* green */
+  --tag-sglang: 190, 255, 77;      /* lime */
+  --tag-tensorfold: 77, 255, 210;  /* aqua-green */
+  --tag-drafter: 210, 255, 180;    /* pale */
+  --core-mul: #33ff66;  --core-mem: #3cc9a8;  --core-other: #15602d;
+  --core-idle: 40, 150, 72;
+
+  /* ── the figure scales, mixed in oklch ────────────────────────────────────────────────────────────── */
+  --scale-space: oklch;
+  --load-idle: #1fa344;  --load-ok: #33ff66;  --load-warn: #ffcc33;  --load-bad: #ff5c5c;
+  --rate-rest: #1fa344;  --rate-mid: #2ad457;  --rate-high: #33ff66;  --rate-target: #b8ffcb;
+  --glow: 1;
+  --area-opacity: .14;
+  --glyph-blade: #1c8a3d;
+  --diode-size: 9px;
+
+  /* ── the performance and sessions pages ─────────────────────────────────────────────────────────── */
+  --seq-1: #33ff66;  --seq-2: #2ad457;  --seq-3: #1fa344;  --seq-4: #8cffaa;  --seq-5: #c8ffd6;
+  --cmp-1: #ffcc33;  --cmp-2: #33ff66;  --cmp-3: #4dffd2;
+  --heat: 51, 255, 102;
+  --grid: #0b2a14;
+  --axis: #12592a;
+  --card-r: 0px;
+  --chip-on: #0b2a14;
+  --row-sel: #0b2a14;
+  --tip: #020b05;
+  --row-rule: #0b2a14;
+
+  /* ── the mark and the wordmark: in phosphor ──────────────────────────────────────────────────────── */
+  --brand-mark: #33ff66; --brand-mark-pkg: #020b05; --brand-mark-line: #1c8a3d; --brand-mark-idle: #12592a;
+  --brand-mark-a: #8cffaa; --brand-mark-b: #33ff66;
+  --wm-cat: #33ff66; --wm-flops: #8cffaa; --wm-fleet: #2ad457;
+
+  /* ── type: one monospace face everywhere ─────────────────────────────────────────────────────────── */
+  --mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  --sans: var(--mono);
+  --sans-ui: var(--mono);
+  --serif: var(--mono);
+  --small: .68rem;
+
+  /* ── shape: square panes, hairlines ──────────────────────────────────────────────────────────────── */
+  --radius-card: 0px; --radius-menu: 0px; --radius-band: 0px; --radius-box: 0px; --radius-ctl: 0px;
+  --radius-ctl-sm: 0px; --radius-badge: 0px; --radius-chip: 0px; --radius-3: 0px; --radius-2: 0px; --radius-1: 0px;
+  --radius-pill: 0px; --radius-tally: 0px;
+  --rule: 1px solid var(--line);
+  --shadow-menu: 0 0 0 1px var(--line-strong), 0 0 24px rgba(51, 255, 102, .12);
+  --shadow-pop: var(--shadow-menu);
+  --shadow-sheet: 0 -1px 0 var(--line-strong), 0 -12px 40px rgba(0, 0, 0, .8);
+
+  /* ════ components ═════════════════════════════════════════════════════════════════════════════ */
+
+  & body { font-family: var(--mono); font-size: 12px; line-height: 1.45; font-variant-numeric: tabular-nums;
+           font-variant-ligatures: none; -webkit-font-smoothing: antialiased; background: var(--bg); }
+  & :is(button, input, select, textarea) { font-family: inherit; }
+  /* SQUARE: a terminal draws no curve — every corner of every box, the literal radii of the performance page included;
+     a status dot is a square LED. Only what is round BY MEANING stays round: the clock and the two spinners. */
+  & *, & *::before, & *::after { border-radius: 0 !important; }
+  & .clock, & .startup-phase::before, & .hold.busy .hold-icon { border-radius: 50% !important; }
+  & ::selection { background: var(--ink); color: var(--on-fill); text-shadow: none; }
+
+  /* THE CRT: scanlines and a vignette, one fixed layer over everything that never takes a click. */
+  & body::after {
+    content: ""; position: fixed; inset: 0; z-index: 60; pointer-events: none;
+    background: repeating-linear-gradient(to bottom, transparent 0 2px, rgba(0, 0, 0, .16) 2px 3px),
+                radial-gradient(ellipse at center, transparent 62%, rgba(0, 0, 0, .38) 100%);
+  }
+
+  /* ── the label: small capitals, tracked, the dimmest green ─────────────────────────────────────── */
+  & :is(.t-label, .fig span, .cpu-label, .gpu-label, .ring-label, .sat-label, .kpi span, .rq-head > span, .rq-title,
+        .cluster-head h2, .section > summary h2, .cn-facts dt, .trail-head, .mp-group-name, .rec-h, .rec-fig > span,
+        .rec-plab, .unused-k, .cs-unit, .cl-control, .est-role, #layout-hidden::before) {
+    font-family: var(--mono); font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint);
+  }
+  & .section > summary h2 { font-size: .72rem; color: var(--ink-dim); text-shadow: var(--bloom); }
+  /* THE FIGURE: the bright phosphor, bold, with its bloom. A rate at its target brings its own (gateway.js). */
+  & :is(.t-val, .ring-dial b, .fig b, .sat-val, .kpi b, .stat > b, .core-case .core-fig b, .rec-fig > b, .s-tile-v) {
+    font-weight: 700; letter-spacing: 0; text-shadow: var(--bloom);
+  }
+  & .t-unit { font-weight: 400; color: var(--ink-faint); text-shadow: none; }
+  & :is(.box-name, .cl-head h3, .cn-title, .ly-menu-head b, .cp-title, .model-badge b) { font-weight: 700; letter-spacing: .02em; color: var(--ink); text-shadow: var(--bloom); }
+  & :is(.box-host, .box-kind) { color: var(--ink-faint); }
+  & :is(.t-note, .c-note, .sat-note, .sat-sub) { color: var(--ink-faint); }
+  & a { color: var(--accent); text-underline-offset: 2px; }
+  & a:hover { background: var(--accent); color: var(--on-fill); text-decoration: none; }
+
+  /* ── header: the screen's top line; the wordmark with a block cursor ──────────────────────────────── */
+  & .top { background: var(--bg); border-bottom: 1px solid var(--line-strong); }
+  & .brand h1 { font-size: .95rem; font-weight: 700; letter-spacing: .02em; white-space: nowrap; text-shadow: var(--bloom); }
+  & .brand h1::after {
+    content: ""; display: inline-block; width: .55em; height: 1.05em; margin-left: -.2rem; align-self: center;
+    background: var(--ink); box-shadow: 0 0 6px rgba(var(--ok-rgb), .55);
+    animation: terminal-blink 1.06s steps(1, end) infinite;
+  }
+  & .mark { filter: var(--bloom-stroke); }
+  & .conn { color: var(--ink-faint); }
+  & .conn .dot { border-radius: 0; width: 7px; height: 7px; }
+  & .conn.ok .dot { background: var(--ok); box-shadow: 0 0 6px rgba(var(--ok-rgb), .7); }
+  & .conn.bad .dot { background: var(--bad); box-shadow: 0 0 6px rgba(var(--bad-rgb), .7); }
+
+  /* THE BUTTONS: bracketed words; hover inverts. */
+  & :is(.ly-open, .st-open, .ly-act, .st-act, .cn-open, .rec-expand, .rec-more, .cn-route-btn, .cn-tab, .cn-copy, .cl-default,
+        .cs-force, .cluster-apply, .cs-defaults, .cc-go, .cc-cancel, .cl-act) {
+    font-family: var(--mono); text-transform: uppercase; letter-spacing: .06em; font-size: var(--small);
+    border-radius: 0; border: 1px solid var(--line-strong); background: transparent; color: var(--ink-dim);
+  }
+  & :is(.ly-open, .st-open, .ly-act, .st-act, .cl-act, .cluster-apply, .cs-defaults, .cc-go, .cc-cancel)::before { content: "[\00a0"; }
+  & :is(.ly-open, .st-open, .ly-act, .st-act, .cl-act, .cluster-apply, .cs-defaults, .cc-go, .cc-cancel)::after { content: "\00a0]"; }
+  & :is(.ly-open, .st-open, .ly-act, .st-act, .cn-open, .rec-expand, .rec-more, .cn-route-btn, .cn-tab, .cn-copy, .cl-default,
+        .cs-force, .cluster-apply, .cs-defaults, .cc-go, .cc-cancel, .cl-act):is(:hover, [aria-expanded="true"]):not(:disabled) {
+    background: var(--ink); color: var(--on-fill); border-color: var(--ink); text-shadow: none;
+  }
+  & :is(.ly-open, .st-open) b { color: var(--ink); font-weight: 700; }
+  & :is(.ly-open, .st-open):is(:hover, [aria-expanded="true"]) b { color: var(--on-fill); }
+  & :is(.ly-open, .st-open) { border-color: var(--line); }
+  & .ly-act.ly-primary { background: var(--ink); color: var(--on-fill); border-color: var(--ink); }
+
+  /* ── the menus: panes; the chosen row marked `>`, hover inverts ──────────────────────────────────── */
+  & :is(.ly-menu, .st-menu, .mp-list) { background: var(--panel); border: 1px solid var(--line-strong); border-radius: 0; box-shadow: var(--shadow-menu); }
+  & .st-item { border-radius: 0; position: relative; padding-left: 1.6rem; color: var(--ink-dim); }
+  & .st-item[aria-checked="true"] { box-shadow: none; color: var(--ink); font-weight: 700; }
+  & .st-item[aria-checked="true"]::before { content: ">"; position: absolute; left: .6rem; }
+  & .st-item:is(:hover, :focus-visible) { background: var(--ink); color: var(--on-fill); }
+  & .ly-template { border-radius: 0; border-color: var(--line); background: transparent; }
+  & .ly-template:hover { border-color: var(--ink); }
+  & .ly-template[aria-pressed="true"] { border-color: var(--ink); background: rgba(var(--ok-rgb), .08); box-shadow: inset 3px 0 0 var(--ink); }
+  & :is(.ly-io-text, .ly-bar, .ly-note, .st-note, .ly-unknown-body) { border-radius: 0; }
+  & .mp-option { border-radius: 0; }
+  & .mp-option:is(:hover, [aria-selected="true"]) { background: rgba(var(--ok-rgb), .14); }
+
+  /* ── panes: a hairline, square, a dim title bar ──────────────────────────────────────────────────── */
+  & :is(.card, .cluster, .cl-card, .cn-box) { border-radius: 0; border: 1px solid var(--line); box-shadow: none; background: var(--panel); }
+  & :is(.card, .cluster) > :is(.card-head, .cluster-head):first-child {
+    margin: -.65rem -.75rem 0; padding: .3rem .75rem; background: var(--panel-2); border-bottom: 1px solid var(--line);
+  }
+  & .cl-card { border-left: 3px solid var(--line-strong); }
+  & .cl-card.ok { border-left-color: var(--ok); }
+  & .cl-card.warn { border-left-color: var(--warn); }
+  & .cl-card.bad { border-left-color: var(--bad); }
+  & .machine.selected { border-color: var(--ink); box-shadow: 0 0 0 1px rgba(var(--ok-rgb), .35), 0 0 14px rgba(var(--ok-rgb), .12); }
+  & .card.server.down { background: var(--bg); }
+  & :is(.tiles3, .tiles4, .tiles5, .tiles6, .ceils) { border-radius: 0; border: 1px solid var(--line); background: var(--panel-2); }
+  & :is(.tiles3, .tiles4, .tiles5, .tiles6) > .tile, .ceils > .ceil { border-left-color: var(--line); }
+  & :is(.alert, .queued .strip, .sat-verdict, .sat-meter, .cluster-box, .cluster-confirm, .cn-snip, .cn-key, .rec-strip, .kpi, .cs-group, .chooser) { border-radius: 0; }
+  & .sat-verdict { background: var(--panel-2); border-color: var(--line); }
+  & :is(.card-foot, .cp-action, .swarm) { border-top-color: var(--line); }
+  & .card-foot .job, & .card-err, & .cn-pre, & .cn-door code { font-family: var(--mono); }
+
+  /* ── tabs: the open one is a lit pane tab ─────────────────────────────────────────────────────────── */
+  & .tabs { border-bottom-color: var(--line-strong); }
+  & #tablist [role="tab"] { font-size: .72rem; font-weight: 500; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-faint);
+                            border: 1px solid transparent; border-bottom: 0; margin-bottom: -1px; padding: .45rem .7rem; }
+  & #tablist [role="tab"][aria-selected="true"] { color: var(--ink); background: var(--panel); border-color: var(--line-strong);
+                                                  box-shadow: inset 0 2px 0 var(--ink); text-shadow: var(--bloom); }
+  & #tablist [role="tab"]:hover:not([aria-selected="true"]) { color: var(--ink); }
+  & .tab-n { letter-spacing: 0; }
+
+  /* ── chips: outlines in their green, the word in it; no fill ──────────────────────────────────────── */
+  & .tag { font-family: var(--mono); border-radius: 0; color: var(--ink-dim); background: transparent; box-shadow: inset 0 0 0 1px var(--line-strong); }
+  & :is(.tag.engine, .tag.drafter, .tag.running, .tag.twin) { color: rgb(var(--t)); background: transparent; box-shadow: inset 0 0 0 1px rgba(var(--t), .7); letter-spacing: .08em; }
+  & .tag.twin { --t: var(--warn-rgb); }
+  & .tag.running::before { border-radius: 0; box-shadow: 0 0 5px rgba(var(--t), .7); }
+  & .tag.drafter.off { --t: var(--ink-faint-rgb); }
+  & :is(.tag.gone, .tag.note) { color: var(--warn); }
+  & .tag.rate { color: var(--ok); box-shadow: inset 0 0 0 1px rgba(var(--ok-rgb), .6); background: transparent; }
+  & .badge { border-radius: 0; border: 1px solid currentColor; background: transparent; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+             text-shadow: 0 0 6px color-mix(in srgb, currentColor 45%, transparent); }
+  & :is(.cpu-tag, .gpu-tag) { font-family: var(--mono); border-radius: 0; font-weight: 700; background: transparent;
+                              border-color: color-mix(in srgb, var(--tag, var(--ink-faint)) 70%, transparent); }
+
+  /* ── status: square LEDs with a halo ──────────────────────────────────────────────────────────────── */
+  & .diode { border-radius: 0; }
+  & .diode.ok { box-shadow: 0 0 6px 1px rgba(var(--ok-rgb), .55); }
+  & .diode.warn { box-shadow: 0 0 6px 1px rgba(var(--warn-rgb), .5); }
+  & .diode.bad { box-shadow: 0 0 6px 1px rgba(var(--bad-rgb), .55); }
+  & .diode.off { background: var(--line-strong); box-shadow: none; }
+
+  /* ── meters: butt-capped rings, square bars, glowing strokes ──────────────────────────────────────── */
+  & .ring-bg, .gpu-card .gpu-fan-bg { stroke: var(--track); }
+  & .ring-fg { stroke-linecap: butt; filter: var(--bloom-stroke); }
+  & .ring-dial b { text-shadow: var(--bloom); }
+  & .gpu-card .gpu-fan-fg { filter: var(--bloom-stroke); }
+  & .sparkline path:not([fill-opacity]) { filter: var(--bloom-stroke); }
+  & .sparkline path[fill-opacity] { mask-image: linear-gradient(to bottom, #000 0%, rgba(0, 0, 0, .15) 100%); }
+  & .sparkline-base { stroke: var(--line); }
+  & .sparkline-target { stroke: var(--muted); }
+  & .sat-bar { border-radius: 0; background: var(--track-bar); }
+  & .sat-bar i { border-radius: 0; box-shadow: 0 0 6px rgba(var(--ok-rgb), .45); }
+  & .sat-bar.none { background: repeating-linear-gradient(90deg, var(--line) 0 3px, transparent 3px 6px); }
+  & .startup-progress progress, .startup-progress progress::-webkit-progress-bar { border-radius: 0; background: var(--track-progress); }
+  & .startup-progress progress::-webkit-progress-value { border-radius: 0; background: var(--step-current); }
+  & .startup-progress progress::-moz-progress-bar { background: var(--step-current); }
+  & .startup-progress .full progress::-webkit-progress-value { background: var(--ok); }
+  & .startup-progress .full progress::-moz-progress-bar { background: var(--ok); }
+
+  /* ── the glyphs: a chip and a card drawn as green outlines; the lit cores and the fan glow ─────────── */
+  & .cores .chip-pkg, .gpu-card .gpu-board { fill: var(--bg); stroke: var(--line-strong); stroke-opacity: 1; }
+  & .gpu-card .gpu-hub { fill: var(--panel-2); stroke: var(--line-strong); stroke-opacity: 1; }
+  & .cores .chip-pins, .gpu-card .gpu-bracket, .gpu-card .gpu-fingers { fill: var(--line-strong); fill-opacity: 1; }
+  & .gpu-card .gpu-vram { fill: var(--panel-2); stroke: var(--line-strong); stroke-opacity: 1; }
+  & .gpu-card .gpu-blades { fill: var(--glyph-blade); fill-opacity: .7; }
+  & .gpu-card :is(.gpu-vram-label, .gpu-vram-pct) { font-family: var(--mono); fill: var(--ink-dim); }
+  & .core-mul { fill: var(--core-mul); background: var(--core-mul); }
+  & .core-mem { fill: var(--core-mem); background: var(--core-mem); }
+  & .core-other { fill: var(--core-other); background: var(--core-other); }
+  & .cores { filter: drop-shadow(0 0 1.5px rgba(51, 255, 102, .35)); }
+
+  /* ── the step strip ───────────────────────────────────────────────────────────────────────────────── */
+  & .step i { border-radius: 0; }
+  & .step:not(.done, .current, .failed, .stalled) i { background: var(--bg); border-color: var(--line-strong); }
+  & .step:is(.done, .current, .failed, .stalled)::before { background: var(--line-strong); }
+  & .step.current i { box-shadow: 0 0 8px rgba(var(--warn-rgb), .55); }
+  & .step span { text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); }
+  & .step.done span { color: var(--ink-dim); }
+  & .trail-step.now i, .trail-step.now.long i { box-shadow: none; }
+
+  /* ── controls: square fields on black; the chosen segment lit ─────────────────────────────────────── */
+  & :is(.cluster-settings, .swarm) :is(input, select), .mp-button, .seg-box, .cn-input {
+    border-radius: 0; border-color: var(--line); background: var(--bg); font-family: var(--mono); color: var(--ink-dim);
+  }
+  & .seg-box:hover { border-color: var(--ink-dim); }
+  & .seg-box:has(input:checked) { border-color: var(--ink); background: rgba(var(--ok-rgb), .12); color: var(--ink); }
+  & .seg.changed .seg-box:has(input:checked) { border-color: var(--warn); background: rgba(var(--warn-rgb), .1); color: var(--warn); text-shadow: none; }
+  & .seg.invalid .seg-box:has(input:checked) { border-color: var(--bad); }
+  & :is(.cluster-settings, .swarm) label { text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); }
+  & :is(button, summary, input, select, a):focus-visible { outline: 1px dashed var(--ink); outline-offset: 2px; }
+  & summary::before { border-color: var(--ink-faint); }
+  & :is(.cluster-settings, .cp-more, .advanced, .rq-recent) > summary { text-transform: uppercase; letter-spacing: .08em; color: var(--ink-faint); }
+  & :is(.cluster-settings, .cp-more, .advanced, .rq-recent) > summary:hover { color: var(--ink); }
+  & .cn::backdrop { background: var(--scrim); }
+  & .cp-log { background: var(--bg); border-radius: 0; }
+  & .info { border-radius: 0; border-color: var(--line-strong); font-family: var(--mono); font-style: normal; color: var(--ink-faint); }
+  & .info:hover::after, & .info:focus::after { border-radius: 0; font-family: var(--mono); background: var(--panel); border-color: var(--line-strong); }
+  & .rq-head > span { border-bottom-color: var(--line-strong); }
+
+  /* THE HOLD BUTTONS: an outlined line, its word bracketed in capitals; the hold fills it with the action's hue. */
+  & .hold {
+    border-radius: 0; border: 1px solid rgba(var(--tint), .75); background: transparent; color: rgb(var(--tint));
+    font-family: var(--mono); font-weight: 700; font-size: .78rem; text-transform: uppercase; letter-spacing: .1em;
+    text-shadow: 0 0 6px rgba(var(--tint), .45);
+  }
+  & .hold-label::before { content: "[\00a0"; }
+  & .hold-label::after { content: "\00a0]"; }
+  & .hold:hover:not(:disabled) { background: rgba(var(--tint), .1); }
+  & .hold .hold-icon { box-shadow: 0 0 6px rgba(var(--tint), .6); }
+  & .hold .hold-pill { border-radius: 0; background: transparent; box-shadow: inset 0 0 0 1px rgba(var(--tint), .5); text-transform: none; letter-spacing: .02em; text-shadow: none; }
+  & .hold .hold-fill { background: rgba(var(--tint), .3); }
+  & .hold .hold-track { background: rgba(var(--tint), .2); }
+  & .hold.holding { box-shadow: 0 0 0 1px rgb(var(--tint)), 0 0 16px rgba(var(--tint), .35); }
+  & .hold:disabled { border-color: var(--line); color: var(--ink-faint); text-shadow: none; }
+  & .hold:disabled .hold-icon { background: var(--line-strong); box-shadow: none; }
+  & .hold.kill { text-transform: none; color: var(--ink-faint); border-color: var(--line-strong); text-shadow: none; }
+  & .hold.kill .hold-label::before, & .hold.kill .hold-label::after { content: none; }
+  & .hold.kill:is(:hover, :focus-visible, .holding):not(:disabled) { color: var(--bad); border-color: var(--bad); background: rgba(var(--bad-rgb), .08); }
+  & .rq-prio { border-radius: 0; border-color: var(--line-strong); }
+  & .rq-prio.on { color: var(--on-fill); }
+
+  /* ── the performance and sessions pages: the same panes and voice ─────────────────────────────────── */
+  & :is(.filters:not(.range), .filters.range .count, .chart, .cmp-panel, .tablewrap, .pm-detail, .s-tile, .perf-bar, .mdl-face) {
+    border-radius: 0; box-shadow: none;
+  }
+  & :is(.chart h3, .cmp-chart h4, .runs h2, .charts-head h2, .archive-head h2, table.runs-t th) {
+    text-transform: uppercase; letter-spacing: .08em; color: var(--ink-dim);
+  }
+  & :is(.runs h2, .charts-head h2, .archive-head h2) { text-shadow: var(--bloom); }
+  & :is(.chip, .scope-tag, .seg-face, .chart-tip, .tip) { border-radius: 0; }
+  & .seg-face { font-size: .74rem; padding-inline: .2rem; }   /* the widest range's words in a quarter of the row */
+  & .seg-opt input:checked + .seg-face { background: var(--ink); color: var(--on-fill); box-shadow: none; }
+  & .seg-opt:hover input:not(:checked) + .seg-face { color: var(--ink); }
+  & .mdl-opt input:checked + .mdl-face { border-color: var(--ink); box-shadow: inset 3px 0 0 var(--ink); }
+  & table.runs-t tbody tr:hover { background: rgba(var(--ok-rgb), .08); }
+  & .chart svg :is(path, polyline)[stroke]:not([stroke="none"]) { filter: var(--bloom-stroke); }
+
+  @media (max-width: 600px) {
+    & .top { gap: .5rem; }
+    & .top-right { gap: .45rem; }
+    & .brand h1 { font-size: .85rem; gap: .35rem; }
+    & :is(.ly-open, .st-open) { letter-spacing: .02em; padding-inline: .4rem; }
+    & :is(.ly-open, .st-open)::before, & :is(.ly-open, .st-open)::after { content: none; }
+    & .conn { min-width: 0; }
+    & .conn #status-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  }
+}
+
+@keyframes terminal-blink {
+  0%, 49%   { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root[data-style="terminal"] .brand h1::after { animation: none; }
+}

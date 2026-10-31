@@ -1,0 +1,9 @@
+{
+  "styles": [
+    { "key": "vibe", "label": "Vibe coded", "file": null },
+    { "key": "clean", "label": "Clean", "file": "/styles/clean.css" },
+    { "key": "mono", "label": "Mono", "file": "/styles/mono.css" },
+    { "key": "glass", "label": "Glass", "file": "/styles/glass.css" },
+    { "key": "terminal", "label": "Terminal", "file": "/styles/terminal.css" }
+  ]
+}

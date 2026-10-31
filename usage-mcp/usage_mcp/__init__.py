@@ -10,4 +10,4 @@ literal verb "GET" against a frozen three-path allowlist, the one file function 
 under a frozen root, and `tests/test_readonly.py` parses every module in this package to prove no
 other shape exists.
 """
-__version__ = "1.0.0-beta"
+__version__ = "1.0.0-beta.2"

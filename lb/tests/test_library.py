@@ -114,7 +114,7 @@ def test_deepseeks_b12x_kernels_are_its_gb10_override_alone():
 
 # ── where a checkpoint sits is the deployment's ─────────────────────────────────────────────────────
 
-NO_CHECKPOINTS = ("boxes:\n  solo: {hostname: s, platform: linux/amd64, cards: [{index: 0, type: rtx5090, "
+NO_CHECKPOINTS = ("panel: {style: vibe}\nboxes:\n  solo: {hostname: s, platform: linux/amd64, cards: [{index: 0, type: rtx5090, "
                   "serves: true}]}\nclusters: {}\nbackends: {}\ncheckpoints: {}\n")
 
 

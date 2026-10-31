@@ -18,6 +18,8 @@ from vllm_lb.fleet import node_env, parse_fleet
 IMAGE = "rocm/vllm@sha256:394194d36edcf9b36bcb563e143b21b80e64e7d04f33a447b448c0c0c00c04a8"
 
 GUI = f"""
+panel:
+  style: vibe
 boxes:
   amd-box:
     hostname: amd-box-host

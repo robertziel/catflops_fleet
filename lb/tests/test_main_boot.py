@@ -28,6 +28,8 @@ def test_listener_is_up_and_status_explains_when_the_engine_is_missing(tmp_path)
     from tests.fleet_files import write
     port = free_port()
     fleet = write(tmp_path, """
+panel:
+  style: vibe
 boxes:
   box-a: {hostname: box-a-host, label: box-a-gpu, platform: linux/arm64, cards: [{index: 0, type: gb10, serves: true}]}
 clusters: {}

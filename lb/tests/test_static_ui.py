@@ -50,13 +50,17 @@ def test_the_root_serves_the_gateway_page(proxy):
 
 def test_the_mark_is_silver_on_the_dark_panel(proxy):
     # Operator 2026-10-28: "Use silver logo on dark mode", "similar colors to CPU svg icon IDLE with little sparks on
-    # some CPUs" -- the panel is dark-only.
+    # some CPUs" -- in the default ("Vibe coded") style, whose tokens are gateway.css's :root (a light style re-values
+    # them, styles/*.css).
     css = get(proxy, "/gateway.css")[2]
-    assert b"--mark-cat: #B1B8C0;" in css and b"--mark-idle: #8B949E;" in css
+    assert b"--brand-mark: #B1B8C0;" in css and b"--brand-mark-idle: #8B949E;" in css
+    assert b".mark-cat { fill: var(--brand-mark); }" in css
     body = get(proxy, "/")[2]
     assert body.count(b'class="mark-core-idle"') == 3 and b'class="mark-box-a-cyan"' in body
     # "Make Cat Flops Fleet each in different color but keep them equal": one hue each, one OKLCH lightness (0.86).
-    for word in (b".wm-cat { color: #CBD2D9; }", b".wm-flops { color: #64EBDB; }", b".wm-fleet { color: #7BEE98; }"):
+    for token in (b"--wm-cat: #CBD2D9;", b"--wm-flops: #64EBDB;", b"--wm-fleet: #7BEE98;"):
+        assert token in css
+    for word in (b".wm-cat { color: var(--wm-cat); }", b".wm-flops { color: var(--wm-flops); }", b".wm-fleet { color: var(--wm-fleet); }"):
         assert word in css
 
 

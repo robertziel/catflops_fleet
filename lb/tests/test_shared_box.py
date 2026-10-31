@@ -26,6 +26,8 @@ FW = "faster-whisper-large-v3-turbo"
 
 def fleet(bound: int = 20, *, gui_boot: bool = False, card: str = "radeon8060s") -> str:
     return f"""
+panel:
+  style: vibe
 boxes:
   apu:
     hostname: apu-host
@@ -280,6 +282,8 @@ def observed(local_beside: bool = False) -> str:
         node_limits: {{memory_gib: 24, cpus: 16, pids: 4096, nice: 10}}, cards: [{{index: 0, type: radeon8060s, serves: true}}]}}""" \
         if local_beside else ""
     return f"""
+panel:
+  style: vibe
 boxes:
   box-a: {{hostname: box-a-host, label: box-a-gpu, platform: linux/arm64, ssh: op@192.0.2.10, cards: {card}}}
   box-b: {{hostname: box-b-host, label: box-b-gpu, platform: linux/arm64, ssh: op@192.0.2.11, cards: {card}}}{apu}

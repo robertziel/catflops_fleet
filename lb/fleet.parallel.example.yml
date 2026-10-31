@@ -7,6 +7,9 @@
 # vllm_lb/fleet.py validates it and refuses the start, naming the value, on anything missing, unknown or inconsistent.
 # Addresses are documentation ranges (RFC 5737 / 3849); names are placeholders.
 
+panel:
+  style: glass                      # the panel's default style (lb/fleet.example.yml): vibe | clean | mono | glass | terminal
+
 boxes:
   box-a:
     hostname: box-a-host

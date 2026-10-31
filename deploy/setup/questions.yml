@@ -73,6 +73,7 @@ sections:
   - {id: telemetry, title: "Hardware telemetry senders"}
   - {id: bench, title: "Benchmark swarm runner"}
   - {id: extras, title: "Optional services"}
+  - {id: panel, title: "The gateway panel"}
   - {id: tuning, title: "Gateway knobs"}
   - {id: clients, title: "Clients and the smoke test"}
 
@@ -2068,6 +2069,15 @@ questions:
     kind: text
     validate: "a served model name"
     writes: [.env CHAT_MODEL]
+  # ── panel ───────────────────────────────────────────────────────────────────────────────────────────────────────────
+  - id: panel.style
+    section: panel
+    ask: "Which STYLE does the gateway panel open in for a browser that has not picked one? (vibe — Vibe coded, the original dark look; clean — light, quiet; mono — monospace, terminal-like; glass — translucent, follows the system light/dark, the recommended default; terminal — green-phosphor CRT terminal.) Each browser can still pick its own from the panel's Style menu; that choice stays in the browser."
+    why: "the fleet's panel.style: the deployment's default style (docs/guides/panel-styles.md)"
+    kind: choice
+    choices_from: panel_styles
+    validate: "a key of lb/vllm_lb/static/styles/index.json"
+    writes: ["lb/fleet.yml panel.style"]
   # ── tuning ──────────────────────────────────────────────────────────────────────────────────────────────────────────
   - id: lb.tuning
     section: tuning

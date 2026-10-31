@@ -27,6 +27,8 @@ from vllm_lb.recorder import (BUCKET_S, FINE_S, FIGURES, TOP_CONTAINERS, WINDOW_
                               figures_of)
 
 FLEET = parse_fleet("""
+panel:
+  style: vibe
 boxes:
   box-a: {hostname: box-a-host, platform: linux/arm64, cards: [{index: 0, type: gb10, serves: false}]}
   site-b: {hostname: site-b-host, platform: linux/amd64, cards: [{index: 0, type: rtx3090, serves: false},

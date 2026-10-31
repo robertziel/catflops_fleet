@@ -36,6 +36,8 @@ from vllm_lb.fleet import CONTROLS, MOVABLE, launch_fit, node_env, parse_fleet, 
 
 DIGEST = "vllm/vllm-openai@sha256:" + "1" * 64
 LOCAL = f"""
+panel:
+  style: vibe
 boxes:
   solo:
     hostname: solo-host
@@ -662,6 +664,8 @@ def test_a_ram_tier_on_unified_memory_is_refused_in_the_familys_words():
     """On a GB10 the host's RAM IS the GPU's pool: a RAM tier takes the memory the KV pool lives in. The family says so
     (hardware/memory.py), whatever the box's bound — the fleet never asks which kind of card it is."""
     unified = f"""
+panel:
+  style: vibe
 boxes:
   box-a:
     hostname: box-a-host

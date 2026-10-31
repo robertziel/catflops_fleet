@@ -28,6 +28,8 @@ VLLM_IMAGE = "vllm/vllm-openai@sha256:" + "1" * 64
 SGL_IMAGE = "sha256:" + "2" * 64
 #: A site-b-shaped node: the 5090 serves, the vLLM boot launch PINS its KV pool and parks KV in a RAM tier.
 NODE = f"""
+panel:
+  style: vibe
 boxes:
   solo:
     hostname: solo-host

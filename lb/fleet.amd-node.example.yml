@@ -15,6 +15,9 @@
 # as the pair's are: ONE reservation per box, taken by the first node to start, shared by the other, returned by the
 # last to stop.
 
+panel:
+  style: glass                      # the panel's default style (lb/fleet.example.yml): vibe | clean | mono | glass | terminal
+
 boxes:
   box-a:
     hostname: box-a-host
