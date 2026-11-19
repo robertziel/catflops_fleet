@@ -4492,11 +4492,18 @@ function renderClusterHead(c, s) {
   if (connect) {
     const srv = serverOf(c, s);
     connect.disabled = !srv;
-    connect.title = srv ? `connect a client to ${srv.name}: ${srv.model.id} at ${srv.url}` : `${c.name || 'this server'} serves no model yet`;
+    connect.title = srv ? `connect a client to ${srv.name}: ${srv.model.id}${srv.url ? ` at ${srv.url}` : ''}`
+      : `${c.name || 'this server'} serves no model yet`;
   }
 }
 /** WHAT A CLIENT CONNECTS TO on server `c`: its head's served model and window (`backends[].served_models`,
  *  `max_model_len`, the LB's own reading of its /v1/models) and the head's address — null while it serves nothing. */
+/** An engine's address as a card names it: host:port of its url — "" when the row carries none (a member's
+ *  /lb/status withholds engine addresses, roles.member_status). */
+function engineHost(b) {
+  if (!b || typeof b.url !== 'string' || !b.url) return '';
+  try { return new URL(b.url).host; } catch (_) { return b.url; }
+}
 function serverOf(c, s) {
   const b = headOf(s, c);
   const id = b && Array.isArray(b.served_models) ? b.served_models[0] : null;
@@ -5726,10 +5733,8 @@ function serverCard(s, b) {
   const several = Object.keys((s || {}).clusters || {}).length > 1;
   const kind = `${engine ? `${tp} ${engine}` : tp}${several && b.cluster ? ` · ${b.cluster}` : ''}`;
   // The cluster spans boxes, so its head rank's address is what names it.
-  let url = null;
-  try { url = new URL(b.url); } catch (_) { url = null; }
   // …and the card it serves on as the FLEET names it (`cluster.hardware`), never the engine's own device string.
-  const meta = `${url ? url.host : b.url}${c.hardware ? ` · ${c.hardware}` : ''}`;
+  const meta = [engineHost(b), c.hardware].filter(Boolean).join(' · ');
   // The footer carries only what the badge does not say: whose park holds the cluster.
   const foot = clusterFoot(st, c);
   // What the badge names (`modelInfoOf`), once; and whether the KV share is already a tile. A pair on
@@ -6184,15 +6189,20 @@ function renderAlert(s) {
  *  that hangs settles nothing, and "updated just now" stayed up for as long as it hung. */
 function renderFreshness() {
   const since = Date.now() - (lastOk == null ? loadedAt : lastOk);
+  const stale = $('lb-stale');
   if (!lastError && since < STALE_AFTER_MS) {
     if (lastOk == null) return;                 // still connecting
     $('connection-status').className = 'conn ok';
     $('status-text').textContent = 'updated just now';
+    if (stale) stale.hidden = true;
     return;
   }
   $('connection-status').className = 'conn bad';
   const last = lastOk == null ? 'never' : `${Math.round(since / 1000)}s ago`;
-  $('status-text').textContent = `stale (last ${last})${lastError ? ` — ${lastError}` : ''}`;
+  const said = `stale (last ${last})${lastError ? ` — ${lastError}` : ''}`;
+  $('status-text').textContent = said;
+  // …and the same words on #lb-stale, which only a phone whose header lent the status line's room to Access shows
+  if (stale) { stale.textContent = said; stale.hidden = false; }
 }
 
 /** Read /lb/status: ONE request at a time, abandoned after POLL_TIMEOUT_MS. The interval used to

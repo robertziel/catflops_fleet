@@ -1670,3 +1670,122 @@ summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; b
   /* 44 px touch targets (WCAG 2.5.5) at phone width: the tabs measured ~34 px (AUDIT-02 P2). */
   #tablist [role="tab"], .cl-act, .cl-links .cn-open { min-height: 44px; }
 }
+
+/* ── WHO IS WHAT (access.js): the admin's Access dialog — the Connect dialog's box, head and close (.cn-*),
+   one card per person (the API key rows' look), a two-way role switch and model chips in the pressed-tab language;
+   a member's line in the bar. Every size, radius and colour is a token. ── */
+.ac {
+  padding: 0; border: 0; background: transparent; color: var(--ink);
+  max-width: none; max-height: none; width: 100%; height: 100%;
+}
+.ac::backdrop { background: var(--scrim); }
+.ac-box { max-width: 760px; gap: .65rem; }
+.ac-titles { display: flex; align-items: baseline; gap: .6rem; min-width: 0; }
+.ac-tally { font-size: var(--small); color: var(--ink-faint); white-space: nowrap; }
+.ac-lead { margin: 0; font-size: var(--fs-78); color: var(--ink-dim); line-height: 1.45; }
+.ac-note { margin: 0; font-size: var(--fs-78); color: var(--warn); }
+.ac-note:empty { display: none; }
+.ac-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .45rem; }
+.ac-person {
+  display: flex; flex-direction: column; gap: .45rem; padding: .6rem .7rem;
+  border: var(--rule); border-radius: var(--radius-ctl); background: var(--bg);
+}
+.ac-person[data-dirty="true"] { border-color: rgba(var(--accent-rgb), .55); }
+.ac-top { display: flex; align-items: center; justify-content: space-between; gap: .4rem .8rem; flex-wrap: wrap; }
+.ac-who { display: flex; align-items: center; gap: .5rem; min-width: 0; flex: 1 1 16rem; }
+.ac-mark {
+  flex: none; width: 1.75rem; height: 1.75rem; display: grid; place-items: center; border-radius: 50%;
+  font-size: var(--fs-78); font-weight: 700; color: var(--accent); background: rgba(var(--accent-rgb), .12);
+}
+.ac-email { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-86);
+  font-weight: 600; color: var(--ink); }
+.ac-you {
+  flex: none; font-size: var(--small); color: var(--ink-faint); border: var(--rule); border-radius: var(--radius-pill);
+  padding: 0 .4rem;
+}
+.ac-switch {
+  flex: none; display: inline-flex; padding: 2px; gap: 2px; border: var(--rule); border-radius: var(--radius-ctl);
+  background: var(--panel-2);
+}
+.ac-role {
+  font: inherit; font-size: var(--fs-74); color: var(--ink-dim); background: transparent; cursor: pointer; border: 0;
+  border-radius: var(--radius-ctl-sm); padding: .2rem .7rem; min-width: 4.6rem;
+}
+.ac-role:hover { color: var(--ink); }
+.ac-role[aria-pressed="true"] { color: var(--ink); background: rgba(var(--accent-rgb), .18); box-shadow: inset 0 0 0 1px var(--accent); }
+.ac-meta { margin: 0 0 0 2.25rem; font-size: var(--small); color: var(--ink-faint); }
+.ac-meta:empty { display: none; }
+.ac-every { margin: 0 0 0 2.25rem; font-size: var(--fs-74); color: var(--ink-dim); }
+.ac-models { margin-left: 2.25rem; display: flex; flex-direction: column; gap: .3rem; }
+.ac-models-head { display: flex; align-items: baseline; gap: .5rem; }
+.ac-label { color: var(--ink-faint); font-size: var(--small); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.ac-count { font-size: var(--small); color: var(--ink-faint); }
+.ac-chips { display: flex; flex-wrap: wrap; gap: .3rem; }
+.ac-chip {
+  font: inherit; font-family: var(--mono); font-size: var(--fs-72); color: var(--ink-dim); background: transparent;
+  cursor: pointer; border: var(--rule); border-radius: var(--radius-pill); padding: .15rem .6rem;
+}
+.ac-chip:hover { color: var(--ink); border-color: var(--ink-faint); }
+.ac-chip[aria-pressed="true"] { color: var(--ink); border-color: var(--accent); background: rgba(var(--accent-rgb), .12); }
+.ac-chip[aria-pressed="true"]::before { content: "✓ "; color: var(--accent); }
+.ac-chip-ro { cursor: default; color: var(--ink); }
+.ac-none { font-size: var(--fs-74); color: var(--ink-faint); }
+.ac-foot { display: flex; align-items: center; justify-content: flex-end; gap: .6rem; min-height: 1.7rem; }
+.ac-said { flex: 1 1 auto; min-width: 0; font-size: var(--fs-74); color: var(--ink-dim); overflow-wrap: anywhere; }
+.ac-said[data-kind="ok"] { color: var(--ok); }
+.ac-said[data-kind="bad"] { color: var(--bad); }
+.ac-save {
+  flex: none; font: inherit; font-size: var(--fs-74); color: var(--accent); background: transparent; cursor: pointer;
+  border: 1px solid var(--accent); border-radius: var(--radius-ctl); padding: .2rem .8rem;
+}
+.ac-save:hover:not(:disabled) { background: rgba(var(--accent-rgb), .12); }
+.ac-save:disabled { color: var(--ink-faint); border-color: var(--line-strong); opacity: .55; cursor: default; }
+.ac-role:focus-visible, .ac-chip:focus-visible, .ac-save:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.ac-open { display: inline-flex; align-items: center; gap: .35rem; }
+/* two heads: a mark, drawn by a mask so it takes the button's colour in every style */
+.ac-glyph {
+  width: .95rem; height: .95rem; flex: none; background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='6' cy='5' r='2.6'/%3E%3Cpath d='M1 14c0-3 2.2-5 5-5s5 2 5 5z'/%3E%3Ccircle cx='11.5' cy='5.5' r='2'/%3E%3Cpath d='M11.6 9.1c2 .2 3.4 2 3.4 4.4V14h-3.3c0-1.9-.6-3.6-1.7-4.6.5-.2 1-.3 1.6-.3z'/%3E%3C/svg%3E") center / contain no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='6' cy='5' r='2.6'/%3E%3Cpath d='M1 14c0-3 2.2-5 5-5s5 2 5 5z'/%3E%3Ccircle cx='11.5' cy='5.5' r='2'/%3E%3Cpath d='M11.6 9.1c2 .2 3.4 2 3.4 4.4V14h-3.3c0-1.9-.6-3.6-1.7-4.6.5-.2 1-.3 1.6-.3z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+.ac-member .ac-glyph { display: none; }
+.ac-member b {
+  font-weight: 600; color: var(--ink); border: var(--rule); border-radius: var(--radius-pill); padding: 0 .45rem;
+}
+/* #lb-stale repeats the header's stale words for the one layout that hides them (a phone with Access in its row) */
+.lb-stale { display: none; border-left-color: var(--bad); color: var(--bad); }
+/* the member line is a button (access.js): the mark, the role, the models; on a phone the mark and the count */
+.ac-member {
+  display: inline-flex; align-items: center; gap: .35rem; font: inherit; font-size: var(--fs-78); color: var(--ink-dim);
+  background: none; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 32ch;
+}
+.ac-member .ac-n { display: none; }
+/* A MEMBER'S PAGE draws no admin action: every press-and-hold control (Start / Stop, the swarm, a request's kill), the
+   next-start settings and a server's activate / deactivate. The LB refuses each of them anyway (403 admin_only,
+   lb/vllm_lb/roles.py); a button that can only be refused is not shown. */
+html[data-role="member"] .hold, html[data-role="member"] #cluster-settings,
+html[data-role="member"] .cl-act { display: none !important; }
+@media (max-width: 600px) {
+  .ac-open .ac-word, .ac-member .ac-word { display: none; }
+  /* a phone shows a member the mark alone (its title names the role and the models), as it shows an admin's button */
+  .ac-member { flex: none; overflow: visible; max-width: none; padding: .2rem .3rem; gap: .2rem; }
+  .ac-member b { display: none; }
+  .ac-member .ac-glyph { display: block; }
+  .ac-member .ac-n { display: inline; font-weight: 600; color: var(--ink); }
+  .ac-open { padding: .2rem .4rem; }
+  /* one more control in a header row that already fills a 390 px phone: the status line's WORDS step aside (still read
+     to a screen reader; the dot keeps its colour, and a fault still shows in the #lb-alert line) — never a sideways scroll */
+  .top-right:has(.ac-open, .ac-member) { gap: .6rem; }
+  .top-right:has(.ac-open, .ac-member) #status-text {
+    position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+  }
+  /* …and when the page is stale, WHY is said under the header (#lb-stale, gateway.js renderFreshness), visibly */
+  body:has(.ac-open, .ac-member) .lb-stale:not([hidden]) { display: block; }
+  .top-right:has(.ac-member) { gap: .5rem; }
+}
+@media (max-width: 640px) {
+  .ac-meta, .ac-every, .ac-models { margin-left: 0; }
+  .ac-switch { width: 100%; }
+  .ac-role { flex: 1 1 0; min-height: 2.2rem; }
+  .ac-chip, .ac-save { min-height: 2.2rem; }
+}

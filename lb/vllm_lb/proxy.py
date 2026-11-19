@@ -41,7 +41,7 @@ import urllib.parse
 from dataclasses import asdict, dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from vllm_lb import multipart, panel_styles, prompt_count, router, topology, websearch
+from vllm_lb import multipart, panel_styles, prompt_count, roles, router, topology, websearch
 from vllm_lb.bench import BenchStore
 from vllm_lb.benchswarm import CAP_MIN_RANGE, BenchSwarm, SwarmRefused
 from vllm_lb.catalog import SGLANG as SGLANG_ENGINE
@@ -1530,9 +1530,25 @@ class Proxy:
             h.read_body()     # drain what was sent, so the reply is not raced by the rest of its body
             return h.send_json(*refused)
         path = urllib.parse.urlsplit(h.path).path
+        # ROLES (roles.py): the gate's word on who this is. No header = a caller inside the trust boundary
+        # (the chat, the runners); an unknown role is refused here, before any route; a MEMBER reaches only what
+        # roles.member_may lists, and what they reach is narrowed to their models below.
+        try:
+            member = roles.caller(h.headers)
+        except roles.UnknownRole as exc:
+            h.read_body()
+            return h.send_json(403, {"error": {"type": "role_unknown", "message": str(exc)}})
+        h.member = member
+        if member is not None and not roles.member_may(h.command, path, lambda p: static_file(p) is not None):
+            h.read_body()
+            return h.send_json(403, {"error": {"type": "admin_only",
+                                               "message": f"{h.command} {path} is an admin's, not a member's"}})
         if path == "/healthz":
             return h.send_json(200, {"ok": True})
         if path == "/lb/status":
+            if member is not None:
+                return h.send_json(200, roles.member_status(self.status(), member, self.cfg.fleet,
+                                                            self.cfg.cluster_name or None))
             return h.send_json(200, self.status())
         if path == "/lb/cluster" and h.command == "POST":
             return self.cluster_switch_request(h)
@@ -1583,7 +1599,8 @@ class Proxy:
         if path in ("/benchmarks", "/benchmarks/") and h.command in ("GET", "HEAD"):
             path = "/benchmarks.html"
         if path == "/v1/models" and h.command in ("GET", "HEAD"):
-            return h.send_json(200, models_payload(self.hub.snapshot(), self.cfg))
+            listed = models_payload(self.hub.snapshot(), self.cfg)
+            return h.send_json(200, listed if member is None else roles.member_models(listed, member))
         # NOTHING BUT INFERENCE IS RELAYED FROM THE API. `forward()` opens with
         # `inference = h.command == "POST"`, so every OTHER method under /v1/ is a reply the LB writes, and
         # the frozen rule covers it. Fixing this one method at a time is what cost rounds 4, 5 and 6: round
@@ -2734,7 +2751,8 @@ class Proxy:
 
         # Who is signed in is the gate's word to THIS process, never an engine's business (GATE_USER_HEADER).
         headers = {k: v for k, v in h.headers.items()
-                   if k.lower() not in HOP_BY_HOP and k.lower() not in ("host", "content-length", _GATE_USER)}
+                   if k.lower() not in HOP_BY_HOP and k.lower() not in ("host", "content-length", _GATE_USER)
+                   and k.lower() not in roles.GATE_HEADERS}
         headers["X-Forwarded-For"] = h.client_address[0]
         headers["X-Forwarded-Proto"] = "http"
         if parsed is _UNPARSED:
@@ -2764,6 +2782,15 @@ class Proxy:
                 return h.send_json(400, {"error": {"type": "invalid_request", "message": (
                     f"{urllib.parse.urlsplit(path).path} takes a multipart/form-data upload: {exc}")}})
         route = _Route(model if isinstance(model, str) else None, model in self._exact_models[task], task)
+        member = getattr(h, "member", None)
+        if inference and member is not None:
+            # A MEMBER'S TURN (roles.turn_refusal): one of their models, loaded now -- routed to exactly it, never
+            # onto (or renamed to) another; refused by name, before any engine is chosen
+            live = any(b.live and route.model in b.served_models for b in self.hub.snapshot().backends)
+            refused = roles.turn_refusal(member, route.model, live)
+            if refused is not None:
+                return h.send_json(*refused)
+            route = _Route(route.model, True, task)
         while True:
             # KILLED with no connection open — before the first backend, or between two: answered here, never sent.
             if turn.killed is not None:
@@ -2795,6 +2822,9 @@ class Proxy:
                     self.hub.note_starved()
             if backend is None:
                 break
+            if member is not None and route.model not in backend.served_models:
+                # the router chose a server of another model for a member's turn: never sent there (no substitute)
+                return h.send_json(*roles.routed_elsewhere(route.model))
             # …and refused where the CHOSEN engine would drop it (TensorFold reads only "background"): never sent.
             dropped = (router.priority_refusal(engine_of_backend(snap, backend, self.catalog))
                        if turn.priority is not None else "")

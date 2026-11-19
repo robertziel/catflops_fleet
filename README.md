@@ -296,6 +296,45 @@ unleased.
   names in `LB_ALLOWED_HOSTS` (required: your proxy's Host, the docker names containers dial, or `loopback`) —
   anything else is 421 — and refuses a write whose `Origin` is none of them (403). The power panel does the same
   with `POWER_ALLOWED_HOSTS`. Each distinct Host is logged once (`[host] first request with Host …`).
+* **Roles, from the front proxy.** A request carrying `X-Vllm-Role: member` (and `X-Vllm-Models: <served names,
+  comma-joined>`) is narrowed by the gateway (`lb/vllm_lb/roles.py`): `/v1/models` lists those models, a turn must
+  name one that is loaded (403 / 503 by name, never routed onto another), `/lb/status` shows only the servers and
+  boxes that serve or can load them — no engine address, no error text, nobody else's requests — and every control
+  route is 403. `admin`, or no header at all, is unrestricted; any other value is 403. The gateway does not check
+  WHO sends no header (your proxy dials from the same internal address as its other callers), so expose it only
+  through the proxy, and have the proxy SET both headers on every location that reaches it, replacing a client's
+  copy. With nginx `auth_request`:
+
+  ```nginx
+  map $vllm_role $vllm_role_sent { # http level: nginx DROPS a header set to "", which the gateway reads as
+      ""      "unset";             # unrestricted -- so a check that answers 2xx with no role, or a location that
+      default $vllm_role;          # forgot to ask, sends role `unset`, which the gateway refuses (403)
+  }
+  set $vllm_role "unset";          # server level
+  set $vllm_models "";
+  location / {
+      auth_request /_auth_check;   # your sign-in check answers X-Vllm-Role and X-Vllm-Models
+      auth_request_set $vllm_role   $upstream_http_x_vllm_role;
+      auth_request_set $vllm_models $upstream_http_x_vllm_models;
+      proxy_set_header X-Vllm-Role   $vllm_role_sent;
+      proxy_set_header X-Vllm-Models $vllm_models;
+      proxy_pass http://127.0.0.1:8010;
+  }
+  ```
+
+  Send the role through the map, never `$vllm_role` itself: a check that answers 2xx without `X-Vllm-Role` must be
+  refused, not passed on as no header.
+
+  Both `proxy_set_header` lines belong in EVERY location that proxies to the gateway: nginx gives a location the
+  server's `proxy_set_header` lines only when it sets none of its own, so a location with any other header line
+  (`Host`, `X-Forwarded-For`, …) and no role line passes the client's own `X-Vllm-Role` through — unrestricted.
+  Check every `proxy_pass` to the gateway when you add one.
+
+  The panel draws an admin's **Access** dialog and a member's line only when the proxy's sign-in service answers
+  `GET /auth/session` with `{"email", "role": "admin"|"member", "models": [...]}`; without one it draws neither.
+  The dialog reads `GET /auth/access` → `{"people": [{"email", "role", "models", "signed_in_at", "updated_by",
+  "updated_at"}]}` and saves one person with `POST /auth/access` `{"email", "role", "models"}` (JSON, same origin),
+  answered `200 {"person": {…as listed}}`, or a refusal `{"error": "<words>"}` (or `"detail"`) shown as is.
 * **The power panel** (`power/`) can power machines off. It is dry-run unless `POWER_DRY_RUN=0`, answers
   only requests carrying the front proxy's secret (`X-Power-Gate`) from `POWER_ORIGINS`, acts only on the
   boxes in `POWER_BOXES`, and its installer (`power/install/host-setup.sh`) ships no key.
