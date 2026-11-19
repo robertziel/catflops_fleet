@@ -27,7 +27,8 @@ DEPLOY = REPO / "deploy"
 #: all of them or none.
 EDGE_FILES = ("gate", "deploy/nginx-edge-vllm.example.conf", "deploy/standalone/docker-compose.yml",
               "deploy/standalone/nginx.conf.template", "deploy/tests/test_api_key_route.py",
-              "deploy/tests/test_kill_route.py", "deploy/tests/test_no_inference_online.py")
+              "deploy/tests/test_kill_route.py", "deploy/tests/test_no_inference_online.py",
+              "deploy/tests/test_role_route.py")
 GATE = (REPO / "gate").is_dir()
 needs_gate = unittest.skipUnless(GATE, "gate/ is not in this tree (PUBLISHING.md drops the signed-in edge from the release)")
 #: THE CHAT FRONT-END: chat/ is its own project (catflops_chat; operator decision, 2026-10-29) and the release ships
@@ -589,6 +590,26 @@ def _deployment_words(text: str, *, metadata: bool = False) -> set[str]:
     return {t for t in set(re.findall(r"\w+", cleaned)) if hashlib.sha256(t.encode()).hexdigest() in DEPLOYMENT_WORDS}
 
 
+class ReadmeRoleSnippetFailsClosed(unittest.TestCase):
+    """The README's nginx pattern for roles is what a deployment copies. A sign-in check that answers 2xx without
+    X-Vllm-Role makes `auth_request_set` set $vllm_role to "", nginx drops a header set to "", and the gateway reads no
+    header as unrestricted -- so the snippet sends the role through a map that turns "" into `unset` (refused, 403)."""
+
+    def snippet(self) -> str:
+        text = _text("README.md")
+        blocks = [b for b in re.findall(r"```nginx\n(.*?)```", text, re.S) if "X-Vllm-Role" in b]
+        self.assertEqual(len(blocks), 1, "one nginx roles snippet in README.md")
+        return re.sub(r"#[^\n]*", "", blocks[0])   # its comments, not its directives
+
+    def test_an_empty_role_is_sent_as_unset(self):
+        self.assertRegex(self.snippet(), r'map \$vllm_role \$vllm_role_sent \{\s*""\s+"unset";\s*default\s+\$vllm_role;\s*\}')
+
+    def test_the_role_goes_out_through_the_map_only(self):
+        code = self.snippet()
+        self.assertIn("proxy_set_header X-Vllm-Role   $vllm_role_sent;", code)
+        self.assertNotRegex(code, r"proxy_set_header X-Vllm-Role\s+\$vllm_role;")
+
+
 class PublishedTreeNamesNoDeployment(unittest.TestCase):
     """DEP-40: the published tree (deploy/, frpc/, power/, usage-mcp/, dashboard/, crawl/, the root scripts) names no
     box, host, edge, disk, sibling project or private link of one deployment, and no personal sign-in site's app
@@ -722,3 +743,23 @@ class PublishedTreeNamesNoDeployment(unittest.TestCase):
         tracked_real = [str(real.relative_to(REPO)) for _, real in self._examples()
                         if str(real.relative_to(REPO)) in tracked]
         self.assertFalse(tracked_real, f"a real deployment file is tracked: {tracked_real}")
+
+
+class CiPipeline(unittest.TestCase):
+    """The Jenkinsfile runs every gate deploy/ci/gates.sh knows, one commit status each, on a node a deployment labels
+    `catflops-ci` (an amd64 host with the Docker socket) — never `agent any`, which a controller whose nodes take only
+    their own labels would never schedule, and which would put the gates on whatever node is free."""
+
+    def test_the_pipeline_asks_for_the_projects_label(self):
+        code = _text("Jenkinsfile")
+        self.assertRegex(code, r"agent \{ label 'catflops-ci' \}")
+        self.assertNotRegex(code, r"(?m)^\s*agent any\b")
+
+    def test_the_pipeline_runs_every_gate_the_script_knows(self):
+        script = _text("deploy/ci/gates.sh")
+        known = re.search(r"for g in ([a-z -]+); do", script).group(1).split()
+        listed = re.search(r"def GATES = \[([^\]]*)\]", _text("Jenkinsfile")).group(1)
+        self.assertEqual(re.findall(r"'([a-z-]+)'", listed), known)
+
+    def test_the_gate_script_is_executable(self):
+        self.assertTrue((REPO / "deploy/ci/gates.sh").stat().st_mode & stat.S_IXUSR)

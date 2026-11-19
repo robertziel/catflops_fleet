@@ -41,6 +41,9 @@
   <!-- What stops the LB serving — broker_parrot's DB unreachable, a failing control tick — in the
        LB's own words. Shown only while /lb/status says so. -->
   <div id="lb-alert" class="alert" role="alert" hidden></div>
+  <!-- WHY THE PAGE IS STALE, on a phone whose header gives the status line's words to Access (gateway.css): the same
+       words renderFreshness writes in #status-text, never shown where the header still has them. -->
+  <div id="lb-stale" class="alert lb-stale" role="status" hidden></div>
   <!-- THE STYLE'S NOTICES (styles.js `say`): a stored style the registry does not list, a sheet that did not load, a
        browser that keeps nothing — each a line with its action, never a silent substitute. -->
   <div id="style-notice" class="st-notice" role="status" hidden></div>
@@ -451,6 +454,9 @@
   <!-- CONNECT AN AGENT: a modal dialog (Esc closes, focus stays inside), built by gateway.js on first open from the
        page's own origin, the LB's live /v1/models, what /auth/session answers here and /lb/status `connect`. -->
   <dialog id="connect" class="cn" aria-labelledby="connect-title"></dialog>
+  <!-- WHO IS WHAT (access.js): the admin's Access dialog over the sign-in gate's /auth/access — each person's
+       role and, for a member, the models they may use. Built on first open; only an admin's top bar opens it. -->
+  <dialog id="access" class="ac" aria-labelledby="access-title"></dialog>
 
   <script src="/clusters.js"></script>
   <!-- palette.js: the colours gateway.js computes (the load and rate scales) are read from the style's tokens. -->
@@ -458,5 +464,6 @@
   <script src="/gateway.js"></script>
   <script src="/recorder.js"></script>
   <script src="/layout.js"></script>
+  <script src="/access.js"></script>
 </body>
 </html>
