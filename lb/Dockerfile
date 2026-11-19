@@ -44,12 +44,13 @@ RUN cd /app/vllm_lb/static/styles \
     && sed -i "s#'/styles/index.json'#'/styles/index.json?v=$v'#" ../styles.js \
     && grep -q "'/styles/index.json?v=$v'" ../styles.js
 RUN cd /app/vllm_lb/static \
-    && for f in clusters.js gateway.js gateway.css layout.js layout.css benchmarks.js benchmarks.css sessions.js sessions.css server-scope.js recorder.js recorder.css palette.js styles.js; do \
+    && for f in access.js clusters.js gateway.js gateway.css layout.js layout.css benchmarks.js benchmarks.css sessions.js sessions.css server-scope.js recorder.js recorder.css palette.js styles.js; do \
          v=$(sha256sum "$f" | cut -c1-12) \
          && sed -i "s#\"/$f\"#\"/$f?v=$v\"#g" index.html benchmarks.html sessions.html; \
        done \
     && grep -q 'gateway.js?v=' index.html && grep -q 'gateway.css?v=' index.html \
     && grep -q 'clusters.js?v=' index.html \
+    && grep -q 'access.js?v=' index.html \
     && grep -q 'recorder.js?v=' index.html && grep -q 'recorder.css?v=' index.html \
     && grep -q 'layout.js?v=' index.html && grep -q 'layout.css?v=' index.html \
     && grep -q 'benchmarks.js?v=' benchmarks.html && grep -q 'benchmarks.css?v=' benchmarks.html \
