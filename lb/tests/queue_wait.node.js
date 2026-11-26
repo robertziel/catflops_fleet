@@ -33,9 +33,11 @@ const window = { addEventListener() {}, innerWidth: 1280, innerHeight: 800, matc
   matches: false, addEventListener() {} }), localStorage: { getItem: () => null, setItem() {} } };
 const api = new Function('document', 'window', 'fetch', 'location', 'setInterval', 'setTimeout',
   'getComputedStyle', 'ResizeObserver', 'localStorage', 'navigator',
-  `${src}\n;return { requestRow, recentRow, requestCounts, queueTile, RECENT_HEAD };`)(
+  `${src}\n;return { setTimeAxis, requestRow, recentRow, requestCounts, queueTile, RECENT_HEAD };`)(
   document, window, () => new Promise(() => {}), { search: '', href: '' }, () => 0, () => 0,
   () => ({}), undefined, window.localStorage, { userAgent: 'node' });
+// these fixtures' probes are 5 s apart: 90 s of them is 18 columns (gateway.js setTimeAxis)
+api.setTimeAxis({ config: { probe_interval_s: 5 } });
 
 const strip = (h) => h.replace(/<[^>]*>/g, ' ').replace(/&middot;/g, '·').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
   .replace(/\s+/g, ' ').trim();

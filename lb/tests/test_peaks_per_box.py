@@ -77,7 +77,7 @@ def _sat(**effective) -> dict:
     from vllm_lb.hub import Hub
     from vllm_lb.probe import SCRAPE_FAMILIES
     from vllm_lb.proxy import Proxy
-    cfg = Config(vllm_boxes=(), fleet=gb10_pair(), cluster_url=HEAD,
+    cfg = Config(probe_interval_s=5.0, vllm_boxes=(), fleet=gb10_pair(), cluster_url=HEAD,
                  cluster_hosts=parse_hosts("box-a-gpu=box-a=op@192.0.2.10=198.51.100.1,"
                                            "box-b-gpu=box-b=op@192.0.2.11=198.51.100.2"),
                  listen_host="127.0.0.1", listen_port=0)
@@ -125,7 +125,7 @@ def test_an_lb_wide_peak_is_refused_naming_where_peaks_live_now(tmp_path, key, v
 
 
 def test_the_config_carries_no_lb_wide_peak():
-    c = Config()
+    c = Config(probe_interval_s=5.0)
     for gone in ("gpu_peak_gbps", "gpu_peak_tflops", "gpu_peak_tflops_precision"):
         assert not hasattr(c, gone), gone
     assert set(ENV_OF_PAIR) < set(RETIRED_KEYS)

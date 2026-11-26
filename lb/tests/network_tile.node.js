@@ -42,9 +42,11 @@ const window = { addEventListener() {}, innerWidth: 1280, innerHeight: 800, matc
   matches: false, addEventListener() {} }), localStorage: { getItem: () => null, setItem() {} } };
 const api = new Function('document', 'window', 'fetch', 'location', 'setInterval', 'setTimeout',
   'getComputedStyle', 'ResizeObserver', 'localStorage', 'navigator',
-  `${src}\n;return { serverCard, ceilingTile };`)(
+  `${src}\n;return { setTimeAxis, serverCard, ceilingTile };`)(
   document, window, () => new Promise(() => {}), { search: '', href: '' }, () => 0, () => 0,
   () => ({}), undefined, window.localStorage, { userAgent: 'node' });
+// these fixtures' probes are 5 s apart: 90 s of them is 18 columns (gateway.js setTimeAxis)
+api.setTimeAxis({ config: { probe_interval_s: 5 } });
 
 let checks = 0;
 const ok = (c, m, d) => { assert.ok(c, `${m}${d === undefined ? '' : ` — ${JSON.stringify(d)}`}`); checks++; };

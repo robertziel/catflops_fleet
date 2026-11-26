@@ -110,6 +110,9 @@ Claude Code, the OpenAI and Anthropic SDKs, `curl`, or a web chat of your own po
 - **Routing.** Every request goes to a live backend the fleet file names; the `model` in the request is
   rewritten to what that backend serves. With nothing live the gateway waits (`LB_ADMISSION_WAIT_S`) and then
   answers 503 with the reason. `/lb/status` shows backends, demand and — with the broker on — leases.
+- **The panel's feed.** `/lb/stream` is the same status as Server-Sent Events: the document whole once, then
+  after every control tick (1 s) only what changed. The panel follows it; behind nginx it needs no extra config
+  (the reply carries `X-Accel-Buffering: no`).
 - **The pair.** One switch on the panel (or `POST /lb/cluster`) runs a model tensor-parallel across two boxes.
   The gateway picks the model from its library (`lb/vllm_lb/library`: models, recipes, measurements), RESOLVES
   it on the cluster's cards — engine × accelerator × platform → image, or a refusal naming the missing piece —

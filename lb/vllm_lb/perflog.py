@@ -7,7 +7,7 @@ traffic is not — the mix of prompt lengths, output lengths and concurrency mov
 minute — so this log records WHAT happened under WHICH configuration, and the page that reads it
 (/benchmarks) says in words that a difference between two configurations may be the traffic.
 
-A WINDOW. The samples are the probe's own (one every `probe_interval_s`, ~5-6 s). They are cut into
+A WINDOW. The samples are the probe's own (one every `probe_interval_s`, ~1 s). They are cut into
 windows on the wall-clock minute (`window_s`) AND at every change of the configuration, so no window
 ever mixes two. A counter's increment is taken between two consecutive READS, timed by their
 monotonic stamps, and each such pair belongs to the window of its LATER read — so consecutive windows

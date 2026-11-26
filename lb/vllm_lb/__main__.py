@@ -170,6 +170,7 @@ def main() -> int:
     finally:
         if recorder is not None:
             recorder.close()         # the minute in progress, if it had any activity
+        ctl.close()                  # no new probe; one still out ends on its own timeouts
         proxy.stop()
         hw.stop()
     log.info("[main] stopped%s", "; leases are kept for the next start to adopt" if cfg.broker_enabled else "")

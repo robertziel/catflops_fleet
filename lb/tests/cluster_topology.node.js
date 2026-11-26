@@ -35,9 +35,11 @@ const window = { addEventListener() {}, innerWidth: 1280, innerHeight: 800, matc
 
 const api = new Function('document', 'window', 'fetch', 'location', 'setInterval', 'setTimeout',
   'getComputedStyle', 'ResizeObserver', 'localStorage', 'navigator',
-  `${src}\n;return { serverCard, clusterTrack, renderPrimary, topologyOf, clusterName, ranksOf };`)(
+  `${src}\n;return { setTimeAxis, serverCard, clusterTrack, renderPrimary, topologyOf, clusterName, ranksOf };`)(
   document, window, () => new Promise(() => {}), { search: '', href: '' }, () => 0, () => 0,
   () => ({}), undefined, window.localStorage, { userAgent: 'node' });
+// these fixtures' probes are 5 s apart: 90 s of them is 18 columns (gateway.js setTimeAxis)
+api.setTimeAxis({ config: { probe_interval_s: 5 } });
 
 const NOW = 1791742000;
 const box = (rank) => ({ label: 'x', reservation: { status: 'running', job_id: 'abcdef12' }, running_jobs: 0,

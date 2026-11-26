@@ -264,7 +264,7 @@ def fleet(**over):
     from vllm_lb.proxy import Proxy
     from tests.fleet_files import gb10_pair
     # The pair's cards are GB10s (the fleet names them): their type states the 273 GB/s bus.
-    cfg = Config(vllm_boxes=(), fleet=gb10_pair(),
+    cfg = Config(probe_interval_s=5.0, vllm_boxes=(), fleet=gb10_pair(),
                  cluster_hosts=parse_hosts(HOSTS), cluster_url=HEAD, listen_host="127.0.0.1", listen_port=0, **over)
     hub = Hub(cfg)
     return cfg, hub, Proxy(cfg, hub)
@@ -309,7 +309,7 @@ def test_an_lb_with_no_cluster_has_no_saturation_block_at_all():
     from vllm_lb.config import Config
     from vllm_lb.hub import Hub
     from vllm_lb.proxy import Proxy
-    cfg = Config(vllm_boxes=(), listen_host="127.0.0.1", listen_port=0)
+    cfg = Config(probe_interval_s=5.0, vllm_boxes=(), listen_host="127.0.0.1", listen_port=0)
     assert Proxy(cfg, Hub(cfg)).status()["saturation"] is None
 
 

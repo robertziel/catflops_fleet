@@ -35,11 +35,21 @@ const plain = (html) => String(html == null ? '' : html).replace(/<[^>]*>/g, '')
 /** ` title="…"` for a one-line slot holding `html`, or nothing when it holds nothing. */
 const cutTitle = (html) => { const t = plain(html); return t ? ` title="${esc(t)}"` : ''; };
 
-const POLL_MS = 3000;
-/** A status poll that has not answered in this long is abandoned; `poll` never starts a second. */
+/** THE PAGE FOLLOWS /lb/stream: the status whole once, then a
+ *  patch after every control tick (static/status_delta.js applies it). It used to poll /lb/status every 3 s for the
+ *  whole 300 KB document while the figures under it moved once a probe — some polls brought nothing, some a jump. */
+const STREAM_PATH = '/lb/stream';
+/** How long after a stream that would not open (a 502 from the vhost, a 403) it is opened again. EventSource
+ *  reconnects by itself after a stream that DROPPED; after one refused it stays closed, so the page reopens it. */
+const STREAM_REOPEN_MS = 2000;
+/** The stream speaks at least every two control ticks (proxy `status_stream`); no event for three reads as stale.
+ *  The tick is the LB's own (`config.tick_s`), read off the status it sends. */
+const STALE_TICKS = 3;
+/** Before the first event there is no tick to count in: this long with nothing reads as stale. */
+const CONNECT_WAIT_MS = 6000;
+/** A one-off read of /lb/status (`poll`, after the page's own writes) that has not answered in this long is
+ *  abandoned; `poll` never starts a second. */
 const POLL_TIMEOUT_MS = 5000;
-/** No success for this long reads as stale — whether or not any request has settled. */
-const STALE_AFTER_MS = 2 * POLL_MS;
 
 /** A refusal in the LB's own words: "HTTP 502 — no live backend could be reached …". Every error
  *  the LB answers with is `{"error": {"type", "message"}}`, and the message is the part that names
@@ -63,7 +73,17 @@ async function refusal(r) {
 //
 // History comes from /lb/status, never from this page: it used to be accumulated in a local Map
 // and every reload erased the minute before the tab was opened.
-const SPARKLINE_COLS = 18;
+// HOW MUCH TIME A GRAPH SHOWS — in seconds, not samples: at one probe a second a graph of 18 samples
+// showed 18 s where it had shown 90. The columns are the LB's own probe interval's (`setTimeAxis`, from every status
+// `renderStatus` draws); until a status has set them there are none, and a graph asked for refuses (`windowOf`).
+const SPARKLINE_S = 90;
+let SPARKLINE_COLS = null;
+
+/** The time axis from a status: SPARKLINE_S of the LB's probes (`config.probe_interval_s`, which the LB's config
+ *  refuses at zero or below). */
+function setTimeAxis(s) {
+  SPARKLINE_COLS = Math.max(2, Math.round(SPARKLINE_S / s.config.probe_interval_s));
+}
 
 const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
 
@@ -99,6 +119,7 @@ const queueColor = (depth, concurrency) => palette.css(palette.hsl('--scale-queu
  *  (the app's `max == 100 ? loadColor : rateColor`): the metric's own ceiling when it has one (a
  *  percent's 100), else the window's peak. */
 function windowOf(series, o) {
+  if ('cols' in o && o.cols == null) throw new Error('no time axis yet: a status sets it (setTimeAxis)');
   const raw = o.cols ? (series || []).slice(-o.cols) : (series || []);
   const cells = o.cols ? new Array(o.cols - raw.length).fill(null).concat(raw) : raw.slice();
   const nums = cells.filter(isNum);
@@ -134,13 +155,20 @@ const SPARKLINE_W = 100, SPARKLINE_H = 24;
  *  `data-samples` spells the axis: 1 a sample, 0 a gap, one per slot. */
 function sparkline(series, opts) {
   const o = opts || {};
-  const w = windowOf(series, o);
+  // THE GLIDE (`timeline` marks a fresh series with `slide`): the graph is drawn ONE COLUMN WIDER on the
+  // left, then shifted right by a column and slid back over one probe period, starting the moment the newest
+  // sample was taken (a negative animation-delay: a graph painted again mid-glide stands where the glide is, not
+  // back at its start). What is drawn is only the samples, as before — the motion is the time axis moving, no value
+  // between two samples is invented. `prefers-reduced-motion` stops it (gateway.css).
+  const glide = series && series.slide && o.cols ? series.slide : null;
+  const w = windowOf(series, glide ? Object.assign({}, o, { cols: o.cols + 1 }) : o);
   const n = w.cells.length;
   // The rule a graph is read against — a rate's target, a queue's concurrency — is on the axis, so the
   // axis is at least that tall.
   const rule = isNum(o.target) && o.target > 0 ? o.target : (o.kind === 'queue' && o.concurrency > 0 ? o.concurrency : null);
   const top = Math.max(o.max || 0, rule || 0, w.peak, 1);
-  const x = (i) => (n > 1 ? (i * SPARKLINE_W) / (n - 1) : SPARKLINE_W);
+  const span = glide ? n - 2 : n - 1;                      // the columns the box shows; a glide's first is off its left
+  const x = (i) => (span > 0 ? ((glide ? i - 1 : i) * SPARKLINE_W) / span : SPARKLINE_W);
   const y = (v) => 1 + (SPARKLINE_H - 2) * (1 - Math.min(Math.max(v, 0), top) / top);   // 0 sits on the base
   const pt = (i) => `${x(i).toFixed(2)} ${y(w.cells[i]).toFixed(2)}`;
   let line = '', fill = '', lone = '';
@@ -161,7 +189,7 @@ function sparkline(series, opts) {
   // that tile passes `max` — the axis then holds both.) No colour and no fill: colour on this card means "how close
   // to the target" and a second coloured line would claim a second reading of that. It is drawn FIRST, so the
   // headline's line is never covered by it.
-  const under = o.under ? windowOf(o.under, { cols: o.cols }) : null;
+  const under = o.under ? windowOf(o.under, { cols: glide ? n : o.cols }) : null;
   let quiet = '';
   if (under) {
     const uy = (v) => 1 + (SPARKLINE_H - 2) * (1 - Math.min(Math.max(v, 0), top) / top);
@@ -180,23 +208,33 @@ function sparkline(series, opts) {
   let last = w.nums.length ? w.colourOf(w.nums[0]) : scaleColor(0);
   const colours = w.cells.map((v) => (isNum(v) ? (last = w.colourOf(v)) : last));
   const stops = colours.map((c, i) => (c === colours[i - 1] && c === colours[i + 1] ? ''
-    : `<stop offset="${(n > 1 ? i / (n - 1) : 0).toFixed(4)}" stop-color="${c}"/>`)).join('');
+    : `<stop offset="${(n > 1 ? Math.min(1, Math.max(0, x(i) / SPARKLINE_W)) : 0).toFixed(4)}" stop-color="${c}"/>`)).join('');
   const id = `sg${hashOf(`${o.key || ''}|${stops}`)}`;
   const ink = `url(#${id})`;
-  const samples = w.cells.map((v) => (isNum(v) ? '1' : '0')).join('');
+  const samples = (glide ? w.cells.slice(1) : w.cells).map((v) => (isNum(v) ? '1' : '0')).join('');   // the box's slots
   const newest = w.nums[w.nums.length - 1];
   const glow = isNum(newest) && w.glows(newest);
+  // The glide's group: clipped to the box (the graph's own overflow is visible, for the glow), shifted a column.
+  const col = span > 0 ? SPARKLINE_W / span : 0;
+  const clip = `sc${hashOf(`${o.key || ''}|${n}`)}`;
+  const open = glide ? `<g clip-path="url(#${clip})"><g class="graph-glide" style="--glide-from:${col.toFixed(2)}px;`
+    + `animation-duration:${Math.round(glide.period_s * 1000)}ms;animation-delay:-${Math.round(Math.min(glide.age_s, glide.period_s) * 1000)}ms">` : '';
+  const close = glide ? '</g></g>' : '';
+  const defs = (w.nums.length ? `<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="${SPARKLINE_W}" y2="0">${stops}</linearGradient>` : '')
+    + (glide ? `<clipPath id="${clip}"><rect x="0" y="-4" width="${SPARKLINE_W}" height="${SPARKLINE_H + 8}"/></clipPath>` : '');
   return `<svg class="sparkline${o.cls ? ` ${o.cls}` : ''}${glow ? ' glow' : ''}" viewBox="0 0 ${SPARKLINE_W} ${SPARKLINE_H}" preserveAspectRatio="none"
     aria-hidden="true" data-samples="${samples}">`
-    + (w.nums.length ? `<defs><linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="${SPARKLINE_W}" y2="0">${stops}</linearGradient></defs>` : '')
+    + (defs ? `<defs>${defs}</defs>` : '')
     + `<line class="sparkline-base" x1="0" y1="${SPARKLINE_H - 0.25}" x2="${SPARKLINE_W}" y2="${SPARKLINE_H - 0.25}" vector-effect="non-scaling-stroke"/>`
     // THE TARGET, a dashed rule at its own height: what this setup has reached, to be read against.
     + (rule != null ? `<line class="sparkline-target" x1="0" y1="${y(rule).toFixed(2)}" x2="${SPARKLINE_W}" y2="${y(rule).toFixed(2)}" vector-effect="non-scaling-stroke"/>` : '')
+    + open
     + (fill ? `<path d="${fill}" fill="${ink}" fill-opacity="${palette.token('--area-opacity')}"/>` : '')
     + (quiet ? `<path class="sparkline-per-req" d="${quiet}" fill="none" stroke-width="1"
          stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>` : '')
     + (line ? `<path d="${line}" fill="none" stroke="${ink}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>` : '')
     + (lone ? `<path d="${lone}" fill="none" stroke="${ink}" stroke-width="3" stroke-linecap="round" vector-effect="non-scaling-stroke"/>` : '')
+    + close
     + '</svg>';
 }
 
@@ -377,17 +415,24 @@ function timeline(s, points) {
   if (!points.length) return [];
   const spacings = points.slice(1).map(([at], i) => at - points[i][0]).filter((d) => d > 0)
     .sort((a, b) => a - b);
-  const period = spacings.length ? spacings[Math.floor(spacings.length / 2)]
-    : ((s.config || {}).probe_interval_s || 5);
+  const period = spacings.length ? spacings[Math.floor(spacings.length / 2)] : s.config.probe_interval_s;
   const cols = [];
   points.forEach(([at, v], i) => {
     const missing = i ? Math.round((at - points[i - 1][0]) / period) - 1 : 0;
     for (let k = 0; k < Math.min(missing, SPARKLINE_COLS); k++) cols.push(null);
     cols.push(v);
   });
-  const quiet = Math.round((s.now - points[points.length - 1][0]) / period) - 1;
+  const newest = points[points.length - 1][0];
+  const quiet = Math.round((s.now - newest) / period) - 1;
   for (let k = 0; k < Math.min(quiet, SPARKLINE_COLS); k++) cols.push(null);
-  return cols.slice(-SPARKLINE_COLS);
+  // One column more than a graph shows: the glide draws it, just off the left edge (`sparkline`); a graph that does
+  // not glide takes its own `cols` off the right of it (`windowOf`).
+  const out = cols.slice(-(SPARKLINE_COLS + 1));
+  // THE GLIDE (`sparkline`): a fresh series slides its newest sample in over one period, from the moment it was
+  // taken — so the line moves continuously instead of stepping a column at each probe. A series gone quiet has
+  // nothing new coming in and stays still.
+  if (quiet <= 0 && period > 0) out.slide = { age_s: Math.max(0, s.now - newest), period_s: period };
+  return out;
 }
 
 /** One of a backend's history rings on the time axis; a history without `at` keeps sample order. */
@@ -6161,10 +6206,11 @@ function swarmHeld() {
   swarmAct(swChosenCap(q));
 }
 
-let lastOk = null;      // WHEN we last heard from /lb/status
-let lastError = '';     // why the latest poll failed; a success clears it
-let lastStatus = null;  // WHAT it said — the controls redraw from it between polls
-let polling = null;     // the ONE /lb/status request out, if any
+let lastOk = null;      // WHEN we last heard from the gateway (a stream event, a one-off read)
+let lastError = '';     // why the latest read failed; a success clears it
+let lastStatus = null;  // WHAT it said — the controls redraw from it between events
+let polling = null;     // the ONE one-off /lb/status request out, if any
+let streamDoc = null;   // the document THIS stream connection holds: its next patch applies to it and nothing else
 const loadedAt = Date.now();
 
 /** WHY NOTHING CAN BE LEASED, quoted. With broker_parrot's database unreachable the LB takes no
@@ -6190,7 +6236,8 @@ function renderAlert(s) {
 function renderFreshness() {
   const since = Date.now() - (lastOk == null ? loadedAt : lastOk);
   const stale = $('lb-stale');
-  if (!lastError && since < STALE_AFTER_MS) {
+  const staleAfter = lastStatus ? STALE_TICKS * lastStatus.config.tick_s * 1000 : CONNECT_WAIT_MS;
+  if (!lastError && since < staleAfter) {
     if (lastOk == null) return;                 // still connecting
     $('connection-status').className = 'conn ok';
     $('status-text').textContent = 'updated just now';
@@ -6205,11 +6252,11 @@ function renderFreshness() {
   if (stale) { stale.textContent = said; stale.hidden = false; }
 }
 
-/** Read /lb/status: ONE request at a time, abandoned after POLL_TIMEOUT_MS. The interval used to
- *  start a fetch every 3 s whatever the last was doing; against a hung LB none settled, so none
- *  could say so, and they held the browser's six connections to this origin until the page's own
- *  POSTs queued behind them. A caller arriving mid-poll shares the one out — unless it needs the
- *  state its own write caused (`fresh`), and then it waits for that one and starts its own. */
+/** Read /lb/status ONCE — for a write of the page's own that wants the state it caused drawn now, not at the
+ *  stream's next tick. ONE request at a time, abandoned after POLL_TIMEOUT_MS: against a hung LB a read that never
+ *  settles must not hold the browser's connections to this origin. A caller arriving mid-read shares the one out —
+ *  unless it needs the state its own write caused (`fresh`), and then it waits for that one and starts its own.
+ *  The stream goes on beside it: its next patch applies to the stream's own document (`streamDoc`), never to this. */
 async function poll({ fresh = false } = {}) {
   if (fresh && polling) await polling;
   if (!polling) polling = pollOnce().finally(() => { polling = null; });
@@ -6220,12 +6267,62 @@ async function poll({ fresh = false } = {}) {
  *  `selectTab` → `renderStatus(lastStatus)`): the selected server's card, its head's engine card and its requests, the
  *  Cluster section's tiles (its marks), the fleet's figures. */
 function renderStatus(s) {
+  setTimeAxis(s);
   renderAlert(s); renderCluster(s); renderSwarm(s); renderQueued(s); renderServers(s);
   // The server tabs (clusters.js, loaded before this file); the guard is for the node harnesses that load
   // gateway.js alone (tests/*.node.js).
   if (typeof renderClusters === 'function') renderClusters(s);
   renderMachines(s); renderRequests(s);
   placeMarks();
+}
+
+/** One status taken from the stream: drawn, kept as the base of the next patch, and the gateway heard from. A
+ *  status that fails to DRAW is said in the header like a failed read; the numbers on screen stay, labelled old. */
+function takeStreamed(s) {
+  streamDoc = s;
+  try {
+    renderStatus(s);
+    lastStatus = s;
+    lastOk = Date.now();
+    lastError = '';
+  } catch (e) {
+    lastError = e.message;
+  }
+  renderFreshness();
+}
+
+/** FOLLOW /lb/stream. `status` is the document whole (every connection opens with it), `patch` what the next tick
+ *  changed. A patch that cannot be applied, or a stream that will not open, closes this connection and opens a
+ *  fresh one — which starts from the whole document again; the page never draws a patch onto a document it does
+ *  not hold. While it is down the numbers stay up, labelled stale with the reason (`renderFreshness`). */
+function follow() {
+  const es = new EventSource(STREAM_PATH);
+  const reopen = (why) => {
+    es.close();
+    streamDoc = null;
+    lastError = why;
+    renderFreshness();
+    setTimeout(follow, STREAM_REOPEN_MS);
+  };
+  es.addEventListener('status', (e) => takeStreamed(JSON.parse(e.data)));
+  es.addEventListener('patch', (e) => {
+    if (!streamDoc) return reopen('the stream sent a patch before its status');
+    let next;
+    try {
+      next = statusDelta.apply(JSON.parse(e.data), streamDoc);
+    } catch (err) {
+      return reopen(`a stream patch did not apply: ${err.message}`);
+    }
+    takeStreamed(next);
+  });
+  es.addEventListener('error', () => {
+    streamDoc = null;
+    // CONNECTING: it dropped and EventSource is already reconnecting (after the LB's `retry`). CLOSED: it was refused
+    // — not an event stream at all (the vhost's 502 while the LB restarts, a sign-in page) — and stays closed.
+    if (es.readyState === EventSource.CLOSED) return reopen('the gateway refused the status stream');
+    lastError = 'the status stream dropped — reconnecting';
+    renderFreshness();
+  });
 }
 
 async function pollOnce() {
@@ -6983,6 +7080,8 @@ if ($('swarm-cap')) {
 document.addEventListener('fleet:style', () => { if (lastStatus) renderStatus(lastStatus); });
 // A graph's reference label is placed in the graph's own pixels, so a new width places it again.
 window.addEventListener('resize', () => placeMarks());
-poll();
-setInterval(poll, POLL_MS);
-setInterval(renderFreshness, 1000);     // the age keeps counting while a poll hangs
+// No EventSource (the node harnesses that load this file, tests/*.node.js): the page cannot follow the gateway, and
+// says so — it does not poll instead.
+if (typeof EventSource === 'function') follow();
+else { lastError = 'this browser has no EventSource: the page cannot follow the gateway'; renderFreshness(); }
+setInterval(renderFreshness, 1000);     // the age keeps counting while the stream is silent

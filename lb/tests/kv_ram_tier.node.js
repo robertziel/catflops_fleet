@@ -39,9 +39,11 @@ const window = { addEventListener() {}, innerWidth: 1280, innerHeight: 800, matc
   matches: false, addEventListener() {} }), localStorage: { getItem: () => null, setItem() {} } };
 const api = new Function('document', 'window', 'fetch', 'location', 'setInterval', 'setTimeout',
   'getComputedStyle', 'ResizeObserver', 'localStorage', 'navigator',
-  `${src}\n;return { serverCard, kvRamTile, tileCount, SPARKLINE_H, scaleColor };`)(
+  `${src}\n;return { setTimeAxis, serverCard, kvRamTile, tileCount, SPARKLINE_H, scaleColor };`)(
   document, window, () => new Promise(() => {}), { search: '', href: '' }, () => 0, () => 0,
   () => ({}), undefined, window.localStorage, { userAgent: 'node' });
+// the LB's probes in these fixtures are 5 s apart: 90 s of them is 18 columns (gateway.js setTimeAxis)
+api.setTimeAxis({ config: { probe_interval_s: 5 } });
 
 let checks = 0;
 const ok = (c, m, d) => { assert.ok(c, `${m}${d === undefined ? '' : ` — ${JSON.stringify(d)}`}`); checks++; };

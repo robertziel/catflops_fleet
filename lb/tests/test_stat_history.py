@@ -27,7 +27,7 @@ from vllm_lb.proxy import Proxy
 from vllm_lb.state import VLLM
 
 URL = "http://box-a:8000"
-CFG = Config(vllm_boxes=(VllmBox("box-a-gpu", "box-a", URL),))
+CFG = Config(probe_interval_s=5.0, vllm_boxes=(VllmBox("box-a-gpu", "box-a", URL),))
 
 
 def _probe(hub, *, at, running=0, waiting=0, gen=None, live=True, read=True):

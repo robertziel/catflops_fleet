@@ -1,5 +1,5 @@
 # vllm-hw-sender: THIS server's hardware telemetry — the fleet_telemetry package (lb/fleet_telemetry), run as
-# `python -m fleet_telemetry`. Every 5 s it samples CPU, RAM, GPUs, temperatures, power, clocks, fans, network
+# `python -m fleet_telemetry`. Every second it samples CPU, RAM, GPUs, temperatures, power, clocks, fans, network
 # counters and containers, and broadcasts one JSON datagram (UDP HW_SENDER_PORT) the gateway draws its hardware tiles
 # and per-box FLIGHT RECORDER from (vllm_lb/hw.py, vllm_lb/recorder.py).
 #

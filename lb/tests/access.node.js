@@ -232,8 +232,10 @@ const PEOPLE = { roles: ['admin', 'member'], people: [
   const gsrc = fs.readFileSync(path.join(STATIC, 'gateway.js'), 'utf8');
   const fn = gsrc.slice(gsrc.indexOf('function renderFreshness()'), gsrc.indexOf('\n}\n', gsrc.indexOf('function renderFreshness()')) + 3);
   const els = { 'connection-status': { className: '' }, 'status-text': { textContent: '' }, 'lb-stale': { hidden: true, textContent: '' } };
-  const run = (lastOk, lastError) => new Function('$', 'lastOk', 'lastError', 'loadedAt', 'STALE_AFTER_MS',
-    `${fn}; renderFreshness();`)((id) => els[id], lastOk, lastError, Date.now(), 9000);
+  // stale after STALE_TICKS of the LB's tick (/lb/stream speaks at least every two): 3 × 3 s = 9 s here
+  const run = (lastOk, lastError) => new Function('$', 'lastOk', 'lastError', 'loadedAt', 'lastStatus', 'STALE_TICKS',
+    'CONNECT_WAIT_MS', `${fn}; renderFreshness();`)((id) => els[id], lastOk, lastError, Date.now(),
+    { config: { tick_s: 3 } }, 3, 6000);
   run(Date.now() - 60000, 'HTTP 502');
   ok(!els['lb-stale'].hidden && els['lb-stale'].textContent === els['status-text'].textContent
      && els['lb-stale'].textContent.includes('HTTP 502'), 'stale: #lb-stale carries the reason');

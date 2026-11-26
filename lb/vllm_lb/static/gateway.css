@@ -577,6 +577,11 @@ body {
    compare colours with. Colour on this card means "how close to the target"; this line is deliberately
    outside that grammar, and it never glows with the one above it. */
 .sparkline-per-req { stroke: var(--ink-faint); opacity: .38; }
+/* THE GLIDE (gateway.js `sparkline`): a fresh graph slides its newest sample in over one probe period —
+   the time axis moving, from a column to the right back to rest. Linear: time moves at one speed. */
+.graph-glide { animation-name: graph-glide; animation-timing-function: linear; animation-fill-mode: both; }
+@keyframes graph-glide { from { transform: translateX(var(--glide-from)); } to { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .graph-glide { animation: none; } }
 .sparkline.glow path.sparkline-per-req { filter: none; }
 /* The reference label — "max 43", "target 197" — small and quiet, placed by gateway.js `placeMarks`
    where the line is not; until it has a place (and where it has none) it is not drawn. */

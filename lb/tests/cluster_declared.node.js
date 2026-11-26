@@ -36,9 +36,11 @@ const window = { addEventListener() {}, innerWidth: 1280, innerHeight: 800, matc
 
 const api = new Function('document', 'window', 'fetch', 'location', 'setInterval', 'setTimeout',
   'getComputedStyle', 'ResizeObserver', 'localStorage', 'navigator',
-  `${src}\n;return { renderCluster, serverCard, clusterModelInfo };`)(
+  `${src}\n;return { setTimeAxis, renderCluster, serverCard, clusterModelInfo };`)(
   document, window, () => new Promise(() => {}), { search: '', href: '' }, () => 0, () => 0,
   () => ({}), undefined, window.localStorage, { userAgent: 'node' });
+// these fixtures' probes are 5 s apart: 90 s of them is 18 columns (gateway.js setTimeAxis)
+api.setTimeAxis({ config: { probe_interval_s: 5 } });
 
 // The catalog row the fleet declares. Its PAIR profile says SGLang with an MTP drafter, and its size is the catalog's
 // checkpoint's: none of the three is the node's, and none may be drawn for it.

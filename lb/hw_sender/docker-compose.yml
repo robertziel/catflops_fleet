@@ -1,6 +1,6 @@
 # vllm-hw-sender: THIS server's hardware telemetry for the gateway's hardware tiles and FLIGHT RECORDER.
 #
-# Every 5 s fleet_telemetry (lb/fleet_telemetry, `python -m fleet_telemetry`) samples CPU, RAM, GPUs, temperatures,
+# Every second fleet_telemetry (lb/fleet_telemetry, `python -m fleet_telemetry`) samples CPU, RAM, GPUs, temperatures,
 # power, clocks, fans, network counters and containers, and broadcasts one JSON datagram to UDP HW_SENDER_PORT. The LB
 # (vllm_lb/hw.py) listens on its LB_HW_PORT and draws the box its fleet file gives that hostname
 # (boxes.<box>.hostname). An unmapped sender is counted `ignored` in /lb/status `hardware_state`, never guessed.

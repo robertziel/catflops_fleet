@@ -30,7 +30,9 @@ from fleet_telemetry.readers import (GPU_READERS, Cgroups, CpuSensors, Fans, Mem
                                      ThermalZones)
 from fleet_telemetry.sampler import Sampler, envelope
 
-INTERVAL_S = 5.0
+#: One sample a second: the gateway page follows the LB's 1 s probe, and a box's graphs move with it.
+#: A sample is one `nvidia-smi` call (or a sysfs read) and a handful of /proc reads; `run` sleeps what is left.
+INTERVAL_S = 1.0
 NETWORKS = ("host", "bridged")
 #: The host's /sys/fs/cgroup and <DockerRootDir>/containers, mounted read-only by docker-compose.yml.
 CGROUP_ROOT = "/host/sys/fs/cgroup"
