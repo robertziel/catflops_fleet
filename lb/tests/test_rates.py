@@ -202,7 +202,7 @@ def test_wall_clock_jump_is_ignored(monkeypatch):
     from vllm_lb.probe import SCRAPE_FAMILIES
 
     url = "http://box-a:8000"
-    hub = Hub(Config(vllm_boxes=(VllmBox("box-a-gpu", "box-a", url),)))
+    hub = Hub(Config(probe_interval_s=5.0, vllm_boxes=(VllmBox("box-a-gpu", "box-a", url),)))
     rates = []
     for wall, mono, gen in ((1000.0, 50.0, 1000), (1000.0 - 3600, 55.0, 1075),
                             (1000.0 + 7200, 60.0, 1150)):

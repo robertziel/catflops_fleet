@@ -34,7 +34,7 @@ def test_the_parser_keeps_the_token_counters():
 
 
 URL = "http://box-a:8000"
-CFG = Config(vllm_boxes=(VllmBox("box-a-gpu", "box-a", URL),))
+CFG = Config(probe_interval_s=5.0, vllm_boxes=(VllmBox("box-a-gpu", "box-a", URL),))
 
 
 def scraped(gen: int | None, **families) -> dict:

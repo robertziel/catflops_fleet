@@ -34,10 +34,12 @@ const window = { addEventListener() {}, innerWidth: 1280, innerHeight: 800, matc
 const api = new Function('document', 'window', 'fetch', 'location', 'setInterval', 'setTimeout',
   'getComputedStyle', 'ResizeObserver', 'localStorage', 'navigator',
   `var selectedCluster = null; ${src}
-  ;return { clusterTrack, targetOf, figureOf, clusterBackend, modelInfoOf, queueOpts, demoted, visibleBackends, renderClusterHead, catalogOf, serverCard, scopeQueue, renderServers,
+  ;return { setTimeAxis, clusterTrack, targetOf, figureOf, clusterBackend, modelInfoOf, queueOpts, demoted, visibleBackends, renderClusterHead, catalogOf, serverCard, scopeQueue, renderServers,
     select: (n) => { selectedCluster = n; } };`)(
   document, window, () => new Promise(() => {}), { search: '', href: '' }, () => 0, () => 0,
   () => ({}), undefined, window.localStorage, { userAgent: 'node' });
+// these fixtures' probes are 5 s apart: 90 s of them is 18 columns (gateway.js setTimeAxis)
+api.setTimeAxis({ config: { probe_interval_s: 5 } });
 
 let checks = 0;
 const ok = (cond, msg) => { assert.ok(cond, msg); checks += 1; };

@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, wait
 from typing import Callable
 
 from vllm_lb.config import Config
@@ -32,6 +32,9 @@ def cluster_wanted(snap: Snapshot) -> bool:
 log = logging.getLogger(__name__)
 
 _BACKOFF_BASE_S = 5.0
+#: Probes out at once, at most — one per backend is the rule (a backend is never probed twice at once), and a fleet
+#: has a handful; this only bounds a fleet file that declares very many.
+_PROBE_WORKERS = 32
 
 
 class Controller:
@@ -60,6 +63,14 @@ class Controller:
         #: The real-traffic performance log (`perflog.PerfRecorder`): shown the cluster head's probe
         #: result after each probe, outside the hub's lock. None = nothing is recorded.
         self.recorder = recorder
+        #: THE PROBES run on their own threads and a tick waits for them at most one tick (`_probe`): the
+        #: backends whose probe is still out, the lock their results land under, and the last landing that failed —
+        #: raised by the next tick's probe phase, so it is named in `last_tick_error` like any phase's failure.
+        self._probes = ThreadPoolExecutor(max_workers=_PROBE_WORKERS, thread_name_prefix="vllm-lb-probe")
+        self._probing: set[str] = set()
+        self._probing_lock = threading.Lock()
+        self._landing = threading.Lock()
+        self._landing_error = ""
 
     # ── lifecycle ──────────────────────────────────────────────────────────
 
@@ -78,9 +89,13 @@ class Controller:
         else:
             log.info("[control] loop up: tick every %.1fs; broker_parrot off (LB_BROKER_ENABLED unset) — "
                      "no leases, every live configured backend is routable", self.cfg.tick_s)
+        # THE PERIOD IS `tick_s`: what is LEFT of it after the tick is slept, so a 1 s tick is one event a
+        # second on /lb/stream. A tick longer than `tick_s` (its probes wait up to `tick_s`, its other phases add
+        # theirs) is followed at once by the next — a period of the tick's own length, never tick + tick_s.
         while not stop.is_set():
+            started = time.monotonic()
             self.tick()
-            stop.wait(self.cfg.tick_s)
+            stop.wait(max(0.0, self.cfg.tick_s - (time.monotonic() - started)))
 
     # ── one tick ───────────────────────────────────────────────────────────
 
@@ -139,28 +154,51 @@ class Controller:
             return f"recover: {type(exc).__name__}: {exc}"
         return None
 
+    def close(self) -> None:
+        """Stop taking probes (a probe out ends on its own timeouts). For tests and a clean shutdown."""
+        self._probes.shutdown(wait=False, cancel_futures=True)
+
     def _probe(self, now: float) -> None:
-        due = [b for b in self.hub.backends()
-               if now - b.last_probe_at >= self.cfg.probe_interval_s]
-        if not due:
-            return
+        """Probe every backend that is due and not still being probed, and wait for them AT MOST ONE TICK.
 
-        def one(b):
+        WHY NOT WAIT FOR ALL. At one probe a second a tick that waited for its slowest probe — a box that
+        is off answers nothing until /health's 1.5 s and /v1/models' 3 s have run out — sent every OTHER backend's
+        next probe 4-5 s late, past the rate meters' gap rule (three probe intervals, rates.RateMeter): every live
+        server's tok/s went blank for as long as one box was off. Now a probe still out after a tick lands when it
+        answers, on its own thread, and its backend is skipped until it has — never probed twice at once."""
+        if self._landing_error:
+            error, self._landing_error = self._landing_error, ""
+            raise RuntimeError(f"a probe's result did not land: {error}")
+        with self._probing_lock:
+            due = [b for b in self.hub.backends()
+                   if now - b.last_probe_at >= self.cfg.probe_interval_s and b.url not in self._probing]
+            self._probing.update(b.url for b in due)
+        if due:
+            wait([self._probes.submit(self._probe_one, b, now) for b in due], timeout=self.cfg.tick_s)
+
+    def _probe_one(self, b, now: float) -> None:
+        """One backend's probe, on a probe thread: read it, then land the result — one landing at a time, so the
+        hub and the performance log see probes in a single order as they did when the tick landed them."""
+        try:
             try:
-                return b.url, self.prober(b, self.cfg, now=now)
+                fields = self.prober(b, self.cfg, now=now)
             except Exception as exc:
-                return b.url, {"live": False, "served_models": (), "waiting": 0, "running": 0,
-                               "last_probe_at": now,
-                               "last_error": f"{type(exc).__name__}: {exc}"[:200]}
-
-        with ThreadPoolExecutor(max_workers=max(1, len(due))) as pool:
-            for url, fields in pool.map(one, due):
+                fields = {"live": False, "served_models": (), "waiting": 0, "running": 0, "last_probe_at": now,
+                          "last_error": f"{type(exc).__name__}: {exc}"[:200]}
+            with self._landing:
+                url = b.url
                 before = self.hub.backend_for(url).live
                 self.hub.update_backend(url, **fields)
                 self._record(url, fields, now)
                 if fields.get("live") != before:
                     log.info("[control] %s is now %s%s", url, "LIVE" if fields.get("live") else "down",
                              f" ({fields.get('last_error')})" if fields.get("last_error") else "")
+        except Exception as exc:                      # a landing must never die unseen on a probe thread
+            log.exception("[control] the probe of %s did not land", b.url)
+            self._landing_error = f"{b.url}: {type(exc).__name__}: {exc}"[:300]
+        finally:
+            with self._probing_lock:
+                self._probing.discard(b.url)
 
     def _record(self, url: str, fields: dict, now: float) -> None:
         """A server head's probe, as the performance log's next read, with ITS OWN view: the recorder keeps each

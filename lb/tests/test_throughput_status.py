@@ -27,7 +27,9 @@ def fleet_config(**over) -> Config:
     return Config(**{"vllm_boxes": (VllmBox("box-a-gpu", "box-a", BOX_A),
                                     VllmBox("box-b-gpu", "box-b", BOX_B)),
                      "cluster_name": "pair", "cluster_hosts": parse_hosts(HOSTS),
-                     "cluster_url": HEAD, "listen_host": "127.0.0.1", "listen_port": 0, **over})
+                     "cluster_url": HEAD, "listen_host": "127.0.0.1", "listen_port": 0,
+                     # the fixtures below stamp their probes 5 s apart
+                     "probe_interval_s": 5.0, **over})
 
 
 class Clock:
@@ -264,7 +266,7 @@ def test_totals_add_only_real_deltas():
 
 def test_duplicate_url_counted_once():
     """Row 41. The same URL configured twice is ONE server: one card, one set of meters."""
-    cfg = Config(vllm_boxes=(VllmBox("box-a-gpu", "box-a", BOX_A),
+    cfg = Config(probe_interval_s=5.0, vllm_boxes=(VllmBox("box-a-gpu", "box-a", BOX_A),
                              VllmBox("box-a-gpu-again", "box-a", BOX_A)),
                  listen_host="127.0.0.1", listen_port=0)
     f = Fleet(cfg)

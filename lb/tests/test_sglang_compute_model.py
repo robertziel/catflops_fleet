@@ -323,7 +323,7 @@ def _status(choice: str, reads: list[tuple[float, dict]], budget: int = 8192) ->
     from vllm_lb.hub import Hub
     from vllm_lb.proxy import Proxy
     from tests.fleet_files import gb10_pair
-    cfg = Config(vllm_boxes=(), 
+    cfg = Config(probe_interval_s=5.0, vllm_boxes=(), 
                  cluster_hosts=parse_hosts(HOSTS), cluster_url=HEAD, fleet=gb10_pair(),
                  listen_host="127.0.0.1", listen_port=0)
     hub = Hub(cfg)

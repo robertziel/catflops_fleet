@@ -41,7 +41,7 @@ import urllib.parse
 from dataclasses import asdict, dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from vllm_lb import multipart, panel_styles, prompt_count, roles, router, topology, websearch
+from vllm_lb import multipart, panel_styles, prompt_count, roles, router, status_delta, topology, websearch
 from vllm_lb.bench import BenchStore
 from vllm_lb.benchswarm import CAP_MIN_RANGE, BenchSwarm, SwarmRefused
 from vllm_lb.catalog import SGLANG as SGLANG_ENGINE
@@ -486,6 +486,24 @@ def _read_switch(h: _Handler) -> dict | None:
     return body
 
 
+#: /lb/stream's `retry:` — how long EventSource waits before it reconnects after the stream ended (a drain, a
+#: restart). A new container boots in ~3 s (`drain_retry_after_s`); one second keeps the page's gap short without
+#: hammering a gateway that is still down (EventSource only retries after a failed attempt ends).
+STREAM_RETRY_MS = 1000
+
+#: /lb/stream connections open at once, at most. Each holds a server thread for as long as its tab is open; past this
+#: the next is refused 503 `too_many_streams` with the number — never queued, never left hanging. The page's own
+#: retry (gateway.js STREAM_REOPEN_MS) takes a place as soon as a tab closes. A household's tabs are a handful; this
+#: bounds a client that opens streams in a loop, not a deployment.
+STREAM_MAX = 32
+
+
+def sse_event(name: str, data) -> bytes:
+    """One Server-Sent Event: its name and its data as one line of compact JSON (JSON never holds a raw newline, so
+    one `data:` line is the whole of it)."""
+    return f"event: {name}\ndata: {json.dumps(data, separators=(',', ':'))}\n\n".encode()
+
+
 class _Server(ThreadingHTTPServer):
     daemon_threads = True
     allow_reuse_address = True
@@ -763,6 +781,14 @@ class Proxy:
         self._turns_cv = threading.Condition()
         self._draining = False
         self._drain_done = False
+        #: Set when every /lb/stream must end (a drain, `_end_streams`); each stream checks it after every wait.
+        self._streams_end = threading.Event()
+        #: The streams open now (against STREAM_MAX), and THE TICK'S FRAME every admin stream shares (`_tick_frame`):
+        #: (tick count, its status, the patch event from the previous tick's status, or None).
+        self._streams_open = 0
+        self._streams_lock = threading.Lock()
+        self._frame: tuple | None = None
+        self._frame_lock = threading.Lock()
         #: THE REQUESTS CARD's finished rows (request_queue.finished_row), oldest first, under `_turns_cv`.
         self._recent: collections.deque = collections.deque(maxlen=request_queue.RECENT_ROWS)
         #: THE TURNS THAT ENDED in the last EVENTS_KEPT_S, as (monotonic end, backend + tap) under `_turns_cv`: a turn
@@ -813,6 +839,7 @@ class Proxy:
             self._draining = True
             busy = self._in_flight()
         self.hub.notify_change()                  # a turn held for the cluster: stop waiting for the pair
+        self._end_streams()                       # the pages reconnect — to the next container
         if busy:
             log.info("[proxy] draining: waiting up to %.0f s for %d request(s) in flight: %s",
                      window_s, len(busy), "; ".join(t.describe(t0) for t in busy))
@@ -1341,6 +1368,109 @@ class Proxy:
                 out.pop(key, None)
         return out
 
+    def status_for(self, member) -> dict:
+        """/lb/status as `member` reads it: the whole status for an admin or a caller inside the trust boundary
+        (None), a member's narrowed view otherwise (roles.member_status) — the one rule /lb/status and /lb/stream
+        share."""
+        if member is None:
+            return self.status()
+        return roles.member_status(self.status(), member, self.cfg.fleet, self.cfg.cluster_name or None)
+
+    def status_stream(self, h: "_Handler") -> None:
+        """/lb/stream — the page's status as Server-Sent Events.
+
+        WHY A STREAM. The page polled /lb/status every 3 s and was sent the whole document, 299,618 bytes, while what
+        it shows changed once a probe; some polls brought nothing, others a jump. Now it is sent the status whole
+        ONCE (`event: status`) and, as each control tick finishes, only what changed (`event: patch`,
+        status_delta.diff) — a few KB a second instead of ~300 KB at one probe a second.
+
+        WHY SSE, NOT A WEBSOCKET: the page sends nothing back on it (its writes stay plain POSTs), and SSE is a
+        plain GET — a signed-in proxy's cookie, the vhost and EventSource's own reconnect all work as they are.
+
+        ONE TICK, ONE EVENT, ONE BUILD. The stream waits on the hub's tick count (`wait_for_tick`), so every event
+        carries a finished tick's probe, and every stream takes that tick's status and patch from ONE frame built
+        for all of them (`_tick_frame`) — a member's view is narrowed from it per stream. With no tick for two tick
+        periods a stream builds its own status and sends what changed (`now` at least): the status then says how
+        old its tick is (`last_tick_at`), and a page that hears nothing at all knows the STREAM is gone, not the loop.
+
+        NEVER RESUMED. A connection always starts with the whole document; there is no event id to resume from,
+        so a page can never apply a patch to a document it does not hold. A drain ends every stream
+        (`_end_streams`), and EventSource reconnects — to the next container — after `retry`. Past STREAM_MAX open
+        streams the next is refused 503."""
+        with self._streams_lock:
+            full = self._streams_open >= STREAM_MAX
+            if not full:
+                self._streams_open += 1
+        if full:
+            return h.send_json(503, {"error": {"type": "too_many_streams", "message": (
+                f"{STREAM_MAX} status streams are open — the most this gateway holds; close a tab of the panel")}})
+        try:
+            self._stream(h)
+        finally:
+            with self._streams_lock:
+                self._streams_open -= 1
+
+    def _tick_frame(self) -> tuple:
+        """THIS TICK'S FRAME, built once for every stream: (tick count, the status, the patch event from the previous
+        tick's status — None when the frame before was not the previous tick's).
+
+        ONLY EVER FORWARD. The count is read before the lock, so a stream can arrive with a count another stream has
+        already built past. It is handed that newer frame; storing an older one over it would make the next tick's
+        shared patch a diff from a document no stream was sent."""
+        seq = self.hub.tick_count()
+        with self._frame_lock:
+            f = self._frame
+            if f is None or f[0] < seq:
+                doc = self.status()
+                patch = sse_event("patch", status_delta.diff(f[1], doc)) if f is not None and f[0] == seq - 1 else None
+                f = self._frame = (seq, doc, patch)
+            return f
+
+    def _stream(self, h: "_Handler") -> None:
+        h.send_response(200)
+        h.send_header("Content-Type", "text/event-stream; charset=utf-8")
+        h.send_header("Cache-Control", "no-cache")
+        # nginx buffers a proxied reply unless told not to; a buffered event stream arrives in lumps.
+        h.send_header("X-Accel-Buffering", "no")
+        h.send_header("Connection", "close")
+        h.end_headers()
+        h.close_connection = True
+        if h.command == "HEAD":
+            return
+        idle_s = 2 * self.cfg.tick_s
+        member = h.member
+        last_doc, last_seq, seen = None, None, None
+        try:
+            h.wfile.write(f"retry: {STREAM_RETRY_MS}\n\n".encode())
+            while not self._streams_end.is_set():
+                ticked = seen is None or self.hub.tick_count() != seen
+                if ticked:
+                    seq, base, shared = self._tick_frame()
+                    doc = base if member is None else roles.member_status(base, member, self.cfg.fleet,
+                                                                         self.cfg.cluster_name or None)
+                else:
+                    # NO TICK in two periods: this stream's own status, so `now` (and every age) moves on.
+                    seq, shared, doc = None, None, self.status_for(member)
+                if last_doc is None:
+                    event = sse_event("status", doc)
+                elif member is None and shared is not None and last_seq is not None and last_seq == seq - 1:
+                    event = shared                      # the tick's patch, built once for every admin stream
+                else:
+                    event = sse_event("patch", status_delta.diff(last_doc, doc))
+                h.wfile.write(event)
+                h.wfile.flush()
+                last_doc, last_seq = doc, seq
+                if seq is not None:
+                    seen = seq
+                self.hub.wait_for_tick(seen, idle_s)
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, TimeoutError):
+            return                                  # the tab went away; nothing to answer
+
+    def _end_streams(self) -> None:
+        """End every /lb/stream: set the flag each one checks, then wake them from their wait for a tick."""
+        self._streams_end.set()
+        self.hub.wake_tick_waiters()
+
     def _lease_window(self) -> int | None:
         """The window the next lease declares (`Config.lease_context_length`), or None — with the reason kept beside it
         in `context.state` by the lease loop — when no catalog row serves the lease model."""
@@ -1474,7 +1604,9 @@ class Proxy:
                        "max_leases": self.cfg.max_leases,
                        "use_unleased_vllm": self.cfg.use_unleased_vllm,
                        # The page places each backend's history in time buckets this wide.
-                       "probe_interval_s": self.cfg.probe_interval_s},
+                       "probe_interval_s": self.cfg.probe_interval_s,
+                       # /lb/stream speaks at least every two of these: the page's word for "stale" is read off it.
+                       "tick_s": self.cfg.tick_s},
         }
 
     def recorder_request(self, h: _Handler, box: str) -> None:
@@ -1546,10 +1678,9 @@ class Proxy:
         if path == "/healthz":
             return h.send_json(200, {"ok": True})
         if path == "/lb/status":
-            if member is not None:
-                return h.send_json(200, roles.member_status(self.status(), member, self.cfg.fleet,
-                                                            self.cfg.cluster_name or None))
-            return h.send_json(200, self.status())
+            return h.send_json(200, self.status_for(member))
+        if path == "/lb/stream" and h.command in ("GET", "HEAD"):
+            return self.status_stream(h)
         if path == "/lb/cluster" and h.command == "POST":
             return self.cluster_switch_request(h)
         # PER-CLUSTER (worklog/parallel-clusters.md): /lb/clusters/<name> (its switch), /activate, /deactivate (the run).

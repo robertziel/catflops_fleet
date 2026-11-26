@@ -330,7 +330,7 @@ def test_lb_status_never_says_the_switch_is_off_through_a_lumpy_prefill():
     from vllm_lb.config import Config
     from vllm_lb.hub import Hub
     from vllm_lb.proxy import Proxy
-    cfg = Config(vllm_boxes=(), cluster_name="pair", cluster_hosts=parse_hosts(HOSTS),
+    cfg = Config(probe_interval_s=5.0, vllm_boxes=(), cluster_name="pair", cluster_hosts=parse_hosts(HOSTS),
                  cluster_url=HEAD, listen_host="127.0.0.1", listen_port=0)
     hub, seen = Hub(cfg), {}
     proxy = Proxy(cfg, hub)

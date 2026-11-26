@@ -51,9 +51,11 @@ function load() {
     matches: false, addEventListener() {} }), localStorage: { getItem: () => null, setItem() {} } };
   const api = new Function('document', 'window', 'fetch', 'location', 'setInterval', 'setTimeout',
     'getComputedStyle', 'ResizeObserver', 'localStorage', 'navigator',
-    `${src}\n;return { renderSaturation };`)(
+    `${src}\n;return { setTimeAxis, renderSaturation };`)(
     document, window, () => new Promise(() => {}), { search: '', href: '' }, () => 0, () => 0,
     () => ({}), undefined, window.localStorage, { userAgent: 'node' });
+  // the LB's probes in these fixtures are 5 s apart: 90 s of them is 18 columns (gateway.js setTimeAxis)
+  api.setTimeAxis({ config: { probe_interval_s: 5 } });
   return { api, byId };
 }
 

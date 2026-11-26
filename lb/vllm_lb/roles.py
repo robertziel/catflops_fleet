@@ -64,7 +64,7 @@ def caller(headers: Mapping[str, str]) -> Member | None:
 MEMBER_POSTS = frozenset({"/v1/messages", "/v1/messages/count_tokens", "/v1/chat/completions", "/v1/completions",
                           "/v1/responses", "/v1/audio/transcriptions", "/v1/audio/translations"})
 #: What a member reads besides the page's static files: the page itself, the narrowed status and their models.
-MEMBER_READS = frozenset({"/", "/index.html", "/lb/status", "/v1/models"})
+MEMBER_READS = frozenset({"/", "/index.html", "/lb/status", "/lb/stream", "/v1/models"})
 #: Pages that are an admin's even though they are static files (the run history: everyone's requests, every box).
 ADMIN_PAGES = ("/benchmarks", "/sessions")
 
@@ -240,6 +240,8 @@ def member_status(status: dict, member: Member, fleet, cluster_name: str | None 
         "hardware_state": {"state": (status.get("hardware_state") or {}).get("state")},
         "role": MEMBER,
         "granted_models": sorted(models),
+        # the two periods the page draws time with (a history's buckets, the stream's "stale") — no deployment detail
+        "config": {k: (status.get("config") or {}).get(k) for k in ("probe_interval_s", "tick_s")},
         "backends": [_member_backend(b) for b in backends],
         "clusters": {n: _member_server(v, models) for n, v in clusters.items()},
         "cluster": _member_server(one, models) if cluster_name is not None and cluster_name in clusters

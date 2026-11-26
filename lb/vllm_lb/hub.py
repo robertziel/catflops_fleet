@@ -58,6 +58,10 @@ class Hub:
         #: snapshot; `_changes` is how a waiter tells a change it already saw from one it has not.
         self._changed = threading.Condition(self._lock)
         self._changes = 0
+        #: THE TICKS the control loop finished (`note_tick`), counted under `_ticked` — what /lb/stream waits on, so
+        #: each event it sends carries the tick's fresh probe and not a status read halfway through one.
+        self._ticked = threading.Condition(self._lock)
+        self._ticks = 0
         #: EVERY cluster's one-cluster Config, by its fleet name (worklog/parallel-clusters.md) — the context each
         #: cluster's loop, view and backend are built from. A cluster the fleet names but does not complete (a pair
         #: of one host) is not configured: no backend, no view, as before.
@@ -600,3 +604,24 @@ class Hub:
         with self._lock:
             self.last_tick_at = self.clock()
             self.last_tick_error = error
+            self._ticks += 1
+            self._ticked.notify_all()
+
+    def tick_count(self) -> int:
+        """How many ticks have finished — read BEFORE the status a stream sends, so a tick that ends while it is
+        being built is never slept through."""
+        with self._lock:
+            return self._ticks
+
+    def wait_for_tick(self, seen: int, timeout: float) -> int:
+        """Sleep until a tick finished after `seen` (a `tick_count`), `timeout` passed or `wake_tick_waiters` was
+        called. Returns the count now; the caller tells a tick from a timeout by comparing it with `seen`."""
+        with self._lock:
+            if self._ticks == seen and timeout > 0:
+                self._ticked.wait(timeout)
+            return self._ticks
+
+    def wake_tick_waiters(self) -> None:
+        """Wake every stream to look again without a tick — the proxy's drain ends them this way."""
+        with self._lock:
+            self._ticked.notify_all()

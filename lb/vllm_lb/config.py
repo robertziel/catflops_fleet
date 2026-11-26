@@ -202,9 +202,15 @@ class Config:
     #: what the broker reports it can start.
     scale_up_waiting: int = 1
     scale_up_sustain_s: float = 15.0
-    probe_interval_s: float = 5.0
+    #: ONE PROBE A SECOND, ONE TICK A SECOND: the page follows
+    #: /lb/stream, which sends an event per finished tick, so the tick is the page's frame rate and the probe what
+    #: moves on it. A probe is three small GETs per backend (/health, /v1/models, /metrics); the tick's other
+    #: phases keep their own cadences (`cluster_observe_s`, the lease backoff), so a faster tick asks the boxes
+    #: nothing more often. A tick waits for its probes, so a probe slower than `tick_s` slows the tick, never
+    #: overlaps it.
+    probe_interval_s: float = 1.0
     probe_timeout_s: float = 3.0
-    tick_s: float = 2.0
+    tick_s: float = 1.0
     #: QUEUE DEPTH — `waiting + running` — past which a vLLM is DEMOTED below every server with room
     #: instead of preferred. Sharing a vLLM with broker_parrot's own llm_chat jobs is
     #: intended; queueing behind them until the first-byte budget expires is not.
@@ -352,14 +358,16 @@ class Config:
     #: `avoid_box` says the box. An unmapped sender is IGNORED, never guessed: a wrong box label is worse than a
     #: missing tile.
     hw_hosts: dict = field(default_factory=dict)
-    #: Past this, a box's live numbers go blank (its history stays). 6 missed 5 s beats.
+    #: Past this, a box's live numbers go blank (its history stays). 30 missed 1 s beats.
     hw_max_age_s: float = 30.0
-    #: Samples kept per box per metric — 60 × 5 s ≈ 5 minutes of dots.
-    hw_history: int = 60
+    #: Samples kept per box per metric — 120 × 1 s = 2 minutes (the sender's INTERVAL_S); a graph shows the last
+    #: SPARKLINE_S of them (gateway.js).
+    hw_history: int = 120
     #: ── the saturation panel's ceilings: the SERVING CARDS' hardware types (vllm_lb/hardware/types), named by
     #: the fleet file — per box, never one LB-wide claim (operator, 2026-10-11; LB_GPU_PEAK_* are RETIRED_KEYS).
-    #: Samples kept per BACKEND per metric, appended once per probe (≈5 s).
-    stat_history: int = 60
+    #: Samples kept per BACKEND per metric, appended once per probe — 120 × 1 s = 2 minutes; a graph shows the last
+    #: SPARKLINE_S of them (gateway.js).
+    stat_history: int = 120
     #: SAVED BENCHMARK RUNS (bench.py), read by the page at /benchmarks. On the state volume for the
     #: same reason the switches are: it survives an image rebuild and a redeploy, and the harness on
     #: the host writes into it directly (lb/state/bench). A result on a git branch could not be
@@ -674,9 +682,11 @@ class Config:
             idle_release_s=f("LB_IDLE_RELEASE_S", cls.idle_release_s),
             scale_up_waiting=int(e.get("LB_SCALE_UP_WAITING", cls.scale_up_waiting)),
             scale_up_sustain_s=f("LB_SCALE_UP_SUSTAIN_S", cls.scale_up_sustain_s),
-            probe_interval_s=f("LB_PROBE_INTERVAL_S", cls.probe_interval_s),
+            # Positive, refused at boot otherwise (`secs`): the page divides by the probe interval (its graphs' columns,
+            # gateway.js setTimeAxis) and a tick of 0 would spin the loop.
+            probe_interval_s=secs(cls.probe_interval_s, "LB_PROBE_INTERVAL_S"),
             probe_timeout_s=f("LB_PROBE_TIMEOUT_S", cls.probe_timeout_s),
-            tick_s=f("LB_TICK_S", cls.tick_s),
+            tick_s=secs(cls.tick_s, "LB_TICK_S"),
             # LB_BACKEND_TIMEOUT_S is the old name for the first-byte budget; still honoured,
             # and only READ when the new name is absent (a nested f() parsed it eagerly, so a
             # blanked-out old line crashed the boot it was meant to survive).

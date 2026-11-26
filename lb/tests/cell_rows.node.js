@@ -37,9 +37,11 @@ const window = { addEventListener() {}, innerWidth: 1280, innerHeight: 800, matc
   matches: false, addEventListener() {} }), localStorage: { getItem: () => null, setItem() {} } };
 const api = new Function('document', 'window', 'fetch', 'location', 'setInterval', 'setTimeout',
   'getComputedStyle', 'ResizeObserver', 'localStorage', 'navigator',
-  `${src}\n;return { tile, ceilingTile, satMeter, ceilingMeter, engineStats, machineBody };`)(
+  `${src}\n;return { setTimeAxis, tile, ceilingTile, satMeter, ceilingMeter, engineStats, machineBody };`)(
   document, window, () => new Promise(() => {}), { search: '', href: '' }, () => 0, () => 0,
   () => ({}), undefined, window.localStorage, { userAgent: 'node' });
+// these fixtures' probes are 5 s apart: 90 s of them is 18 columns (gateway.js setTimeAxis)
+api.setTimeAxis({ config: { probe_interval_s: 5 } });
 
 /** The cell's structural slots, in document order: the classes that make a row of it (never a colour or a state). */
 const SLOTS = ['tile', 'ceil', 'sat-meter', 't-head', 't-label', 't-val', 't-graph', 't-note', 'sat-bar', 'c-note',

@@ -419,7 +419,7 @@ def _status(choice: str, reads: list[tuple[float, dict]]) -> dict:
     from tests.fleet_files import gb10_pair
     # The pair's cards: GB10s, whose type states 273 GB/s and 323.2 TFLOP/s nvfp4 — without a peak there is no
     # CUDA CORES tile at all.
-    cfg = Config(vllm_boxes=(), 
+    cfg = Config(probe_interval_s=5.0, vllm_boxes=(), 
                  cluster_hosts=parse_hosts(HOSTS), cluster_url=HEAD, fleet=gb10_pair(),
                  listen_host="127.0.0.1", listen_port=0)
     hub = Hub(cfg)

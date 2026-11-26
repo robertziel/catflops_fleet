@@ -247,7 +247,9 @@ def test_everything_else_is_refused_to_a_member_raw_spellings_included(method, p
 
 #: every key a member's /lb/status may carry -- an ALLOWLIST: a key /lb/status gains tomorrow is the admin's
 MEMBER_KEYS = {"now", "uptime_s", "role", "granted_models", "backends", "clusters", "cluster", "hardware",
-               "hardware_state", "models", "leases", "declared", "swarm", "queue", "db_ok"}
+               "hardware_state", "models", "leases", "declared", "swarm", "queue", "db_ok",
+               # the two periods the page draws time with: no deployment detail
+               "config"}
 
 
 def test_a_members_status_carries_only_the_allowed_keys():

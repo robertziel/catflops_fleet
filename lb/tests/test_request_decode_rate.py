@@ -78,7 +78,7 @@ def test_an_openai_streams_role_and_usage_chunks_are_not_content_events():
 # ── the engine's window: the probe instant it ended at, on the relay's monotonic clock ────────────────
 
 def test_the_hub_says_the_generated_rate_and_the_window_it_was_taken_over():
-    cfg = Config(vllm_boxes=(VllmBox("g", "box-a", URL),), listen_host="127.0.0.1", listen_port=0)
+    cfg = Config(probe_interval_s=5.0, vllm_boxes=(VllmBox("g", "box-a", URL),), listen_host="127.0.0.1", listen_port=0)
     hub = Hub(cfg)
 
     def probe(at: float, gen: int) -> None:

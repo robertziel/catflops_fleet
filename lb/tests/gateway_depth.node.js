@@ -45,9 +45,11 @@ const window = { addEventListener() {}, innerWidth: 1280, innerHeight: 800, matc
 
 const api = new Function('document', 'window', 'fetch', 'location', 'setInterval', 'setTimeout',
   'getComputedStyle', 'ResizeObserver', 'localStorage', 'navigator',
-  `${src}\n;return { depthOf, queueTile, engineStats };`)(
+  `${src}\n;return { setTimeAxis, depthOf, queueTile, engineStats };`)(
   document, window, () => new Promise(() => {}), { search: '', href: '' }, () => 0, () => 0,
   () => ({}), undefined, window.localStorage, { userAgent: 'node' });
+// these fixtures' probes are 5 s apart: 90 s of them is 18 columns (gateway.js setTimeAxis)
+api.setTimeAxis({ config: { probe_interval_s: 5 } });
 
 // ── reading the rendered tile and the stats the way a person reads them ──────
 const strip = (h) => h.replace(/<[^>]*>/g, '').replace(/&middot;/g, '·')

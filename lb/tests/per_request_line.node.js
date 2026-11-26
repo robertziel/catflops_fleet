@@ -36,9 +36,11 @@ const window = { addEventListener() {}, innerWidth: 1280, innerHeight: 800, matc
   matches: false, addEventListener() {} }), localStorage: { getItem: () => null, setItem() {} } };
 const api = new Function('document', 'window', 'fetch', 'location', 'setInterval', 'setTimeout',
   'getComputedStyle', 'ResizeObserver', 'localStorage', 'navigator',
-  `${src}\n;return { generatedTile, promptTile, prefillTile, perRequestOf, SPARKLINE_H, SPARKLINE_W };`)(
+  `${src}\n;return { setTimeAxis, generatedTile, promptTile, prefillTile, perRequestOf, SPARKLINE_H, SPARKLINE_W };`)(
   document, window, () => new Promise(() => {}), { search: '', href: '' }, () => 0, () => 0,
   () => ({}), undefined, window.localStorage, { userAgent: 'node' });
+// the LB's probes in these fixtures are 5 s apart: 90 s of them is 18 columns (gateway.js setTimeAxis)
+api.setTimeAxis({ config: { probe_interval_s: 5 } });
 
 /* The pair as /lb/status serves it: six samples, the engine running 8 requests at the last of them,
    one sample where it was running none (a gap for a per-request figure, never a zero). */
