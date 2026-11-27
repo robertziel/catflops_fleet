@@ -1,6 +1,7 @@
-/* BOX HEALTH on a machine card (hwextra.js): RoCE ports, disk bars, models folders. The style's
-   own tokens only (styles/*.css), so every style — light and dark — draws it in its own colours. */
-.hx { display: grid; gap: .45rem; min-width: 0; font-size: var(--fs-80); font-variant-numeric: tabular-nums; }
+/* BOX HEALTH (hwextra.js): RoCE ports, disk bars, models folders — in the open flight recorder
+   under each machine card, after its containers, in the recorder's own type size. The style's own tokens
+   only (styles/*.css), so every style — light and dark — draws it in its own colours. */
+.hx { display: grid; gap: .45rem; min-width: 0; font-variant-numeric: tabular-nums; }
 .hx-sec { display: grid; gap: .2rem; min-width: 0; border-top: 1px solid var(--line); padding-top: .35rem; }
 .hx-h { font-size: var(--small); text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); }
 .hx-bad, .hx-port.down .hx-ph b { color: var(--bad); }
@@ -13,6 +14,12 @@
 .hx-c i { font-style: normal; font-weight: 600; }
 .hx-c.up, .hx-c.up b, .hx-c.up i { color: var(--bad); }
 .hx-c.none { opacity: .6; }
+/* The port's other counters (zeros, absent) and its QoS: one summary line, the chips behind it. */
+.hx-more { flex-basis: 100%; min-width: 0; }
+.hx-more:not([open]) { flex-basis: auto; }   /* closed: the summary ends the port line where it fits */
+.hx-more > summary { cursor: pointer; font-size: var(--small); color: var(--ink-faint); }
+.hx-more[open] > summary { margin-bottom: .15rem; }
+.hx-more > .hx-cs + .hx-cs { margin-top: .15rem; }
 .hx-disk { display: grid; grid-template-columns: minmax(3rem, max-content) minmax(3rem, 1fr) max-content; gap: .5rem;
   align-items: center; min-width: 0; }
 .hx-dp { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-dim); }
@@ -20,10 +27,13 @@
 .hx-bar i { display: block; height: 100%; background: var(--ink-faint); }
 .hx-disk b, .hx-f b { font-weight: 600; white-space: nowrap; }
 .hx-disk.none, .hx-f.none { opacity: .6; }
+.hx-disk.full b { color: var(--bad); }   /* hwextra.js hxFull: the fleet's health.disk_full_pct (none: never) */
 .hx-f { display: flex; justify-content: space-between; gap: .6rem; min-width: 0; }
-.hx-f span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-dim); }
+.hx-f span { min-width: 0; overflow-wrap: anywhere; color: var(--ink-dim); }  /* wraps, never cut: a folder name is read in full */
 .hx-f.other span { color: var(--ink-faint); }
 
 /* A kernel figure a pending / firing xid / oom finding flags (hwExtraFigs' third element): the fault colour, like the
    band's chip for the same finding. */
 .fig.bad b { color: var(--bad); }
+/* A PHONE: a port's "n at 0 · QoS" opener is a finger's 44 px tall (the UX audit; 17 px as a line of text). */
+@media (max-width: 600px) { .hx-more > summary { min-height: 44px; display: flex; align-items: center; } }

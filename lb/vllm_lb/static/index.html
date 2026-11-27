@@ -44,8 +44,9 @@
   <!-- What stops the LB serving — broker_parrot's DB unreachable, a failing control tick — in the
        LB's own words. Shown only while /lb/status says so. -->
   <div id="lb-alert" class="alert" role="alert" hidden></div>
-  <!-- HEALTH (health.js): a chip per finding pending or firing — box, figure vs threshold, age — and the
-       last failed alert send. Shown only while there is one. -->
+  <!-- HEALTH (health.js): a chip per BOX with a finding firing (then per box pending) — each
+       finding's figure, its threshold, age and why in the chip's title; a tap scrolls to the box's card — and, last,
+       the last failed alert send. A phone shows 2 rows and a "+n". Shown only while there is one. -->
   <div id="lb-health" class="lb-health" role="status" aria-live="polite" hidden></div>
   <!-- WHY THE PAGE IS STALE, on a phone whose header gives the status line's words to Access (gateway.css): the same
        words renderFreshness writes in #status-text, never shown where the header still has them. -->
@@ -73,6 +74,21 @@
   <main id="layout" class="layout" aria-label="the panel">
   <!-- Leases still waiting for a server: above everything, because a turn sent now waits on them. -->
   <section id="lb-queued" data-ly="queued" data-ly-label="Queued leases" class="queued" aria-label="leases waiting for a server" hidden></section>
+
+  <!-- ACTIVITY (health.js): the fleet's event feed (GET /lb/events) newest first — cluster states,
+       kills, findings (each with its alert sends as marks), the rest — with kind chips; the health line under it.
+       At the fleet's level, directly under the findings band: what happened sits under what is wrong now. Collapsed
+       to the 3 newest rows; the expander shows the rest, and the choice is this browser's. An admin's: hidden for a
+       member. -->
+  <details id="events-section" data-ly="events" data-ly-label="Activity" class="section" open hidden>
+    <summary><h2>Activity<span id="events-count" class="ev-count"></span></h2></summary>
+    <div id="events-kinds" class="ev-kinds" role="group" aria-label="event kinds"></div>
+    <ul id="events-list" class="ev-list" aria-label="events, newest first"></ul>
+    <div class="ev-foot"><button type="button" id="events-expand" class="ev-expand" aria-controls="events-list" aria-expanded="false" hidden></button>
+      <button type="button" id="events-more" class="ev-more" hidden></button>
+      <span id="events-bad" class="ev-badline" hidden></span></div>
+    <div id="events-health" class="ev-health"></div>
+  </details>
 
   <!-- THE CLUSTER — the operator's word for the hardware: every box of this fleet, one card each (cores · CPU · GPU ·
        MEM rings with the memory figures, then the three histories), tagged with the server whose rank it holds, the
@@ -445,17 +461,6 @@
         <summary><h2>Saturation</h2></summary>
         <div id="cluster-saturation" class="sat" aria-live="polite"
              aria-label="whether this server is saturated, and against which ceiling" hidden></div>
-      </details>
-
-      <!-- ACTIVITY (health.js): the fleet's event feed (GET /lb/events) newest first — cluster states, kills,
-           findings, alerts — with kind chips; the health line under it. An admin's: hidden for a member. -->
-      <details id="events-section" data-ly="events" data-ly-label="Activity" class="section" open hidden>
-        <summary><h2>Activity<span id="events-count" class="ev-count"></span></h2></summary>
-        <div id="events-kinds" class="ev-kinds" role="group" aria-label="event kinds"></div>
-        <ul id="events-list" class="ev-list" aria-label="events, newest first"></ul>
-        <div class="ev-foot"><button type="button" id="events-more" class="ev-more" hidden></button>
-          <span id="events-bad" class="ev-badline" hidden></span></div>
-        <div id="events-health" class="ev-health"></div>
       </details>
 
     <!-- THE TRAY: a tile the layout hides is parked here, in the DOM, so what gateway.js draws into it keeps landing;

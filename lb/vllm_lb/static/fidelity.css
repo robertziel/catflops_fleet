@@ -22,7 +22,25 @@ table.fid-t td:first-child, table.fid-t th:first-child { width: 1.6rem; padding-
 .fid-why ul { margin: .2rem 0 0; padding-left: 1rem; color: var(--ink-dim); white-space: normal; overflow-wrap: anywhere; max-width: 36rem; }
 .fid-status { color: var(--warn); }
 .fid-failed .fid-status, .fid-unreadable .fid-status { color: var(--bad); }
-.fid-err { color: var(--ink-dim); white-space: normal; }
+/* A failed run is one line — "failed · returned no token logprobs" — opening (tap / keyboard) to the whole error. */
+.fid-errd summary { cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40rem; }
+.fid-err { margin: .2rem 0 0; color: var(--ink-dim); white-space: normal; overflow-wrap: anywhere; max-width: 40rem; }
+/* THE RUN CHECKBOX, drawn in the style's tokens: the native one is a white square that glared on every dark style
+   (the UX audit). The box is the panel's raised fill and strong line; ticked, the accent with a panel-coloured
+   tick — each style (light or dark) values all three. */
+table.fid-t input[type="checkbox"] {
+  appearance: none; -webkit-appearance: none; display: inline-grid; place-content: center; flex: none;
+  width: 1rem; height: 1rem; margin: 0; cursor: pointer; vertical-align: middle;
+  background: var(--panel-2); border: 1px solid var(--line-strong); border-radius: 3px;
+}
+table.fid-t input[type="checkbox"]::after {
+  content: ""; width: .28rem; height: .55rem; margin-top: -.12rem; transform: rotate(45deg);
+  border: solid transparent; border-width: 0 2px 2px 0;
+}
+table.fid-t input[type="checkbox"]:hover { border-color: var(--accent); }
+table.fid-t input[type="checkbox"]:checked { background: var(--accent); border-color: var(--accent); }
+table.fid-t input[type="checkbox"]:checked::after { border-color: var(--panel); }
+table.fid-t input[type="checkbox"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 table.fid-t td:nth-child(3) { white-space: normal; }
 .fid-none td { color: var(--ink-faint); }
 .fid-cmp-box { margin: .55rem 0 0; font-size: .8rem; font-variant-numeric: tabular-nums; }
@@ -39,18 +57,26 @@ table.fid-t td:nth-child(3) { white-space: normal; }
    Playwright audit, 390 px). Each run becomes a card instead — the tick, then the model, then its figures two to a line,
    each under its column's name (fidelity.js puts it in `data-label`) — and the tick and Run are finger-sized. */
 @media (max-width: 600px) {
-  .fid-run { min-height: 32px; min-width: 32px; }
-  .fid-why summary { min-height: 32px; line-height: 32px; }
+  .fid-run { min-height: 44px; min-width: 44px; }
+  .fid-why summary { min-height: 44px; line-height: 44px; }
   table.fid-t, table.fid-t tbody { display: block; }
   table.fid-t thead { display: none; }
   table.fid-t tbody tr.fid-row {
-    display: grid; grid-template-columns: 2.4rem minmax(0, 1fr) minmax(0, 1fr); gap: .35rem .8rem; padding: .5rem .5rem;
+    display: grid; grid-template-columns: 44px minmax(0, 1fr) minmax(0, 1fr); gap: .35rem .8rem; padding: .5rem .5rem;
     border-bottom: var(--rule);
   }
   table.fid-t tbody tr.fid-row > td { display: block; padding: 0; border: 0; width: auto; white-space: normal; text-align: left; }
   table.fid-t tbody tr.fid-row > td.fid-pick { grid-column: 1; grid-row: 1 / span 4; align-self: start; box-shadow: none; }
   table.fid-t tbody tr.fid-row[aria-selected="true"] { box-shadow: inset 3px 0 0 var(--accent); }
-  table.fid-t td.fid-pick input { width: 32px; height: 32px; margin: 0; }
+  /* the TAP target is 44 px; the box drawn inside it stays 24 px: a transparent 10 px border is the finger's margin,
+     the line an inset shadow at the padding edge (the UX audit). */
+  table.fid-t td.fid-pick input {
+    width: 44px; height: 44px; margin: 0; border: 10px solid transparent; background-clip: padding-box;
+    box-shadow: inset 0 0 0 1px var(--line-strong);
+  }
+  table.fid-t td.fid-pick input:checked { border-color: transparent; box-shadow: none; }
+  table.fid-t td.fid-pick input::after { width: .4rem; height: .8rem; margin-top: -.15rem; border-width: 0 3px 3px 0; }
+  .fid-errd summary { white-space: normal; min-height: 44px; display: flex; align-items: center; }
   table.fid-t tbody tr.fid-row > td.fid-m, table.fid-t tbody tr.fid-row > td.fid-wide { grid-column: 2 / -1; }
   table.fid-t tbody tr.fid-row > td[data-label] { font-variant-numeric: tabular-nums; min-width: 0; overflow-wrap: anywhere; }
   table.fid-t tbody tr.fid-row > td[data-label]::before {

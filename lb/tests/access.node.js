@@ -1,11 +1,11 @@
 /* WHO IS WHAT, on the panel (vllm_lb/static/access.js): the admin's Access dialog over the gate's
  * /auth/access, and a member's page told it is one. Under node with a stub DOM and a fetch answered per URL.
  *
- * Pinned: the top bar gets `Access` ONLY when /auth/session says role admin (a member, an open gate, the LB's own 404
- * get none); the models offered are the catalog's served names and every served model, sorted, once; a person's row
- * shows their role and, for a member, a box per model ticked as granted (an admin has every model: no boxes); Save
- * POSTs {email, role, models} as JSON, same-origin, and shows the gate's refusal in its words; a member's page gets
- * `data-role="member"` on <html> and a line naming their models (none: says so).
+ * Pinned: the top bar gets `Access` ONLY when /auth/session says role admin (a member, an open gate, the LB's own
+ * `door: "lb"` answer get none); the models offered are the catalog's served names and every served model, sorted,
+ * once; a person's row shows their role and, for a member, a box per model ticked as granted (an admin has every model:
+ * no boxes); Save POSTs {email, role, models} as JSON, same-origin, and shows the gate's refusal in its words; a
+ * member's page gets `data-role="member"` on <html> and a line naming their models (none: says so).
  *
  *   docker run --rm -v "$PWD/lb":/lb:ro -w /lb node:22-slim node tests/access.node.js
  */
@@ -89,6 +89,8 @@ const PEOPLE = { roles: ['admin', 'member'], people: [
   for (const [session, want] of [[[200, { email: 'boss@example.com', role: 'admin' }], true],
                                   [[200, { email: 'guest@example.com', role: 'member', models: [] }], false],
                                   [[200, { email: 'anonymous', auth: 'false', role: 'admin' }], false],
+                                  // the LB itself (connect.py LB_SESSION, no gate in front): no sign-in, no Access
+                                  [[200, { door: 'lb', auth: 'none', why: 'no sign-in gate', role: 'admin' }], false],
                                   [null, false]]) {
     const w = world({ '/auth/session': session });
     await w.api.accessStart();

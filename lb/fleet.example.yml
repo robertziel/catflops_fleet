@@ -28,6 +28,8 @@ health:                             # OPTIONAL — hardware health findings (vll
                                     # (hardware/types idle_gpu_power_w; a type with none: no data, said so)
   counter_window_s: 3600            # an Xid / OOM-kill / RoCE error counter rise keeps its finding firing this long (s)
   backend_down_s: 120               # a classic server that answered and stopped, for this long (s), fires
+  disk_full_pct: 90                 # DISK fires when a disk path the box's sender reads is this full (% used) or
+                                    # fuller; the panel's red on that disk is this finding. 0 < x ≤ 100
 
 boxes:                              # every box: its name is what leases, parks and the panel call it
   box-a:

@@ -3,8 +3,10 @@
 Operator, 2026-10-12: "Can we include somewhere connect button, top navbar? Will show how to connect agent to this
 vllm". The dialog (static/gateway.js, "connect an agent") builds every snippet from the page's own origin, the LB's
 live /v1/models and what the address the page was opened at answers at /auth/session — a gate in front answers it
-(`auth: "false"` without sign-in, a session or 401 with it), the LB itself 404s it. What none of that can tell is
-this module's, in /lb/status `connect`:
+(`auth: "false"` without sign-in, a session or 401 with it), and where none is in front the LB answers it itself:
+`LB_SESSION`, 200 `door: "lb"` (it used to 404 by design, and every page load on a gate-less LB logged a
+failed request in the browser's console — a fault shown where there is none). What none of that can tell is this
+module's, in /lb/status `connect`:
 
   tunnel   LB_CONNECT_TUNNEL: the LB's address ON ITS HOST, host:port — what compose publishes it at. Anyone with
            ssh to that host reaches the LB, with no credential, through `ssh -N -L <port>:<tunnel> <host>`; that
@@ -30,6 +32,12 @@ import re
 #: an `ssh -L`, not a URL.
 _HOST = re.compile(r"^(?:\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?)$")
 _YES = ("1", "true", "yes")
+#: GET /auth/session as the LB itself answers it (proxy.py), when no gate in front answered it first: no sign-in, no
+#: session, no role — the page's door is the gateway, reached with no credential (gateway.js `connectDoor` → 'lb';
+#: access.js draws no Access). Its keys are none of the gate's (`email`, `role`, `auth: "false"`), so neither reads
+#: it as a gate's answer.
+LB_SESSION = {"door": "lb", "auth": "none",
+              "why": "no sign-in gate answered first: this address is the gateway itself — no credential"}
 _NO = ("0", "false", "no", "")
 
 

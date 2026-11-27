@@ -1,5 +1,6 @@
 /* OBSERVABILITY VIEWS (observe.js): the machine card's "check" / "history" buttons, the server's
-   "daily" button, and their one dialog — the connect dialog's frame (gateway.css `.cn`), every colour a panel token so
+   "daily" button — all three ONE neutral style, `.obs-btn` (the UX audit: daily wore connect's accent) — and their
+   one dialog — the connect dialog's frame (gateway.css `.cn`), every colour a panel token so
    each style (light or dark) re-values it. At 390 px everything stacks: rows wrap, tiles go one per line. */
 
 .obs-tools { display: inline-flex; gap: .3rem; margin-left: auto; flex: none; }
@@ -30,7 +31,7 @@
 .obs-cap { text-transform: uppercase; letter-spacing: .04em; font-size: var(--small); }
 .obs-target { font-family: var(--mono); font-size: var(--fs-74); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .obs-detail, .obs-hint { grid-column: 2 / -1; overflow-wrap: anywhere; color: var(--ink-dim); }
-.obs-hint { color: var(--warn); }
+.obs-hint { color: var(--warn); cursor: help; }   /* the short hint; its title is the full recovery */
 
 /* No SSH row: "ssh —", opening to the reason (connectivity.py `ssh_why`). */
 .obs-why { margin-top: .35rem; font-size: var(--fs-80); color: var(--ink-faint); }
@@ -53,8 +54,12 @@
 .obs-svg { width: 100%; height: 56px; display: block; background: var(--panel-2); border-radius: var(--radius-box); }
 .obs-band { fill: var(--accent); fill-opacity: .22; stroke: none; }
 .obs-avg { fill: none; stroke: var(--accent); stroke-width: 1.4; vector-effect: non-scaling-stroke; }
+/* The start / end ticks (observe.js `obsTicksHtml`): each label sits under the sample it names — the start tick's left
+   edge at its first sample, the end tick's right edge at its last — so a series that began late ticks where it began. */
+.obs-tt { position: relative; height: 1.25em; font-size: var(--small); color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+.obs-tt > span { position: absolute; top: 0; white-space: nowrap; }
 
-/* DAILY: per model, its head (name · 24 h · 30 d), then two rows of 30 bars and the day axis. */
+/* DAILY: per model, its head (name · 24 h · 30 d · peak min), then one row of 30 tokens/day bars and the day axis. */
 .obs-sum { margin: 0; font-size: var(--fs-80); color: var(--ink-dim); font-variant-numeric: tabular-nums; }
 .obs-model { display: grid; gap: .3rem; padding: .5rem .6rem; background: var(--panel-2); border: var(--rule); border-radius: var(--radius-box); }
 .obs-mh { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .2rem .7rem; font-variant-numeric: tabular-nums; }
@@ -67,11 +72,12 @@
 .obs-bar:hover { fill: var(--ink); }
 .obs-axis { display: flex; justify-content: space-between; font-size: var(--small); color: var(--ink-faint); font-variant-numeric: tabular-nums; }
 
-/* A PHONE: every control of these views is at least 32 px each way (the Playwright audit, 390 px). */
+/* A PHONE: the card buttons and the range toggle are a finger's 44 px each way (the UX audit; 32 px before), the
+   dialog's × and its ssh reason too. */
 @media (max-width: 600px) {
-  .obs-btn { min-height: 32px; min-width: 32px; padding: 0 .7rem; }
-  .obs-tier { min-height: 32px; min-width: 44px; }
-  .obs-dlg .obs-again { min-height: 32px; min-width: 32px; }
-  .obs-dlg .obs-x { min-width: 36px; min-height: 36px; }
-  .obs-why summary { min-height: 32px; line-height: 32px; }
+  .obs-btn { min-height: 44px; min-width: 44px; padding: 0 .7rem; }
+  .obs-tier { min-height: 44px; min-width: 44px; }
+  .obs-dlg .obs-again { min-height: 44px; min-width: 44px; }
+  .obs-dlg .obs-x { min-width: 44px; min-height: 44px; }
+  .obs-why summary { min-height: 44px; line-height: 44px; }
 }

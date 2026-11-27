@@ -2,13 +2,15 @@
  * button, top navbar? Will show how to connect agent to this vllm"), under node with a stub DOM that keeps a real
  * tree (children, parents, focus, events) and a fetch answered per URL.
  *
- * Pinned: the top bar's `connect` opens a modal dialog; the base URL is the page's own `location.origin` (or the
- * SSH forward the deployment declares), never a literal; the model and its window are the LB's live /v1/models;
- * the door is what /auth/session answers (404 = the LB itself, `auth: "false"` = a gate without sign-in, 401 or a
- * session = the sign-in gate); /lb/status `connect` adds the tunnel, Basic and the LB's own timeouts; a door an API
- * client cannot pass SAYS so and offers no snippet for it; the Claude Code lines are fullclaudevllm's (window, 80 %
- * compact, output cap, timeouts from the LB, idle watchdog ≤ 30 min); no credential is ever a value; Esc closes and
- * gives focus back; Tab is trapped; copy writes the snippet; the tabs switch by click and arrow.
+ * Pinned: the top bar's `connect` opens a modal dialog; the base URL is the page's own `location.origin` (or the SSH
+ * forward the deployment declares), never a literal; the model and its window are the LB's live /v1/models; the door is
+ * what /auth/session answers (200 `door: "lb"` = the LB itself — connect.py LB_SESSION: the LB answers
+ * it rather than 404, so a gate-less page logs no failed request; `auth: "false"` = a gate without sign-in, 401 or a
+ * session = the sign-in gate; a 404 is no door this page knows); /lb/status `connect` adds the tunnel, Basic and the
+ * LB's own timeouts; a door an API client cannot pass SAYS so and offers no snippet for it; the Claude Code lines are
+ * fullclaudevllm's (window, 80 % compact, output cap, timeouts from the LB, idle watchdog ≤ 30 min); no credential is
+ * ever a value; Esc closes and gives focus back; Tab is trapped; copy writes the snippet; the tabs switch by click and
+ * arrow.
  *
  * PER-USER API KEYS (the sign-in gate's key store; operator, 2026-10-12): where the sign-in gate's /auth/session says
  * `api_keys`, this address is an API route too — Claude Code / curl / the SDKs with `<your key>`, never a value — and
@@ -99,7 +101,10 @@ function fire(el, type, extra = {}) {
   return prevented;
 }
 
-function load({ origin = 'https://gw.example.test', door = { status: 404, body: { error: { type: 'not_found' } } },
+/** What the LB itself answers at /auth/session (connect.py LB_SESSION; tests/test_connect.py pins the route). */
+const LB_DOOR = { status: 200, body: { door: 'lb', auth: 'none',
+  why: 'no sign-in gate answered first: this address is the gateway itself — no credential' } };
+function load({ origin = 'https://gw.example.test', door = LB_DOOR,
   models = { status: 200, body: { object: 'list', data: [{ id: 'Qwen/Qwen3.8-27B', object: 'model', max_model_len: 196608 }] } },
   connect = { tunnel: '', basic: false, first_byte_timeout_s: 3600, stall_timeout_s: 1800 }, clipboard = 'ok', stored = {},
   keysApi = null } = {}) {
@@ -247,6 +252,19 @@ const allText = (dlg) => textOf(dlg);
   ok(listed.has(sha(words.canary)) && [words.canary, 'x'].filter((t) => listed.has(sha(t))).length === 1,
     'the guard bites the planted canary and nothing else');
 
+  // ── a 404 at /auth/session is no door this page knows (the LB answers 200 `door: "lb"`): unknown, no snippet ──────
+  {
+    const { api: a0 } = load();
+    eq(a0.connectDoor(404, {}), 'unknown', 'a 404 is no longer read as the LB');
+    eq(a0.connectDoor(LB_DOOR.status, LB_DOOR.body), 'lb', 'the LB\'s own answer is the LB');
+    eq(a0.connectDoor(200, { email: 'anonymous', auth: 'false' }), 'open', 'the open gate\'s answer: unchanged');
+    eq(a0.connectDoor(401, {}), 'signin', 'the sign-in gate\'s 401: unchanged');
+    const { api, dlg } = load({ door: { status: 404, body: { error: { type: 'not_found' } } } });
+    await api.openConnect(); await settle();
+    const t = allText(dlg);
+    ok(/HTTP 404/.test(t) && /door unknown/.test(t), `says what it got: ${t.slice(0, 200)}`);
+    eq(snippets(dlg).length, 0, 'no snippet for a door it cannot name');
+  }
   // ── 3. the sign-in gate, nothing declared: says so, no snippet ─────────────────────────────────────────────────
   {
     const { api, dlg } = load({ door: { status: 401, body: { error: 'sign_in_required' } } });

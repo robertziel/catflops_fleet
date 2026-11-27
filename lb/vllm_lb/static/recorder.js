@@ -12,6 +12,25 @@
  *   EXPAND          a dialog (the connect dialog's `.cn` frame): the hour in minute buckets, the last ten minutes
  *                   sample by sample, and every container.
  *
+ * BOX HEALTH RIDES THE STRIP (a dropdown that already exists, so the box health takes no more space and
+ * stays one tap away). gateway.js `renderMachines` hands
+ * `recorderPaint` a fourth argument, `hx` = hwextra.js `hwExtraStrip` + `hwExtraHtml`: {parts, notes, html}, `html` the
+ * builder `(ports) => markup` of the open sections from the user's port choices (below). Its parts
+ * close the strip line ("… · 7 containers 5.0G · RoCE 2/2 up · 1 rising · disk 93%"), in the fault colour (`.rec-bad`)
+ * only where hwextra flagged a fault — this file judges nothing; each part's detail and each note (why a block draws
+ * no figure) go in the strip's title. Open, the RoCE / DISKS / MODELS sections follow the containers, once. A box whose
+ * sender sends box health but no recorder block gets a strip of just those figures; a box with neither, none. The strip
+ * WRAPS between figures (never mid-figure) rather than cut a fault off the end of the line.
+ *
+ *   recOpen(box)    the way in from elsewhere (the findings band's chip): opens that box's strip and remembers it as
+ *                   the user's own click would, scrolls its line to the CENTRE of the view (smoothly unless the browser
+ *                   asks for reduced motion) — the card above it, flashed by the band, stays on screen; this is the
+ *                   tap's one scroll (health.js `jumpToBox` does not scroll the card too) — focuses it and flashes it
+ *                   for REC_FLASH_MS (`.rec-flash`). Never closes an open strip. A box with no strip drawn is refused
+ *                   with an Error naming it — never a guess at another box.
+ *   recWhyNot(box)  '' when `box` has a strip drawn, else why not ("no recorder strip for <box>: …") — what a caller
+ *                   asks BEFORE recOpen, so a chip states the reason instead of throwing in a click handler.
+ *
  * EACH FIGURE ONCE (operator, 2026-10-30: the open strip drew every figure twice, the dialog three times). Charts
  * closed: the compact grid. Charts open: the charts alone — each chart's headline IS the figure's value. The dialog:
  * the two chart blocks, no grid. A figure the hour holds no reading of (no fan tach, amdgpu's absent throttle mask)
@@ -37,6 +56,16 @@
  * STATELESS SERVER. Which strips are open, and whether their charts are, is this browser's: localStorage `lb.recorder`,
  * every touch wrapped (layout.js's `LyStore` rule) — a browser that keeps nothing still opens and closes for the visit.
  *
+ * A PORT'S DETAILS KEEPS THE USER'S TOGGLE. Every status patch (~1 s) repaints the open strip, and each RoCE
+ * port's `details.hx-more` was drawn from its fault default alone: a tap on a healthy port's "12 at 0 · QoS" was undone
+ * by the next patch, a faulty port's closed details reopened. `recPorts[box]["dev/port"]` holds the user's own toggle
+ * and hwextra.js draws it in place of the default; a port never toggled keeps the default (open on a fault). The
+ * `toggle` listener records only a USER's toggle: the browser also fires `toggle` for a details PAINTED open, so a
+ * toggle that leaves a details as it was drawn (`data-drawn`) is not a choice — else every faulty port's paint would
+ * pin it open after its fault cleared. IN MEMORY ONLY, never `lb.recorder` (unlike `charts`): `charts` is a layout
+ * preference; a port's details is a look at one port now, and a closed one remembered across reloads would hide that
+ * port's next fault (its zero counters and QoS) behind the user's choice of another day. A reload is back to the default.
+ *
  * Loaded after gateway.js (it uses `tile`, `esc`, `isNum`, `fmtDuration`, `paint`, `placeMarks`); gateway.js
  * `renderMachines` calls `recorderPaint` per box when this file is present.
  */
@@ -44,6 +73,8 @@
 
 const REC_KEY = 'lb.recorder';
 const REC_REFRESH_MS = 15000;
+/** How long `recOpen` flashes the strip it opened: long enough to find on a scrolled page, gone before the next poll. */
+const REC_FLASH_MS = 1600;
 
 /** Open/closed per box, in this browser. `get` never throws; `set` reports whether the browser kept it. */
 class RecStore {
@@ -161,16 +192,27 @@ function recFilling(heldS, windowS) {
   return `filling · ${Math.min(of, Math.max(1, Math.ceil(heldS / 60)))} of ${of} min`;
 }
 
-/** THE STRIP: one button, one line, figures only; every absent figure's reason in its title. */
-function recStripHtml(box, rec, open) {
-  const parts = recStripParts(rec);
-  const why = parts.filter(([, w]) => w).map(([t, w]) => `${t}: ${w}`);
-  const held = recHeld(rec);
-  const title = `flight recorder · ${box}${held ? ` · ${held} of the hour` : ''} · power: ${recPowerLabel(rec)}`
-    + `${why.length ? `\n${why.join('\n')}` : ''}`;
+/** Box health as the strip draws it: [text, class, title-line] per part, and its notes (hwextra.js `hwExtraStrip`). */
+function recHx(hx) {
+  const parts = (hx && Array.isArray(hx.parts) ? hx.parts : [])
+    .map((p) => [p.text, p.bad ? 'rec-bad' : '', p.title ? `${p.text}: ${p.title}` : '']);
+  return { parts, notes: hx && Array.isArray(hx.notes) ? hx.notes : [] };
+}
+
+/** THE STRIP: one button, figures only — the recorder's, then the box health's; every absent figure's reason, each box
+ *  health detail and note, in its title. `rec` null: the box health alone. */
+function recStripHtml(box, rec, open, hx) {
+  const health = recHx(hx);
+  const parts = rec ? recStripParts(rec).map(([t, w]) => [t, w ? 'rec-na' : '', w ? `${t}: ${w}` : '']) : [];
+  const all = [...parts, ...health.parts];
+  const lines = [...all.map(([, , l]) => l).filter(Boolean), ...health.notes];
+  const held = rec ? recHeld(rec) : '';
+  const title = (rec ? `flight recorder · ${box}${held ? ` · ${held} of the hour` : ''} · power: ${recPowerLabel(rec)}`
+    : `box health · ${box}`) + `${lines.length ? `\n${lines.join('\n')}` : ''}`;
+  const figs = all.map(([t, c]) => `<span class="${c}">${esc(t)}</span>`);
   return `<button type="button" class="rec-strip" aria-expanded="${open ? 'true' : 'false'}" aria-controls="rec-${esc(box)}"
-    title="${esc(title)}"><span class="rec-dot" aria-hidden="true">⏺</span> 1h${parts.map(([t, w]) =>
-    ` · <span class="${w ? 'rec-na' : ''}">${esc(t)}</span>`).join('')}</button>`;
+    title="${esc(title)}">${rec ? `<span class="rec-dot" aria-hidden="true">⏺</span> 1h${figs.map((f) => ` · ${f}`).join('')}`
+    : figs.join(' · ')}</button>`;
 }
 
 /** The figures grid: label over value, "—" with the reason when there is none. `only` (a Set of keys): just those —
@@ -182,9 +224,9 @@ function recGridHtml(rec, only) {
   return `<div class="rec-grid">${ls.map((l) => {
     const t = recText(rec, l);
     const title = !t ? recWhy(rec, l.key) : l.key === 'gpu_power_w' && scope ? recPowerLabel(rec) : '';
-    return `<div class="rec-fig"${title ? ` title="${esc(title)}"` : ''}><span>${esc(l.label)}</span>`
+    return `<div class="rec-fig"${title ? ` title="${esc(title)}"` : ''}><span>${esc(l.label)}</span> `
       + `<b${t ? '' : ' class="rec-na"'}>${esc(t || '—')}</b></div>`;
-  }).join('')}</div>`;
+  }).join(' ')}</div>`;
 }
 
 /** The power line: what the sensor is, the hour's peak (one reading, or inst and avg named), the hour's mean, the
@@ -212,10 +254,12 @@ function recContainersHtml(box, rec, all, more) {
   if (!c) return `<div class="rec-cont"><div class="rec-h">CONTAINERS</div><div class="rec-na" title="${esc(rec.containers_why || '')}">n/a</div></div>`;
   const rows = more && Array.isArray(all) ? all : (c.top || []);
   const ram = recRam(c.total_ram_mb);
-  return `<div class="rec-cont"><div class="rec-h">CONTAINERS · ${esc(c.count)}${ram ? ` · ${esc(ram)} RAM` : ''}</div>`
-    + `<ul class="rec-list rec-ctab">${rows.map((x) => `<li><span class="rec-name" title="${esc(x.name)}">${esc(x.name)}</span>`
-      + `<b class="rec-cram">${esc(recRam(x.ram_mb) || '—')}</b>`
-      + `<span class="rec-img" title="${esc(x.image || '')}">${esc(x.image || '')}</span></li>`).join('')}</ul>`
+  // Every name, figure and row is parted by whitespace in the markup (the grid's gaps are layout only): the text alone
+  // never glues "svc-0" to its "3.5G" (tests/recorder.node.js).
+  return `<div class="rec-cont"><div class="rec-h">CONTAINERS · ${esc(c.count)}${ram ? ` · ${esc(ram)} RAM` : ''}</div> `
+    + `<ul class="rec-list rec-ctab">${rows.map((x) => `<li><span class="rec-name" title="${esc(x.name)}">${esc(x.name)}</span> `
+      + `<b class="rec-cram">${esc(recRam(x.ram_mb) || '—')}</b> `
+      + `<span class="rec-img" title="${esc(x.image || '')}">${esc(x.image || '')}</span></li>`).join(' ')}</ul> `
     + (c.more > 0 ? `<button type="button" class="rec-more" data-box="${esc(box)}" aria-expanded="${more ? 'true' : 'false'}">${more ? 'fewer' : `+${esc(c.more)} more`}</button>` : '')
     + (c.unlisted > 0 ? `<span class="rec-unlisted rec-na" title="the sender sends its largest containers by RAM; the count and the RAM above are every container's">+${esc(c.unlisted)} smaller not sent</span>` : '')
     + '</div>';
@@ -257,7 +301,9 @@ function recBlockHead(name, fill) {
 
 /** THE OPEN RECORDER under the strip. `st` is this box's stored state, `got` its fetched hour ({data} | {error}).
  *  Charts drawn → the charts and, after them, only the figures that have none; otherwise the whole grid. */
-function recBodyHtml(box, rec, st, got) {
+function recBodyHtml(box, rec, st, got, hx) {
+  const health = hx ? hx.html(st.ports) : '';
+  if (!rec) return `<div class="rec-body" id="rec-${esc(box)}">${health}</div>`;
   const hour = got && got.data;
   const all = hour && hour.containers ? hour.containers.all : null;
   const drawn = st.charts && hour;
@@ -272,7 +318,7 @@ function recBodyHtml(box, rec, st, got) {
     ${recPowerHtml(rec, !drawn)}
     <details class="rec-charts" data-box="${esc(box)}"${st.charts ? ' open' : ''}><summary>charts</summary>${inner}</details>
     ${recGridHtml(rec, absent)}
-    ${recContainersHtml(box, rec, all, st.more)}
+    ${recContainersHtml(box, rec, all, st.more)}${health}
   </div>`;
 }
 
@@ -302,7 +348,20 @@ function recDialogHtml(box, rec, got) {
 
 const recStore = new RecStore(typeof window !== 'undefined' ? (() => { try { return window.localStorage; } catch (e) { return null; } })() : null);
 const recGot = {};          // box → {at, data} | {at, error}
-const recLast = {};         // box → [slot, rec]: what to repaint when a fetch lands
+const recLast = {};         // box → [host, rec, hx]: what to repaint when a fetch lands, a click or recOpen asks
+const recPorts = {};        // box → {"dev/port": open}: the user's own toggle of a port's details, this visit only
+
+/** Record the user's toggle of a port's `details.hx-more` (`d`) on `box`. A toggle that leaves it as drawn is the
+ *  browser's event for a details painted open, not a choice. The key is required: a details without one is a bug in
+ *  hwextra.js, refused by name rather than remembered under a guess. */
+function recPortToggled(box, d) {
+  const key = d.getAttribute('data-port');
+  if (!key) throw new Error(`recPortToggled: a details.hx-more on ${box} carries no data-port`);
+  const drawn = d.getAttribute('data-drawn') === '1';
+  if (d.open === drawn) return;
+  (recPorts[box] = recPorts[box] || {})[key] = d.open;
+  d.setAttribute('data-drawn', d.open ? '1' : '0');   // the details now shows the choice: a second toggle is one too
+}
 let recDialogBox = null;
 
 async function recFetch(box) {
@@ -319,7 +378,7 @@ async function recFetch(box) {
   }
   recGot[box] = Object.assign(got, { at: Date.now() });
   const last = recLast[box];
-  if (last) recorderPaint(last[0], box, last[1]);
+  if (last) recorderPaint(last[0], box, last[1], last[2]);
 }
 
 function recDialog() {
@@ -346,30 +405,48 @@ function recDialog() {
   return d;
 }
 
-/** The controls a repaint replaces, by the selector that finds their successor. */
-const REC_FOCUSABLE = ['.rec-strip', '.rec-expand', '.rec-charts > summary', '.rec-more', '.rec-x'];
+/** The controls a repaint replaces, by the selector that finds their successor. A port's counter details
+ *  (`.hx-more`, hwextra.js) are many in one strip: their summary is found again by its port's key
+ *  (`recFocusSelector`), never by the first match — a keyboard user on mlx5_1/1 stays on mlx5_1/1. */
+const REC_FOCUSABLE = ['.rec-strip', '.rec-expand', '.rec-charts > summary', '.rec-more', '.rec-x', '.hx-more > summary'];
+
+/** The selector that finds the focused control `a` again after a repaint, or null when the recorder does not
+ *  repaint it. A port's summary is keyed by its `data-port` (quotes and backslashes escaped). */
+function recFocusSelector(a) {
+  const sel = a && a.matches ? REC_FOCUSABLE.find((s) => a.matches(s)) : null;
+  if (sel !== '.hx-more > summary') return sel || null;
+  const d = a.closest && a.closest('.hx-more');
+  const port = d && d.dataset ? d.dataset.port : null;
+  if (!port) return null;
+  return `.hx-more[data-port="${String(port).replace(/["\\]/g, (c) => `\\${c}`)}"] > summary`;
+}
 
 /** Repaint `el`, keeping the keyboard where it was. EVERY POLL REPAINTS (the figures move), and an innerHTML repaint
  *  drops the focused button: a keyboard user's Space on the strip toggled it and then lost focus to <body> on the next
  *  poll. The focused control is found again by its selector and refocused. */
 function recPaintKeepingFocus(el, html) {
   const a = typeof document !== 'undefined' ? document.activeElement : null;
-  const sel = a && el.contains && el.contains(a) ? REC_FOCUSABLE.find((s) => a.matches && a.matches(s)) : null;
+  const sel = a && el.contains && el.contains(a) ? recFocusSelector(a) : null;
   paint(el, html);
   const back = sel && el.querySelector(sel);
   if (back && document.activeElement !== back) back.focus({ preventScroll: true });
 }
 
-/** Paint one box's recorder into its host under the card (`host`: gateway.js `.rec`). Wires its events once. */
-function recorderPaint(host, box, rec) {
+/** Whether box health has anything for the strip: a figure, or a section for the open view. */
+const recHasHx = (hx) => !!hx && ((Array.isArray(hx.parts) && hx.parts.length > 0) || !!hx.html({}));
+
+/** Paint one box's recorder into its host under the card (`host`: gateway.js `.rec`), with its box health `hx`
+ *  (hwextra.js; null when that file is absent). Wires its events once. */
+function recorderPaint(host, box, rec, hx) {
   if (!host) return;
-  recLast[box] = [host, rec];
-  if (!rec) { paint(host, ''); return; }
-  const st = recStore.get(box);
-  const wantsHour = st.open && (st.charts || st.more);
-  if (wantsHour || recDialogBox === box) recFetch(box);
-  recPaintKeepingFocus(host, recStripHtml(box, rec, st.open) + (st.open ? recBodyHtml(box, rec, st, recGot[box] && (recGot[box].data || recGot[box].error) ? recGot[box] : null) : ''));
-  if (recDialogBox === box) {
+  recLast[box] = [host, rec, hx];
+  if (!rec && !recHasHx(hx)) { paint(host, ''); return; }
+  const st = Object.assign(recStore.get(box), { ports: recPorts[box] || {} });
+  const wantsHour = rec && st.open && (st.charts || st.more);
+  if (rec && (wantsHour || recDialogBox === box)) recFetch(box);
+  const got = recGot[box] && (recGot[box].data || recGot[box].error) ? recGot[box] : null;
+  recPaintKeepingFocus(host, recStripHtml(box, rec, st.open, hx) + (st.open ? recBodyHtml(box, rec, st, got, hx) : ''));
+  if (rec && recDialogBox === box) {
     const d = recDialog();
     recPaintKeepingFocus(d, recDialogHtml(box, rec, recGot[box] && (recGot[box].data || recGot[box].error) ? recGot[box] : null));
     if (typeof placeMarks === 'function') placeMarks(d);
@@ -378,27 +455,61 @@ function recorderPaint(host, box, rec) {
   if (host.dataset.recWired) return;
   host.dataset.recWired = '1';
   host.addEventListener('click', (e) => {
-    const [h, r] = recLast[box] || [];
+    const [h, r, x] = recLast[box] || [];
     // Each repaint keeps the keyboard on the control that was pressed (`recPaintKeepingFocus`).
     if (e.target.closest('.rec-strip')) {
       recStore.set(box, { open: !recStore.get(box).open });
-      recorderPaint(h, box, r);
+      recorderPaint(h, box, r, x);
     } else if (e.target.closest('.rec-more')) {
       recStore.set(box, { more: !recStore.get(box).more });
-      recorderPaint(h, box, r);
+      recorderPaint(h, box, r, x);
     } else if (e.target.closest('.rec-expand')) {
       recDialogBox = box;
       const d = recDialog();
-      recorderPaint(h, box, r);
+      recorderPaint(h, box, r, x);
       if (!d.open) d.showModal();
     }
   });
-  // <details> toggles itself; its state is remembered, and opening it fetches the hour.
+  // <details> toggles itself; its state is remembered, and opening it fetches the hour. A port's details is told
+  // apart first: its choice is in memory, and it needs no repaint (the details already shows it; no fetch hangs on it).
   host.addEventListener('toggle', (e) => {
-    if (!e.target.matches || !e.target.matches('.rec-charts')) return;
+    if (!e.target.matches) return;
+    if (e.target.matches('.hx-more')) { recPortToggled(box, e.target); return; }
+    if (!e.target.matches('.rec-charts')) return;
     if (recStore.get(box).charts === e.target.open) return;
     recStore.set(box, { charts: e.target.open });
-    const [h, r] = recLast[box] || [];
-    recorderPaint(h, box, r);
+    const [h, r, x] = recLast[box] || [];
+    recorderPaint(h, box, r, x);
   }, true);
+}
+
+/** Why `box` has no strip drawn ('' when it has one): the page drew no card for it, or its sender sends neither a
+ *  recorder block nor box health (recorderPaint then paints nothing). recOpen's refusal says the same. */
+function recWhyNot(box) {
+  const [host, rec, hx] = recLast[box] || [];
+  if (!host) return `no recorder strip for ${box}: the page has drawn no machine card for it`;
+  if (!rec && !recHasHx(hx)) {
+    return `no recorder strip for ${box}: its sender sends no recorder block and no box health`;
+  }
+  return '';
+}
+
+/** Open `box`'s strip from elsewhere (the findings band's chip): kept open as the user's own click would keep it,
+ *  its line scrolled to the centre (the one scroll of a band tap), focused, flashed. Refused, naming the box and why,
+ *  when no strip is drawn for it (`recWhyNot`). */
+function recOpen(box) {
+  const why = recWhyNot(box);
+  if (why) throw new Error(`recOpen: ${why}`);
+  const [host, rec, hx] = recLast[box];
+  recStore.set(box, { open: true });
+  recorderPaint(host, box, rec, hx);
+  const strip = host.querySelector('.rec-strip');
+  const still = typeof window !== 'undefined' && window.matchMedia
+    && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  strip.scrollIntoView({ block: 'center', behavior: still ? 'auto' : 'smooth' });
+  strip.focus({ preventScroll: true });
+  host.classList.remove('rec-flash');
+  if (host.offsetWidth !== undefined) void host.offsetWidth;   // restart the animation on a second call
+  host.classList.add('rec-flash');
+  setTimeout(() => host.classList.remove('rec-flash'), REC_FLASH_MS);
 }

@@ -9,7 +9,7 @@ import pathlib
 import pytest
 
 from vllm_lb import events
-from vllm_lb.events import EventLog, KINDS
+from vllm_lb.events import READ_LIMIT, EventLog, KINDS
 
 
 @pytest.fixture
@@ -52,6 +52,8 @@ def test_the_feed_reads_newest_first_and_filters_by_since_and_kind(log):
     assert [e["summary"] for e in log.read(since=1_800_000_015.0)["events"]] == ["#3", "#2"]
     assert [e["summary"] for e in log.read(kinds={"cluster.state"})["events"]] == ["#3", "#0"]
     assert got["kinds"] == sorted(KINDS)
+    assert got["limit"] == READ_LIMIT, "the page's cut, stated: the panel marks a full page \"+\" against it"
+    assert log.read(limit=2)["limit"] == 2 and len(log.read(limit=2)["events"]) == 2
 
 
 def test_the_feed_spans_days_and_lists_a_line_it_cannot_read_never_drops_it(log, tmp_path):
@@ -251,6 +253,18 @@ def test_a_power_action_posted_is_recorded_on_the_feed(lb_port):
     ({**POWER, "colour": "red"}, "colour"),
     ({**POWER, "user": {"name": "op"}}, "plain value"),
     ([POWER], "JSON object"),
+    # a power.action carries every fact of the action: the feed row is built from them (power/fleet_power/app.py
+    # `_tell_lb` sends all five; `user` / `rc` may be null, the key may not be missing)
+    ({k: v for k, v in POWER.items() if k != "action"}, "`action`"),
+    ({**POWER, "action": ""}, "`action`"),
+    ({k: v for k, v in POWER.items() if k != "result"}, "`result`"),
+    ({k: v for k, v in POWER.items() if k != "dry_run"}, "`dry_run`"),
+    ({**POWER, "dry_run": "yes"}, "`dry_run`"),
+    ({k: v for k, v in POWER.items() if k != "user"}, "`user`"),
+    ({k: v for k, v in POWER.items() if k != "rc"}, "`rc`"),
+    ({**POWER, "rc": "0"}, "`rc`"),
+    ({**POWER, "rc": True}, "`rc`"),                    # a boolean is no exit code (bool is an int in Python)
+    ({**POWER, "user": 5}, "`user`"),                   # a number is no user name
 ])
 def test_a_post_that_is_not_a_well_formed_power_action_is_400_naming_why(lb_port, body, says):
     _, _, port = lb_port
@@ -270,6 +284,12 @@ def test_a_member_may_not_post_an_event(lb_port):
     _, _, port = lb_port
     status, got = _post(port, POWER, headers={"X-Vllm-Role": "member", "X-Vllm-Models": "m"})
     assert status == 403 and got["error"]["type"] == "admin_only"
+
+
+def test_a_power_action_with_no_user_and_no_exit_code_is_recorded(lb_port):
+    """A dry run has no rc and a token-less caller no user: null is a fact, a missing key is a malformed event."""
+    _, _, port = lb_port
+    assert _post(port, {**POWER, "user": None, "rc": None})[0] == 201
 
 
 def test_with_the_feed_off_a_post_is_503_never_a_quiet_drop(lb_port):

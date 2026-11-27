@@ -20,7 +20,17 @@
  *      the dialog → the hour's and the ten minutes' charts, no grid;
  *   9. one power reading is one peak and the hour's mean (and "package" when the sensor is the APU package); two
  *      readings are kept apart, named;
- *  10. a chart block that does not yet hold its window says how much: "filling · 2 of 60 min".
+ *  10. a chart block that does not yet hold its window says how much: "filling · 2 of 60 min";
+ *  11. BOX HEALTH rides the strip (hwextra.js `hwExtraStrip` / `hwExtraHtml`): its figures close the strip
+ *      line, the fault colour only where hwextra flagged one, their reasons in the strip's title; the open recorder
+ *      carries the RoCE / disk / models sections once, after the containers; a box with no recorder block but box
+ *      health gets a strip of just those; a box with neither, nothing;
+ *  12. `recOpen(box)` opens that strip and keeps it open as the user's own click would (`lb.recorder`), scrolls it
+ *      into view, focuses it and flashes it for REC_FLASH_MS; a box with no strip drawn is refused, by name;
+ *  13. a port's `details.hx-more` keeps the USER'S toggle across repaints (every status patch repaints the open strip):
+ *      opened on a healthy port stays open, closed on a faulty one stays closed; no choice → the fault default; the
+ *      browser's own toggle event for a details PAINTED open is no choice; choices are per box, in memory only (never
+ *      `lb.recorder`), and the charts toggle is remembered apart from them.
  *
  *   node tests/recorder.node.js      (tests/test_recorder_page.py runs this when node exists)
  */
@@ -32,7 +42,8 @@ const path = require('path');
 const STATIC = path.join(__dirname, '..', 'vllm_lb', 'static');
 // palette.js first: the colours this script computes are read from the style's tokens (tests/palette_env.js).
 const src = require('./palette_env').withPalette(fs.readFileSync(path.join(STATIC, 'gateway.js'), 'utf8') + '\n'
-  + fs.readFileSync(path.join(STATIC, 'recorder.js'), 'utf8'));
+  + fs.readFileSync(path.join(STATIC, 'recorder.js'), 'utf8') + '\n'
+  + fs.readFileSync(path.join(STATIC, 'hwextra.js'), 'utf8'));
 const el = () => ({ addEventListener() {}, removeAttribute() {}, setAttribute() {}, append() {},
   classList: { toggle() {}, add() {}, remove() {} }, style: {}, hidden: false, innerHTML: '',
   textContent: '', value: '', dataset: {}, querySelectorAll: () => [], querySelector: () => null,
@@ -40,13 +51,16 @@ const el = () => ({ addEventListener() {}, removeAttribute() {}, setAttribute() 
 const document = { getElementById: el, createElementNS: el, createElement: el, addEventListener() {},
   querySelectorAll: () => [], querySelector: () => null, body: { style: {}, classList: { toggle() {} } },
   documentElement: { style: {}, classList: { toggle() {} } } };
+const stored = {};
 const window = { addEventListener() {}, innerWidth: 1280, innerHeight: 800, matchMedia: () => ({
-  matches: false, addEventListener() {} }), localStorage: { getItem: () => null, setItem() {} } };
+  matches: false, addEventListener() {} }), localStorage: { getItem: (k) => stored[k] || null, setItem: (k, v) => { stored[k] = v; } } };
+const timers = [];
 
 const api = new Function('document', 'window', 'fetch', 'location', 'setInterval', 'setTimeout',
   'getComputedStyle', 'ResizeObserver', 'localStorage', 'navigator',
-  `${src}\n;return { recStripHtml, recBodyHtml, recDialogHtml, RecStore, recFmt };`)(
-  document, window, () => new Promise(() => {}), { search: '', href: '' }, () => 0, () => 0,
+  `${src}\n;return { recStripHtml, recBodyHtml, recDialogHtml, RecStore, recFmt, recorderPaint, recOpen, recWhyNot,
+    REC_FLASH_MS, hwExtraHtml, recFocusSelector };`)(
+  document, window, () => new Promise(() => {}), { search: '', href: '' }, () => 0, (f, ms) => { timers.push([f, ms]); return 0; },
   () => ({}), undefined, window.localStorage, { userAgent: 'node' });
 
 /** The figure table as recorder.py `summary` serves it (fleet_telemetry/figures.py FIGURES_TABLE). */
@@ -129,11 +143,12 @@ const ok = (cond, msg) => { assert.ok(cond, msg); checks++; };
   ok(s.includes('predates it'), 'the strip\'s title says why');
   const b = api.recBodyHtml('box-a', OLD, { open: true, charts: false, more: false }, null);
   ok(text(b).includes('CPU UTIL 5.9%'), 'CPU util is live from the 1.5.0 sender, in %');
-  const gpuTemp = b.match(/<div class="rec-fig" title="([^"]*)"><span>GPU TEMP<\/span><b class="rec-na">—<\/b>/);
+  const gpuTemp = b.match(/<div class="rec-fig" title="([^"]*)"><span>GPU TEMP<\/span> <b class="rec-na">—<\/b>/);
   ok(gpuTemp && gpuTemp[1].includes('predates'), 'a grid figure with no reading is — with its reason');
   ok(text(b).includes('peak n/a') && text(b).includes('input rail n/a'), 'the power line says n/a');
   ok(text(b).includes('holds 2m 0s'), 'how much of the hour the recorder holds');
-  const fan = api.recBodyHtml('box-a', FULL, { open: true }, null).match(/title="([^"]*)"><span>FAN SPEED<\/span><b class="rec-na">—/);
+  const fan = api.recBodyHtml('box-a', FULL, { open: true }, null)
+    .match(/title="([^"]*)"><span>FAN SPEED<\/span> <b class="rec-na">—/);
   ok(fan && fan[1] === 'no fan tachometer on this box', 'a box with no fan tach: — and why');
 }
 
@@ -144,7 +159,8 @@ const ok = (cond, msg) => { assert.ok(cond, msg); checks++; };
   ok(t.includes('CONTAINERS · 7 · 5.0G RAM'), `the containers head: ${t}`);
   ok(count(b, /<li>/g) === 6, 'the top six');
   ok(t.includes('svc-0 3.5G img/0:1'), `a row: name, RAM, image: ${t}`);
-  ok(/<li><span class="rec-name"[^>]*>svc-0<\/span><b class="rec-cram">3.5G<\/b><span class="rec-img" title="img\/0:1">img\/0:1<\/span><\/li>/.test(b),
+  ok(/<li><span class="rec-name"[^>]*>svc-0<\/span> <b class="rec-cram">3.5G<\/b> /.test(b)
+     && /<span class="rec-img" title="img\/0:1">img\/0:1<\/span><\/li>/.test(b),
      'a row is three cells in column order: name · RAM · image (whole in the title)');
   ok(/<ul class="rec-list rec-ctab">/.test(b), 'the rows are one table');
   ok(/class="rec-more"[^>]*aria-expanded="false">\+1 more</.test(b), '+1 more');
@@ -175,7 +191,7 @@ const ok = (cond, msg) => { assert.ok(cond, msg); checks++; };
   ok(count(b, /<div class="(rec-plain-tile )?tile/g) === LABELS.length - 1, 'one tile per figure the hour has');
   ok(count(b, /<svg class="sparkline/g) === LABELS.length - 1, 'each with its sparkline');
   ok(!/t-label">FAN SPEED</.test(b), 'a figure the box never sent has no chart (an empty graph is noise)');
-  const fan = b.match(/<div class="rec-fig" title="([^"]*)"><span>FAN SPEED<\/span><b class="rec-na">—/);
+  const fan = b.match(/<div class="rec-fig" title="([^"]*)"><span>FAN SPEED<\/span> <b class="rec-na">—/);
   ok(fan && fan[1] === 'no fan tachometer on this box', 'it stays a "—" beside the charts, with why');
   const tileOf = (label) => {
     const i = b.indexOf(`t-label">${label}<`);
@@ -227,7 +243,8 @@ const ok = (cond, msg) => { assert.ok(cond, msg); checks++; };
   const hot = Object.assign({}, FULL, { figures: Object.assign({}, FULL.figures, { throttle: 85 }),
                                         throttle_reasons: ['sw_power_cap', 'hw_slowdown'] });
   ok(text(api.recBodyHtml('box-a', hot, { open: true }, null)).includes('THROTTLE sw_power_cap, hw_slowdown'), 'the reasons, by name');
-  const amd = api.recBodyHtml('box-a', APU, { open: true }, null).match(/title="([^"]*)"><span>THROTTLE<\/span><b class="rec-na">—/);
+  const amd = api.recBodyHtml('box-a', APU, { open: true }, null)
+    .match(/title="([^"]*)"><span>THROTTLE<\/span> <b class="rec-na">—/);
   ok(amd && amd[1].includes('amdgpu'), 'no mask: — with why');
   const tiles = api.recBodyHtml('box-a', hot, { open: true, charts: true }, hourOf([]));
   ok(/t-label">THROTTLE<\/span>\s*<b class="t-val"[^>]*>sw_power_cap, hw_slowdown/.test(tiles), 'the throttle chart\'s headline is its reasons');
@@ -267,6 +284,165 @@ const ok = (cond, msg) => { assert.ok(cond, msg); checks++; };
   ok(!full.includes('filling'), 'a full hour says nothing');
   const mid = text(api.recDialogHtml('box-a', Object.assign({}, APU, { held_s: 900 }), hourOf([], 900)));
   ok(mid.includes('filling · 15 of 60 min') && !mid.includes('of 10 min'), `ten minutes held: that block is full: ${mid}`);
+}
+
+// 11. box health rides the strip
+{
+  const HX = { parts: [{ text: 'RoCE 1/2 up · 1 rising', title: 'mlx5_1/1 DOWN', bad: true },
+    { text: 'disk 25%', title: '/ 500 / 2,000 GB · 25%', bad: false }], notes: ['models: no models root'],
+    html: () => '<div class="hx">HXBODY</div>' };
+  const s = api.recStripHtml('box-a', FULL, false, HX);
+  const t = text(s);
+  ok(t.startsWith('⏺ 1h') && t.endsWith('7 containers 5.0G · RoCE 1/2 up · 1 rising · disk 25%'), `box health closes the line: ${t}`);
+  ok(/<span class="rec-bad">RoCE 1\/2 up · 1 rising<\/span>/.test(s), 'a fault hwextra flagged: the fault colour');
+  ok(/<span class="">disk 25%<\/span>/.test(s), 'no fault: plain');
+  ok(s.includes('RoCE 1/2 up · 1 rising: mlx5_1/1 DOWN') && s.includes('disk 25%: / 500 / 2,000 GB · 25%')
+     && s.includes('models: no models root'), 'each figure\'s detail and each note in the strip\'s title');
+  ok(!s.includes('HXBODY'), 'closed: no section');
+  const b = api.recBodyHtml('box-a', FULL, { open: true, charts: false, more: false, ports: {} }, null, HX);
+  ok(count(b, /HXBODY/g) === 1 && b.indexOf('HXBODY') > b.indexOf('CONTAINERS'), 'open: the sections once, after the containers');
+  ok(text(api.recStripHtml('box-a', FULL, false, null)).endsWith('7 containers 5.0G'), 'no box health: the strip as before');
+  const only = api.recStripHtml('box-a', null, false, HX);
+  ok(text(only) === 'RoCE 1/2 up · 1 rising · disk 25%' && /aria-controls="rec-box-a"/.test(only),
+     `no recorder block, box health: a strip of just those: ${text(only)}`);
+  const ob = api.recBodyHtml('box-a', null, { open: true, ports: {} }, null, HX);
+  ok(ob.includes('HXBODY') && !ob.includes('FLIGHT RECORDER'), 'and its open view is the sections alone');
+  const host = { dataset: {}, innerHTML: '', addEventListener() {}, querySelector: () => null, querySelectorAll: () => [], classList: { add() {}, remove() {} } };
+  // recorderPaint itself: box health and no recorder block PAINTS the strip into the host — not only the
+  // html builder; and closed, no section.
+  const hxHost = { dataset: {}, innerHTML: '', addEventListener() {}, querySelector: () => null,
+    querySelectorAll: () => [], classList: { add() {}, remove() {} } };
+  api.recorderPaint(hxHost, 'box-h', null, HX);
+  ok(text(hxHost.innerHTML) === 'RoCE 1/2 up · 1 rising · disk 25%' && hxHost.innerHTML.includes('rec-strip')
+     && /<span class="rec-bad">RoCE 1\/2 up · 1 rising<\/span>/.test(hxHost.innerHTML)
+     && !hxHost.innerHTML.includes('HXBODY'),
+     `recorderPaint(host, box, null, HX) draws the strip: ${hxHost.innerHTML}`);
+  api.recorderPaint(host, 'box-n', null, { parts: [], notes: [], html: () => '' });
+  ok(host.innerHTML === '', 'neither: nothing');
+}
+
+// THE TEXT PARTS EVERY FIGURE (hwextra.node.js the same): the words with the tags dropped are the words with
+// every tag a space — a container named "worker-2" beside its "1.2G" never reads "worker-21.2G" to a copy, a screen
+// reader or a detached node's innerText; the layout's gaps are not the only separator.
+{
+  const words = (x) => x.replace(/&[a-z#0-9]+;/g, 'x').trim().split(/\s+/);
+  const named = { ...FULL, containers: { ...FULL.containers, top: [{ name: 'worker-2', ram_mb: 1229, image: 'img:1' },
+    ...((FULL.containers || {}).top || [])] } };
+  const b = api.recBodyHtml('box-a', named, { open: true, charts: false, more: false }, null);
+  const glued = words(b.replace(/<[^>]+>/g, ''));
+  const parted = words(b.replace(/<[^>]+>/g, ' '));
+  ok(glued.join(' ') === parted.join(' '),
+     `no two words glued across a tag: ${glued.filter((w) => !parted.includes(w)).join(' | ')}`);
+}
+
+// 12. recOpen(box): the findings band's way in
+{
+  const cls = new Set();
+  let scrolled = null, focused = null;
+  const strip = { scrollIntoView(o) { scrolled = o; }, focus(o) { focused = o; } };
+  const host = { dataset: {}, innerHTML: '', addEventListener() {}, contains: () => false, querySelectorAll: () => [],
+    classList: { add: (c) => cls.add(c), remove: (c) => cls.delete(c) },
+    querySelector(sel) { return sel === '.rec-strip' && host.innerHTML.includes('rec-strip') ? strip : null; } };
+  const HX = { parts: [{ text: 'RoCE 2/2 up', title: '', bad: false }], notes: [], html: () => '<div class="hx">HXBODY</div>' };
+  api.recorderPaint(host, 'box-r', FULL, HX);
+  ok(!host.innerHTML.includes('rec-body'), 'collapsed by default');
+  api.recOpen('box-r');
+  ok(host.innerHTML.includes('rec-body') && host.innerHTML.includes('HXBODY') && /aria-expanded="true"/.test(host.innerHTML),
+     'recOpen opens the strip');
+  ok(JSON.parse(stored['lb.recorder'])['box-r'].open === true, 'and keeps it open, as the user\'s own toggle would');
+  ok(scrolled && scrolled.block === 'center' && focused && focused.preventScroll === true,
+     'scrolled to the CENTRE (the card\'s flash above it stays on screen; the one scroll of a band tap) and focused');
+  ok(api.recWhyNot('box-r') === '', 'a drawn strip: no reason');
+  ok(cls.has('rec-flash'), 'flashed');
+  const [f, ms] = timers[timers.length - 1];
+  ok(ms === api.REC_FLASH_MS, 'for REC_FLASH_MS');
+  f();
+  ok(!cls.has('rec-flash'), 'then the flash goes');
+  api.recOpen('box-r');
+  ok(JSON.parse(stored['lb.recorder'])['box-r'].open === true, 'a second call keeps it open (never a toggle)');
+  let refused = null;
+  try { api.recOpen('box-nowhere'); } catch (e) { refused = e.message; }
+  ok(refused && refused.includes('box-nowhere'), `a box with no strip drawn is refused, by name: ${refused}`);
+  ok(api.recWhyNot('box-nowhere') === 'no recorder strip for box-nowhere: the page has drawn no machine card for it',
+     api.recWhyNot('box-nowhere'));
+  api.recorderPaint(host, 'box-e', null, { parts: [], notes: [], html: () => '' });
+  ok(api.recWhyNot('box-e') === 'no recorder strip for box-e: its sender sends no recorder block and no box health',
+     api.recWhyNot('box-e'));
+}
+
+// 13. a port's opened counter details stays open across status repaints
+{
+  const listeners = {};
+  const mkHost = () => ({ dataset: {}, innerHTML: '', addEventListener(type, f) { listeners[type] = f; }, contains: () => false,
+    querySelector: () => null, querySelectorAll: () => [], classList: { add() {}, remove() {} } });
+  const host = mkHost();
+  const calm = { dev: 'mlx5_0', port: 1, state: 'ACTIVE', rate_gbps: 200, mtu: 9000, why: {}, rates_why: {},
+    counters: { port_rcv_errors: 0 }, rates: { port_rcv_errors: 0 }, pfc_prios: [], qos_at: 90 };
+  const hw = { rdma: { ports: [calm, { ...calm, dev: 'mlx5_1', state: 'DOWN' }], why: null } };
+  const HXP = (h) => ({ parts: [{ text: 'RoCE 1/2 up', title: '', bad: true }], notes: [],
+    html: (ports) => api.hwExtraHtml(h, { now: 100 }, 'box-p', ports) });
+  /** Whether `key`'s details is drawn open in `html`. */
+  const drawnOpen = (html, key) => {
+    const m = html.match(new RegExp(`<details class="hx-more" data-port="${key}" data-drawn="[01]"( open)?>`));
+    assert.ok(m, `no hx-more for ${key}: ${html}`);
+    return !!m[1];
+  };
+  /** The browser's toggle event on `key`'s details as it is in the host now, after it became `open`. */
+  const toggle = (key, open, h = host) => {
+    const m = h.innerHTML.match(new RegExp(`<details class="hx-more" data-port="${key}" data-drawn="([01])"`));
+    const attrs = { 'data-port': key, 'data-drawn': m[1] };
+    listeners.toggle({ target: { open, matches: (sel) => sel === '.hx-more', getAttribute: (a) => attrs[a],
+      setAttribute: (a, v) => { attrs[a] = v; } } });
+  };
+  stored['lb.recorder'] = JSON.stringify({ 'box-p': { open: true } });
+  const repaint = (h = hw) => api.recorderPaint(host, 'box-p', null, HXP(h));
+  repaint();
+  ok(!drawnOpen(host.innerHTML, 'mlx5_0/1') && drawnOpen(host.innerHTML, 'mlx5_1/1'),
+     'no choice: the fault default — healthy closed, down open');
+  toggle('mlx5_1/1', true);           // the parser opening a details painted open fires toggle: not the user's choice
+  repaint({ rdma: { ports: [calm, { ...calm, dev: 'mlx5_1' }], why: null } });
+  ok(!drawnOpen(host.innerHTML, 'mlx5_1/1'), 'a details painted open is no choice: the port recovers → closed again');
+  repaint();
+  toggle('mlx5_0/1', true);           // the user taps a healthy port's summary
+  repaint();
+  ok(drawnOpen(host.innerHTML, 'mlx5_0/1'), 'a healthy port the user opened stays open across the repaint');
+  repaint();
+  ok(drawnOpen(host.innerHTML, 'mlx5_0/1'), 'and the next one');
+  toggle('mlx5_1/1', false);          // the user closes the faulty port's details
+  repaint();
+  ok(!drawnOpen(host.innerHTML, 'mlx5_1/1'), 'a faulty port the user closed stays closed across the repaint');
+  toggle('mlx5_0/1', false);          // and closes the healthy one again
+  repaint();
+  ok(!drawnOpen(host.innerHTML, 'mlx5_0/1'), 'a second toggle is recorded too: closed again');
+  ok(!JSON.stringify(JSON.parse(stored['lb.recorder'])).includes('mlx5'), 'port choices are not persisted (in memory only)');
+  // per box: another box's ports of the same name keep the fault default
+  const other = mkHost();
+  stored['lb.recorder'] = JSON.stringify({ ...JSON.parse(stored['lb.recorder']), 'box-q': { open: true } });
+  api.recorderPaint(other, 'box-q', null, { ...HXP(hw), html: (ports) => api.hwExtraHtml(hw, { now: 100 }, 'box-q', ports) });
+  ok(drawnOpen(other.innerHTML, 'mlx5_1/1') && !drawnOpen(other.innerHTML, 'mlx5_0/1'), 'choices are per box');
+  // the charts toggle: remembered apart, and it leaves the ports' choices alone
+  const ch = mkHost();
+  api.recorderPaint(ch, 'box-p', FULL, HXP(hw));
+  listeners.toggle({ target: { open: true, matches: (sel) => sel === '.rec-charts' } });
+  ok(JSON.parse(stored['lb.recorder'])['box-p'].charts === true, 'the charts toggle is still remembered');
+  ok(/<details class="rec-charts" data-box="box-p" open>/.test(ch.innerHTML), 'and drawn open');
+  ok(!drawnOpen(ch.innerHTML, 'mlx5_1/1'), 'the port the user closed is still closed after the charts repaint');
+  let threw = null;
+  try { listeners.toggle({ target: { open: true, matches: (sel) => sel === '.hx-more', getAttribute: () => null } }); }
+  catch (e) { threw = e.message; }
+  ok(threw && threw.includes('data-port'), `an hx-more without its key is refused, by name: ${threw}`);
+}
+
+// 14. KEYBOARD FOCUS ON A PORT'S SUMMARY survives the repaint: the successor is found by THAT port's key, never the
+//     first port's summary (a keyboard user on mlx5_1/1 would be thrown to mlx5_0/1).
+{
+  const fake = (sel, port) => ({ matches: (s) => s === sel, closest: (s) => (s === '.hx-more' && port ? { dataset: { port } } : null) });
+  ok(api.recFocusSelector(fake('.hx-more > summary', 'mlx5_1/1')) === '.hx-more[data-port="mlx5_1/1"] > summary',
+     `a port's summary is found again by its port: ${api.recFocusSelector(fake('.hx-more > summary', 'mlx5_1/1'))}`);
+  ok(api.recFocusSelector(fake('.rec-strip')) === '.rec-strip', 'the strip keeps its own selector');
+  ok(api.recFocusSelector(fake('.nothing')) === null, 'a control the recorder does not repaint: nothing to refocus');
+  ok(api.recFocusSelector(fake('.hx-more > summary', 'a"b')) === '.hx-more[data-port="a\\"b"] > summary',
+     'a quote in a port key is escaped, never breaks the selector');
 }
 
 console.log(`ok — recorder ${checks} checks`);

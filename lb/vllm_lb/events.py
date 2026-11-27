@@ -114,9 +114,10 @@ class EventLog:
     def read(self, since: float | None = None, kinds: set[str] | None = None, limit: int = READ_LIMIT) -> dict:
         """Newest first: every event at or after `since` (None = any time) of one of `kinds` (None = every kind), at
         most `limit`; plus every line that could not be read (file, line, the parser's words) and why there is
-        nothing, when there is nothing to read."""
+        nothing, when there is nothing to read. `limit` is said back: a page that holds `limit` events may have been
+        cut, and the panel marks its count "+" against this figure (health.js `activityCount`), never one of its own."""
         d = pathlib.Path(self.dir)
-        out: dict[str, Any] = {"events": [], "bad": [], "why": "", "kinds": sorted(KINDS)}
+        out: dict[str, Any] = {"events": [], "bad": [], "why": "", "kinds": sorted(KINDS), "limit": limit}
         try:
             files = sorted((p for p in d.iterdir() if p.is_file() and self._file_re.match(p.name)), reverse=True)
         except FileNotFoundError:
@@ -257,14 +258,30 @@ POSTABLE = frozenset(("power.action",))
 POST_MAX_BYTES = 4096
 #: A posted event's fields beyond kind / subject / summary — each a plain scalar.
 POST_FIELDS = frozenset(("action", "result", "user", "dry_run", "rc"))
+#: What each of them MUST be: the feed row is built from every one (power/fleet_power/app.py `_tell_lb` sends all
+#: five). `user` and `rc` may be null (a token-less caller, a dry run with no exit code) — the key may not be missing:
+#: an event without them is a malformed one, never a row with a hole in it.
+POST_REQUIRED = {"action": "a non-empty string", "result": "a non-empty string", "dry_run": "true or false",
+                 "user": "a string or null", "rc": "an integer or null"}
+
+
+def _post_field_ok(k: str, v: Any) -> bool:
+    if k in ("action", "result"):
+        return isinstance(v, str) and bool(v.strip())
+    if k == "dry_run":
+        return isinstance(v, bool)
+    if k == "user":
+        return v is None or isinstance(v, str)
+    return v is None or (isinstance(v, int) and not isinstance(v, bool))      # rc
 
 
 def post_answer(content_type: str | None, content_length: str | None, read: Callable[[], bytes]) -> tuple[int, dict]:
     """POST /lb/events {kind, subject, summary, action?, result?, user?, dry_run?, rc?} — (status, body). Inside the
     trust boundary only: a member is refused before this (roles.py: not in MEMBER_POSTS), and a write needs
     `Content-Type: application/json` (the LB's CSRF rule). A body over POST_MAX_BYTES (or with no Content-Length) is
-    refused unread; a kind not in POSTABLE, a missing or non-text subject / summary, an unknown or non-scalar field
-    is 400 naming it. With the feed off (LB_PERF=0) there is nowhere to keep it: 503, never a quiet drop."""
+    refused unread; a kind not in POSTABLE, a missing or non-text subject / summary, an unknown or non-scalar field,
+    or a missing / mistyped POST_REQUIRED field is 400 naming it. With the feed off (LB_PERF=0) there is nowhere to
+    keep it: 503, never a quiet drop."""
     if (content_type or "").split(";", 1)[0].strip().lower() != "application/json":
         return 415, {"error": {"type": "unsupported_media_type",
                                "message": "an event is a POST with `Content-Type: application/json`"}}
@@ -299,6 +316,9 @@ def post_answer(content_type: str | None, content_length: str | None, read: Call
     bad = [k for k, v in extra.items() if not (v is None or isinstance(v, (str, bool, int)))]
     if bad:
         return 400, {"error": {"type": "invalid_request", "message": f"{', '.join(sorted(bad))} must be a plain value"}}
+    for k, want in POST_REQUIRED.items():
+        if k not in extra or not _post_field_ok(k, extra[k]):
+            return 400, {"error": {"type": "invalid_request", "message": f"`{k}` must be {want} (a {kind} carries it)"}}
     if _installed is None:
         return 503, {"error": {"type": "events_off", "message": status()["why"]}}
     extra = {k: v[:300] if isinstance(v, str) else v for k, v in extra.items()}

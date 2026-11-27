@@ -1,17 +1,39 @@
 /* HEALTH AND ACTIVITY (health.js): the findings band under the header and the Activity tile. Colours are
    the style's tokens only (tests/test_style_tokens.py), so every style — light or dark — draws them in its own. */
 
-/* THE BAND: one row of chips that wraps; a chip never wider than the page (390 px phone). */
-.lb-health { display: flex; flex-wrap: wrap; gap: .35rem; margin: .4rem 1rem; }
+/* THE BAND: a chip per box that wraps; a chip never wider than the page (390 px phone) and never cut — a long box's
+   chip wraps inside itself rather than hide a figure behind a "…". A box's chip is a button (a tap jumps to its card). */
+.lb-health { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; margin: .4rem 1rem; }
 .lb-health[hidden] { display: none; }
 .hl-chip {
-  display: inline-block; max-width: 100%; padding: .2rem .6rem; font-size: var(--small); font-weight: 600;
-  font-variant-numeric: tabular-nums; line-height: 1.45; border: var(--rule); border-radius: var(--radius-pill);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  display: inline-flex; align-items: center; max-width: 100%; padding: .2rem .6rem; font: inherit; font-size: var(--small);
+  font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.45; text-align: left; border: var(--rule);
+  border-radius: var(--radius-pill); white-space: normal; overflow-wrap: anywhere; min-width: 0;
 }
+button.hl-chip { cursor: pointer; }
+button.hl-chip:hover, button.hl-chip:focus-visible { outline: 2px solid currentColor; outline-offset: 1px; }
+.hl-chip[hidden], .hl-more[hidden] { display: none; }
 .hl-firing { color: var(--bad); border-color: var(--bad); background: rgba(var(--bad-rgb), .12); }
 .hl-pending { color: var(--warn); border-color: var(--warn); background: rgba(var(--warn-rgb), .10); }
-.hl-failed { color: var(--bad); border-style: dashed; border-color: var(--bad); }
+/* The alert path's own trouble, not a box's fault: the warn tone, dashed, last in the band. */
+.hl-failed { color: var(--warn); border-style: dashed; border-color: var(--warn); }
+.hl-more {
+  font: inherit; font-size: var(--small); font-weight: 600; color: var(--ink-dim); background: transparent;
+  border: var(--rule); border-radius: var(--radius-pill); padding: .2rem .6rem; cursor: pointer;
+}
+.hl-more:hover, .hl-more:focus-visible { color: var(--ink); border-color: var(--accent); }
+
+/* THE MACHINE CARD'S BADGE (renderBoxCounts): its box's firing findings; the fault tone only above 0. */
+.hl-count {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 1.4em; padding: 0 .35em;
+  font-size: var(--small); font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.45;
+  color: var(--ink-faint); border: var(--rule); border-radius: var(--radius-pill);
+}
+.hl-count-bad { color: var(--bad); border-color: var(--bad); background: rgba(var(--bad-rgb), .12); }
+/* A chip's tap lands here: the card outlined for a moment (health.js FLASH_MS). */
+.card.machine.hl-flash { outline: 2px solid var(--accent); outline-offset: 2px; animation: hl-flash 1.6s ease-out; }
+@keyframes hl-flash { 0% { outline-color: var(--accent); } 100% { outline-color: transparent; } }
+@media (prefers-reduced-motion: reduce) { .card.machine.hl-flash { animation: none; } }
 
 /* THE TILE: the kind chips, the list (time · kind · subject · summary), the health line. */
 .ev-count { margin-left: .4rem; font-size: var(--small); font-weight: 400; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
@@ -47,7 +69,10 @@
 .ev-empty { color: var(--ink-faint); padding: .3rem 0; }
 .ev-foot { display: flex; flex-wrap: wrap; align-items: baseline; gap: .5rem; margin-top: .4rem; font-size: var(--small); color: var(--ink-faint); }
 .ev-more { font: inherit; font-size: var(--small); color: var(--accent); background: transparent; border: 0; padding: 0; cursor: pointer; }
-.ev-more[hidden], .ev-badline[hidden] { display: none; }
+.ev-expand { font: inherit; font-size: var(--small); font-weight: 600; color: var(--accent); background: transparent; border: 0; padding: 0; cursor: pointer; font-variant-numeric: tabular-nums; }
+.ev-more[hidden], .ev-expand[hidden], .ev-badline[hidden] { display: none; }
+/* An alert send folded into the row it sent (foldAlerts): "✓ ntfy" / "✗ webhook" after the summary. */
+.ev-al { margin-left: .45rem; font-weight: 600; white-space: nowrap; }
 .ev-badline { color: var(--warn); }
 .ev-health { display: grid; gap: .2rem; margin-top: .45rem; font-size: var(--small); color: var(--ink-dim); font-variant-numeric: tabular-nums; }
 .ev-nd summary { cursor: pointer; color: var(--ink-faint); }
@@ -59,9 +84,12 @@
   .lb-health { margin: .4rem .6rem; }
   .ev-list { grid-template-columns: max-content max-content minmax(0, 1fr); }
   .ev-m { grid-column: 1 / -1; white-space: normal; overflow-wrap: anywhere; }
-  /* A finger, not a cursor: every control of the tile is at least 32 px each way. */
-  .ev-chip { min-height: 32px; min-width: 32px; padding: 0 .75rem; }
-  #events-section > summary { min-height: 32px; display: flex; align-items: center; }
-  .ev-nd summary { min-height: 32px; display: flex; align-items: center; }
-  .ev-more { min-height: 32px; min-width: 32px; }
+  /* A finger, not a cursor: every control of the band and the tile is at least 44 px tall. */
+  .hl-chip { min-height: 44px; }
+  .hl-more { min-height: 44px; min-width: 44px; }
+  .ev-chip { min-height: 44px; min-width: 44px; padding: 0 .75rem; }
+  #events-section > summary { min-height: 44px; display: flex; align-items: center; }
+  .ev-nd summary { min-height: 44px; display: flex; align-items: center; }
+  .ev-more { min-height: 44px; min-width: 44px; }
+  .ev-expand { min-height: 44px; min-width: 44px; }
 }

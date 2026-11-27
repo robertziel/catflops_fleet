@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **A full disk is a health finding (`DISK`).** Each disk path a box's sender reads, at or over the fleet's
+  `health.disk_full_pct`, is a finding held `hold_s` like the others: on the band, alerted, and the one definition
+  of the panel's red on that disk. With no `health:` block there is no threshold and the panel flags no disk.
+
+### Changed
+- **`health.disk_full_pct` is required in an existing `health:` block.** A fleet file whose `health:` block predates
+  it is refused at boot (`<file>: health takes …; missing disk_full_pct`) until it gets the line (a percent,
+  0 < x ≤ 100; 90 is the example's):
+  ```yaml
+  health:
+    disk_full_pct: 90
+  ```
+- **The LB answers `GET /auth/session` itself** (`200 {"door": "lb", "auth": "none", "why"}`) where no gate in front
+  answers it first, instead of a 404; a gate's own answers are unchanged.
+
 ## [1.0.0-beta.2] — 2026-10-31
 
 ### Added

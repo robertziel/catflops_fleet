@@ -8,6 +8,8 @@ Pinned here:
   * each rank box of an ssh-controlled cluster gets an SSH reachability row (SshExecutor.reach: `true`, read-only,
     short timeout) — a box only observed over HTTP gets none;
   * a failing row carries a hint, a passing one none; the box is ok only when every row passed;
+  * a failing row's hint comes in two lengths: `hint_short` — what is wrong, as a figure the panel prints on the row
+    ("http://…:8001 unreachable from the gateway") — and `hint`, the whole recovery the row's title carries;
   * SshExecutor.reach runs `true` and nothing else: no tp-rank script on stdin, exit status is the verdict;
   * the route is the admin's; it is GET only.
 """
@@ -17,6 +19,8 @@ import http.client
 import json
 import os
 import stat
+
+import pytest
 
 from tests import fleet_files
 from vllm_lb import roles
@@ -125,6 +129,27 @@ def test_a_dead_engine_says_the_probes_words():
     assert rows["ssh"]["ok"] is True
 
 
+def test_a_failed_row_has_a_short_hint_and_the_full_one():
+    hw = {"b": {"age_s": 300.0, "stale": True}}
+    out = check(_plans(), hardware=hw, hw_state="listening on udp/1", max_age_s=30, now=NOW,
+                probe=lambda b: {"live": False, "last_error": "connection refused"},
+                reach=lambda host: (False, "ssh exit 255"))
+    rows = [r for b in out["boxes"] for r in b["checks"]]
+    off = check(_plans()[1:2], hardware={}, hw_state="off: LB_HW_PORT=0", max_age_s=30, now=NOW,
+                probe=lambda b: {}, reach=lambda h: (True, ""))["boxes"][0]["checks"]
+    for r in rows + off:
+        assert r["ok"] is False
+        assert r["hint_short"] and r["hint"] and len(r["hint_short"]) < len(r["hint"]), r
+        assert len(r["hint_short"]) <= 60, r["hint_short"]
+    by = {r["cap"]: r for r in rows}
+    assert by["engine"]["hint_short"] == "http://e1 unreachable from the gateway"
+    assert "docker logs" in by["engine"]["hint"] and "docker logs" not in by["engine"]["hint_short"]
+    assert "u@a" in by["ssh"]["hint_short"]
+    ok = check(_plans()[:1], hardware={"a": {"age_s": 1.0, "stale": False}}, hw_state="listening", max_age_s=30,
+               now=NOW, probe=lambda b: {"live": True}, reach=lambda h: (True, ""))["boxes"][0]["checks"]
+    assert all(r["hint"] is None and r["hint_short"] is None for r in ok), "a pass has neither"
+
+
 def test_without_a_listener_the_telemetry_row_says_so():
     out = check(_plans()[1:2], hardware={}, hw_state="off: LB_HW_PORT=0", max_age_s=30, now=NOW,
                 probe=lambda b: {}, reach=lambda h: (True, ""))
@@ -210,3 +235,25 @@ def test_the_route_answers_every_box_and_is_the_admins(tmp_path, monkeypatch):
         assert r.status == 403
     finally:
         p.stop()
+
+
+@pytest.mark.parametrize("h,says", [(None, "no hw_sender heard"), ({"age_s": 300.0, "stale": True}, "hw_sender quiet")])
+def test_a_long_box_names_telemetry_hint_keeps_the_words_that_say_what_is_wrong(h, says):
+    """A `[:60]` cut dropped the END of the telemetry hint for a long box name — the words saying what is
+    wrong. Built through `_short`, the box name loses its middle ("…"), the words stay, and it fits 60 characters."""
+    from vllm_lb.connectivity import _telemetry
+    box = "b" * 35 + "z" * 35                       # 70 characters
+    r = _telemetry(box, h, "listening on udp/1", 30)
+    assert r["ok"] is False and r["hint_short"].endswith(f" {says}") and len(r["hint_short"]) <= 60, r["hint_short"]
+    assert "…" in r["hint_short"] and r["hint_short"].startswith("bbb") and "zzz " in r["hint_short"], r["hint_short"]
+
+
+def test_short_cuts_a_target_over_60_characters_in_its_middle():
+    """`_short` itself: a target past the room keeps its head and its tail around one "…"; a short one is
+    whole."""
+    from vllm_lb.connectivity import _short
+    url = "http://" + "a-very-long-engine-host-name-" * 3 + "end:8001"
+    out = _short(url, "unreachable from the gateway")
+    assert len(out) == 60 and out.endswith(" unreachable from the gateway") and out.startswith("http://a-very")
+    assert "…" in out and out.split(" ")[0].endswith("end:8001"), out
+    assert _short("http://e1", "down") == "http://e1 down"

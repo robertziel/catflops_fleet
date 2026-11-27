@@ -2,14 +2,14 @@
   "schema": 1,
   "name": "default",
   "label": "Default",
-  "what": "queued · cluster · tabs on top; the server card in a side column; throughput, requests, saturation beside it",
+  "what": "queued · activity · cluster · tabs on top; the server card in a side column; throughput, requests, saturation beside it",
   "rows": [
     { "cols": [
-      { "width": "1", "items": ["queued", "cluster", "tabs"] }
+      { "width": "1", "items": ["queued", "events", "cluster", "tabs"] }
     ] },
     { "cols": [
       { "width": "side", "items": ["server"] },
-      { "width": "1", "items": ["engine", "requests", "saturation", "events"] }
+      { "width": "1", "items": ["engine", "requests", "saturation"] }
     ] }
   ],
   "hidden": []

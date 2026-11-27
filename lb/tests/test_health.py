@@ -17,7 +17,7 @@ from vllm_lb.fleet import parse_fleet
 from vllm_lb.health import ERROR_COUNTERS, HealthEvaluator, HealthPolicy, parse_policy
 
 BLOCK = {"hold_s": 90, "temp_margin_c": 5, "low_ram_fraction": 0.05, "busy_gpu_pct": 90, "low_power_margin_w": 2,
-         "counter_window_s": 3600, "backend_down_s": 120}
+         "counter_window_s": 3600, "backend_down_s": 120, "disk_full_pct": 90}
 HEALTH_YAML = """health:
   hold_s: 90
   temp_margin_c: 5
@@ -26,6 +26,7 @@ HEALTH_YAML = """health:
   low_power_margin_w: 2
   counter_window_s: 3600
   backend_down_s: 120
+  disk_full_pct: 90
 """
 #: The boxes the evaluator is judged on: `solo` a GB10 (its type states its idle draw, 8.9 W), `big` an RTX 5090 (its
 #: type states none) — every figure through the fleet file and the hardware library, as the LB reads them.
@@ -58,6 +59,10 @@ def test_a_complete_block_reads_as_the_policy():
     ({"low_ram_gib": 4}, "low_ram_gib"),                            # the retired key is unknown
     ({"hold_s": "soon"}, "hold_s"),                                 # not a number
     ({"temp_margin_c": True}, "temp_margin_c"),                     # a boolean is no number
+    ({"disk_full_pct": None}, "disk_full_pct"),                     # the panel's full disk is policy too: required
+    ({"disk_full_pct": 0}, "disk_full_pct"),                        # a percent: 0 < x ≤ 100
+    ({"disk_full_pct": -5}, "disk_full_pct"),
+    ({"disk_full_pct": 101}, "disk_full_pct"),
 ])
 def test_a_block_missing_a_key_naming_an_unknown_one_or_out_of_range_is_refused(change, says):
     raw = {**BLOCK, **change}
@@ -74,7 +79,25 @@ def test_the_fleet_reads_the_block_and_without_one_health_is_off():
         parse_fleet(PAIR.rstrip("\n") + "\n" + HEALTH_YAML.replace("  hold_s: 90\n", ""), "fleet.yml")
 
 
+def test_an_existing_health_block_without_disk_full_pct_refuses_the_boot_naming_the_key_and_the_file():
+    """THE UPGRADE PATH: `disk_full_pct` is required, so a deployment's fleet file with a
+    `health:` block written before it is refused at boot (fleet.py `parse_fleet` → `parse_policy`) — naming the key
+    to add and the file to add it to (CHANGELOG.md Unreleased says so) — never a silent default threshold."""
+    old = HEALTH_YAML.replace("  disk_full_pct: 90\n", "")
+    assert "disk_full_pct" not in old
+    with pytest.raises(ValueError) as got:
+        parse_fleet(PAIR.rstrip("\n") + "\n" + old, "/etc/vllm-lb/fleet.yml")
+    said = str(got.value)
+    assert "missing disk_full_pct" in said and said.startswith("/etc/vllm-lb/fleet.yml: health"), said
+
+
 # ── the evaluator ───────────────────────────────────────────────────────────────────────────────────────────────────
+
+def disk(path: str, pct: float, total: float = 1e12) -> dict:
+    """One configured disk path as box_health.py `disks_view` carries it, `pct` used."""
+    return {"path": path, "total_bytes": total, "used_bytes": total * pct / 100,
+            "free_bytes": total * (100 - pct) / 100}
+
 
 def hw(**over) -> dict:
     """One box's /lb/status hardware row (hw.py snapshot) with a healthy reading of everything health reads."""
@@ -83,7 +106,8 @@ def hw(**over) -> dict:
            "recorder": {"figures": {"gpu_temp_c": 50, "gpu_power_w": 60.0}, "why": {}},
            "kernel": {"xid_total": 0, "oom_kills_total": 0, "last_xid": None, "why": None},
            "rdma": {"ports": [{"dev": "mlx5_0", "port": 1, "state": "ACTIVE",
-                               "counters": {c: 0 for c in ERROR_COUNTERS}, "why": {}}], "why": None}}
+                               "counters": {c: 0 for c in ERROR_COUNTERS}, "why": {}}], "why": None},
+           "disks": [disk("/", 30)], "disks_why": None}
     for k, v in over.items():
         if k in ("gpu_temp_c", "gpu_power_w"):
             row["recorder"]["figures"][k] = v
@@ -353,11 +377,62 @@ def test_a_server_down_by_design_is_no_finding(why, rows, broker):
     assert finding(run(ev, 1010, {}, rows[1], broker), "backend_down", "a") is None, why
 
 
+# ── disk: a configured disk path at or over the fleet's disk_full_pct ───────────────────────────────────────────────
+
+def test_a_full_disk_is_pending_then_firing_naming_every_full_path_and_clears(feed):
+    """DISK: a configured disk path at or over `disk_full_pct`, judged on the WHOLE percent the panel
+    prints (89.6 % reads "90%", so it is full at 90) — held `hold_s` like every other rule, alerted on firing. The
+    finding names each full path (`full`), so the strip's red and the band's chip are this ONE judgement."""
+    ev = solo(hold_s=60, disk_full_pct=90)
+    rows = lambda *ds: {"solo": hw(disks=list(ds))}                   # noqa: E731
+    v = run(ev, 1000, rows(disk("/", 40), disk("/data", 89.6), disk("/scratch", 95)))
+    f = finding(v, "disk")
+    assert f["state"] == "pending" and f["value"] == 95 and f["threshold"] == 90 and f["unit"] == "%"
+    assert f["full"] == [{"path": "/data", "pct": 90}, {"path": "/scratch", "pct": 95}], f["full"]
+    assert "/scratch 95 %" in f["why"] and "≥ 90 %" in f["why"], f["why"]
+    f = finding(run(ev, 1060, rows(disk("/", 40), disk("/data", 89.6), disk("/scratch", 95))), "disk")
+    assert f["state"] == "firing"
+    feed.drain()
+    assert [e["kind"] for e in feed.read()["events"] if e.get("finding") == "disk"] == ["finding.firing"]
+    assert finding(run(ev, 1070, rows(disk("/", 40), disk("/data", 89.4))), "disk") is None, "89 % < 90: cleared"
+    feed.drain()
+    kinds = [e["kind"] for e in feed.read()["events"] if e.get("finding") == "disk"]
+    assert kinds == ["finding.cleared", "finding.firing"]
+
+
+@pytest.mark.parametrize("row,says", [
+    ({"disks": [], "disks_why": "the sender sends no disks block (it predates box health)"}, "predates box health"),
+    ({"disks": [], "disks_why": None}, "no disk path"),
+    ({"disks": [{"path": "/gone", "total_bytes": None, "used_bytes": None, "free_bytes": None,
+                 "why": "statvfs /gone: No such file"}], "disks_why": None}, "/gone: statvfs /gone: No such file"),
+])
+def test_a_box_with_no_readable_disk_is_no_data_with_why(row, says):
+    v = run(solo(hold_s=0), 1000, {"solo": hw(**row)})
+    assert finding(v, "disk") is None
+    nd = [n for n in v["no_data"] if n["kind"] == "disk"]
+    assert len(nd) == 1 and says in nd[0]["why"], nd
+
+
+def test_an_unread_disk_beside_a_full_one_still_fires():
+    v = run(solo(hold_s=0), 1000, {"solo": hw(disks=[{"path": "/gone", "total_bytes": None, "used_bytes": None,
+                                                      "free_bytes": None, "why": "x"}, disk("/data", 97)])})
+    assert finding(v, "disk")["full"] == [{"path": "/data", "pct": 97}]
+
+
 def test_the_view_is_off_with_why_without_a_policy():
     ev = HealthEvaluator(None)
     ev.evaluate(1000, {"solo": hw(temp_headroom_c=0)}, [], broker_enabled=False)
     v = ev.view()
     assert v["enabled"] is False and "health:" in v["why"] and v["findings"] == []
+    assert "disk_full_pct" not in v, "health off: no threshold, so the panel flags no disk full (hwextra.js says why)"
+
+
+def test_a_full_disk_at_100_pct_is_allowed_and_the_view_carries_the_threshold():
+    """The panel's "disk full" flag (hwextra.js) is the fleet's `disk_full_pct`, read from /lb/status `health` — one
+    definition, the operator's, never a number of the panel's own. 100 is allowed (flag only a disk that is full)."""
+    assert parse_policy("x", {**BLOCK, "disk_full_pct": 100}).disk_full_pct == 100.0
+    v = run(solo(disk_full_pct=85), 1000, {})
+    assert v["enabled"] is True and v["disk_full_pct"] == 85.0
 
 
 # ── the monitor and /lb/status ──────────────────────────────────────────────────────────────────────────────────────
@@ -375,6 +450,7 @@ def test_the_monitor_judges_the_listeners_samples_and_status_carries_findings_an
     finally:
         health.install(None)
     assert v["enabled"] and v["findings"][0]["kind"] == "gpu_temp" and v["findings"][0]["state"] == "firing"
+    assert v["disk_full_pct"] == 90.0, "/lb/status carries the fleet's disk threshold for the panel"
     assert v["alerts"]["channels"] == [] and "LB_ALERT_" in v["alerts"]["why"]
     assert health.status_view()["enabled"] is False
 

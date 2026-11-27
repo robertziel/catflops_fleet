@@ -76,8 +76,9 @@ def test_every_movable_element_is_a_host_with_a_stable_id_and_a_label():
     for id_ in ids:
         assert re.search(rf'data-ly="{id_}" data-ly-label="[^"]+"', html), f"{id_} has no label"
     # The parts of the panel (operator 2026-10-17/18: the queued leases, the Cluster of boxes, the server tabs, the
-    # selected server's card, its engine's throughput, its requests, its saturation; the Activity feed).
-    assert ids == ["queued", "cluster", "tabs", "server", "engine", "requests", "saturation", "events"]
+    # selected server's card, its engine's throughput, its requests, its saturation; the Activity feed —
+    # at the fleet's level, directly under the findings band, not under the selected server's tiles).
+    assert ids == ["queued", "events", "cluster", "tabs", "server", "engine", "requests", "saturation"]
     main = re.search(r'<main id="layout" class="layout"[^>]*>(.*?)</main>', html, re.S)
     assert main, "the movable elements sit in <main id=layout>"
     assert re.findall(r'data-ly="([^"]+)"', main.group(1)) == ids, "every host is a direct part of the layout"
@@ -122,7 +123,7 @@ def test_a_shipped_template_is_complete_and_names_only_registry_ids(path):
 
 
 def test_the_default_template_is_the_panel_as_it_was():
-    """Every element shown, in document order: the queued leases, the Cluster, the tabs on top; the server card in
+    """Every element shown, in document order: the queued leases, the Activity feed, the Cluster, the tabs on top; the server card in
     the side column; throughput, requests and saturation beside it (gateway.css `.fleet`, before 2026-10-30)."""
     t = json.loads((LAYOUTS / "default.json").read_text())
     assert t.get("hidden", []) == []

@@ -9,14 +9,26 @@
 .rec { min-width: 0; align-self: start; }
 .rec:empty { display: none; }
 
-/* THE STRIP: one line of figures, cut with an ellipsis when the card is narrow — never wrapped, never wider than
-   the card. A button: it opens and closes the recorder (aria-expanded). */
+/* THE STRIP: a line of figures that WRAPS between figures, never inside one, and never wider than the card (the
+   box health's figures close the line, and an ellipsis would cut a fault off its end). A button: it opens
+   and closes the recorder (aria-expanded). */
 .rec-strip {
   display: block; width: 100%; min-width: 0; margin: 0; padding: .15rem .55rem;
   font: inherit; font-size: var(--small); line-height: 1.5; text-align: left; font-variant-numeric: tabular-nums;
   color: var(--ink-dim); background: var(--panel-2); border: var(--rule); border-radius: var(--radius-box);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer;
+  white-space: normal; overflow-wrap: anywhere; cursor: pointer;
 }
+.rec-strip > span { white-space: nowrap; }
+/* A box-health fault hwextra.js flagged (a port not ACTIVE, a counter rising, a full disk): the fault colour, and
+   only that. */
+.rec-strip > .rec-bad { color: var(--bad); font-weight: 600; }
+
+/* recOpen (the findings band's way in): the strip it opened flashes once; scrolled to, it clears the sticky header. */
+.rec { scroll-margin-top: 4.5rem; }
+.rec .rec-strip { scroll-margin-top: 4.5rem; }
+.rec.rec-flash { animation: rec-flash 1.6s ease-out; border-radius: var(--radius-box); }
+@keyframes rec-flash { from { box-shadow: 0 0 0 3px var(--accent); } to { box-shadow: 0 0 0 3px transparent; } }
+@media (prefers-reduced-motion: reduce) { .rec.rec-flash { animation: none; outline: 2px solid var(--accent); } }
 .rec-strip:hover, .rec-strip:focus-visible { color: var(--ink); border-color: var(--ink-faint); }
 .rec-strip[aria-expanded="true"] { border-bottom-left-radius: 0; border-bottom-right-radius: 0; color: var(--ink); }
 .rec-dot { color: var(--bad); font-size: .8em; }
@@ -89,3 +101,5 @@
 .rec-plain-tile .t-val { color: var(--ink) !important; text-shadow: none !important; }
 .sparkline.rec-plain path[stroke] { stroke: var(--accent); }
 .sparkline.rec-plain path[fill-opacity] { fill: var(--accent); }
+/* A PHONE: the strip is a button a finger opens — at least 44 px tall even on one line (the UX audit). */
+@media (max-width: 600px) { .rec-strip { min-height: 44px; } }

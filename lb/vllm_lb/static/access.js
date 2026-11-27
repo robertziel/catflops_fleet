@@ -13,7 +13,8 @@
  *            refusal is shown in its words (the last admin, an unknown model name, …).
  *   MEMBER   no button; <html data-role="member"> and a line in the bar naming their models (none: said so). The LB
  *            already narrows what they see and refuses its controls (lb/vllm_lb/roles.py): this only says so.
- *   NEITHER  an open gate (auth "false": its one user is the operator) and the LB's own port (no /auth/: 404) add nothing.
+ *   NEITHER  an open gate (auth "false": its one user is the operator) and the LB's own port (its own /auth/session:
+ *            `door: "lb"`, connect.py LB_SESSION) add nothing.
  */
 'use strict';
 
@@ -308,7 +309,8 @@ function accessMine(models) {
 /** The top bar: an admin's Access button, a member's line, nothing for an open gate or the LB's own port. */
 async function accessStart() {
   const a = await acAsk('/auth/session');
-  if (a.status !== 200 || !a.body || a.body.auth === 'false') return;
+  // the LB itself (connect.py LB_SESSION `door: "lb"`: no gate in front) and an open gate sign nobody in
+  if (a.status !== 200 || !a.body || a.body.auth === 'false' || a.body.door === 'lb') return;
   const bar = document.querySelector('.top-right');
   if (!bar) return;
   ac.me = typeof a.body.email === 'string' ? a.body.email : null;

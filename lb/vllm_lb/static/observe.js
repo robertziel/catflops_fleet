@@ -2,13 +2,18 @@
  *
  *   CHECK      each machine card's head gets "check": GET /lb/check?box=<box> (vllm_lb/connectivity.py) — one row per
  *              capability (telemetry, each engine, each SSH rank): ✓/✗ · capability · target · the probe's own words
- *              · ms, and on a failed row its one-line recovery hint. "again" re-runs it. Nothing runs until asked.
+ *              · ms, and on a failed row its short hint ("http://…:8001 unreachable from the gateway") with the full
+ *              recovery in its title (connectivity.py `hint_short` / `hint`). "again" re-runs it. Nothing runs until asked.
  *   HISTORY    each machine card's head gets "history": GET /lb/history?box=<box>&tier=48h|30d (vllm_lb/hw_tiers.py) —
  *              a 48 h / 30 d toggle and one chart per figure: the min..max band and the avg line, headlined with
- *              numbers ("avg 54 · max 71 °C"). A figure with no reading in the range draws no chart: "—".
+ *              numbers ("avg 54 · max 71 °C"). A figure with no reading in the range draws no chart: "—". Under each
+ *              chart its start / end ticks, read from the samples' OWN timestamps ("Nov 25 14:00" … "now") and placed
+ *              where those samples are drawn — a series that began 8 h ago in a 48 h range does not tick "48 h ago".
  *   DAILY      the selected server's links get "daily": GET /lb/perf/daily?server=<it> (vllm_lb/daily.py) — per
- *              model, its 24 h and 30 d tokens, then 30 bars of tok/s and 30 of tokens/day, each bar titled with its
- *              day and figures. A day with no measured minute has no tok/s bar (an empty slot, not a 0).
+ *              model, its 24 h and 30 d tokens and its peak-minute tok/s, then 30 bars of tokens/day, each titled with
+ *              its day and figures. The summary line carries the best peak minute of all models. No tok/s bar row: a
+ *              day's pooled tok/s drew nearly the shape of its tokens (the UX audit) — the peak is the figure
+ *              that says something the bars do not. A day with no tokens has no bar (an empty slot, not a 0).
  *
  * The dialog is the connect dialog's frame (gateway.css `.cn`), so every style re-values it with the panel's tokens,
  * light or dark. The server's words are always escaped (`esc`). Figures, not sentences: labels carry numbers.
@@ -57,7 +62,7 @@ function obsCheckHtml(box, got) {
       <span class="obs-mark" aria-label="${r.ok ? 'pass' : 'fail'}">${r.ok ? '✓' : '✗'}</span>
       <b class="obs-cap">${esc(r.cap)}</b><span class="obs-target" title="${esc(r.target)}">${esc(r.target)}</span>
       <span class="obs-detail">${esc(r.detail)}${isNum(r.ms) && r.ms > 0 ? ` · ${obsMs(r.ms)}` : ''}</span>
-      ${!r.ok && r.hint ? `<span class="obs-hint">${esc(r.hint)}</span>` : ''}</li>`).join('');
+      ${!r.ok && r.hint_short ? `<span class="obs-hint" title="${esc(r.hint)}">${esc(r.hint_short)}</span>` : ''}</li>`).join('');
   return obsFrame(`Check · ${esc(box)} · <span class="${pass === rows.length ? 'ok' : 'bad'}">${pass}/${rows.length} pass</span>`,
     `<ul class="obs-rows">${list}</ul>${b.ssh_why ? `<details class="obs-why"><summary title="${esc(b.ssh_why)}">ssh —</summary>`
       + `<p class="obs-why-r">${esc(b.ssh_why)}</p></details>` : ''}`, again);
@@ -96,6 +101,30 @@ function obsBandSvg(points, t0, t1, bucketS) {
   return `<svg class="obs-svg" viewBox="0 0 ${OBS_W} ${OBS_H}" preserveAspectRatio="none" aria-hidden="true">${parts.join('')}</svg>`;
 }
 
+const OBS_MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+/** Epoch s → "Nov 25 14:00" in the reader's own clock. */
+function obsWhen(t) {
+  const d = new Date(t * 1000);
+  const p = (n) => String(n).padStart(2, '0');
+  return `${OBS_MON[d.getMonth()]} ${d.getDate()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+/** The time ticks under one chart, from its samples' own first and last timestamps, each placed where obsBandSvg
+ *  draws that sample (the same x). The last reads "now" only when it is the current bucket. Samples closer than 65 % of
+ *  the width get one range label right-aligned on the last sample: two labels that close would overlap. */
+function obsTicksHtml(pts, t0, t1, bucketS) {
+  const x = (t) => Math.min(1, Math.max(0, ((t + bucketS / 2) - t0) / Math.max(1, t1 - t0)));
+  const first = pts[0][0];
+  const last = pts[pts.length - 1][0];
+  const end = last + bucketS * 2 >= t1 ? 'now' : obsWhen(last);
+  const left = (x(first) * 100).toFixed(1);
+  const right = ((1 - x(last)) * 100).toFixed(1);
+  const body = x(last) - x(first) >= 0.65
+    ? `<span class="obs-t0" style="left:${left}%">${obsWhen(first)}</span><span class="obs-t1" style="right:${right}%">${end}</span>`
+    : `<span class="obs-t01" style="right:${right}%">${obsWhen(first)} – ${end}</span>`;
+  return `<div class="obs-tt" aria-label="${obsWhen(first)} – ${end}">${body}</div>`;
+}
+
 /** The history dialog's body for `box` in `tier` from `got`; `now` is the right edge (epoch s). */
 function obsHistoryHtml(box, tier, got, now) {
   const toggle = `<span class="obs-seg" role="group" aria-label="range">${OBS_TIERS.map(([k, label]) =>
@@ -119,6 +148,7 @@ function obsHistoryHtml(box, tier, got, now) {
     const min = Math.min(...pts.map((p) => p[1]));
     return `<div class="obs-tile" data-metric="${esc(key)}"><div class="obs-th"><span>${esc(s.label)}</span>
         <b>avg ${obsFig(avg)} · max ${obsFig(max)}${unit}</b></div>${obsBandSvg(pts, t0, t1, d.bucket_s || 60)}
+        ${obsTicksHtml(pts, t0, t1, d.bucket_s || 60)}
         <div class="obs-tf"><span>min ${obsFig(min)}${unit}</span><span>${pts.length} × ${Math.round((d.bucket_s || 60) / 60)} min</span></div></div>`;
   }).join('');
   return obsFrame(title, `${note}<div class="obs-tiles">${tiles}</div>`, toggle);
@@ -150,21 +180,22 @@ function obsDailyHtml(got, server) {
   const d = got.data || {};
   const days = d.days || [];
   const models = d.models || [];
+  // The best single MINUTE of any model (daily.py `peak_gen_tok_s`); absent when no minute was measured — never a 0.
+  const peakOf = (m) => Math.max(0, ...(m.series || []).map((x) => x.peak_gen_tok_s).filter(isNum));
+  const best = Math.max(0, ...models.map(peakOf));
   const head = `<p class="obs-sum">${models.length} model${models.length === 1 ? '' : 's'} · 24 h ${obsNum((d.total_24h || {}).gen_tokens)} tok`
+    + `${best > 0 ? ` · peak min ${obsFig(best)} tok/s` : ''}`
     + `${d.malformed_total ? ` · <span class="bad">${obsNum(d.malformed_total)} unreadable lines</span>` : ''}</p>`
     + (d.error ? `<p class="obs-na bad">${esc(d.error)}</p>` : '');
   const axis = days.length ? `<div class="obs-axis"><span>${esc(days[0])}</span><span>${esc(days[days.length - 1])}</span></div>` : '';
   const rows = models.map((m) => {
     const s = m.series || [];
-    const rates = s.map((x) => x.gen_tok_s);
     const toks = s.map((x) => x.gen_tokens);
-    // The best single MINUTE (daily.py `peak_gen_tok_s`); the bars are each day's pooled rate, a smaller number.
-    const peak = Math.max(0, ...s.map((x) => x.peak_gen_tok_s).filter(isNum));
+    const peak = peakOf(m);
     const most = Math.max(0, ...toks.filter(isNum));
     return `<section class="obs-model" data-model="${esc(m.id)}"><div class="obs-mh"><b>${esc(m.label || m.id)}</b>
-        <span>24 h ${obsNum((m.last_24h || {}).gen_tokens)} tok · 30 d ${obsNum(m.gen_tokens_range)} tok</span></div>
-      <div class="obs-brow"><span class="obs-bl">tok/s day avg · peak min ${obsFig(peak)} tok/s</span>
-        ${obsBarsSvg(rates, days, (v) => `${v} tok/s`)}</div>
+        <span>24 h ${obsNum((m.last_24h || {}).gen_tokens)} tok · 30 d ${obsNum(m.gen_tokens_range)} tok`
+      + `${peak > 0 ? ` · peak min ${obsFig(peak)} tok/s` : ''}</span></div>
       <div class="obs-brow"><span class="obs-bl">tokens/day · max ${obsShort(most)}</span>
         ${obsBarsSvg(toks, days, (v) => `${obsNum(v)} tok`)}</div>${axis}</section>`;
   }).join('');
@@ -263,7 +294,9 @@ function obsDailyButton() {
   if (!links || links.querySelector('.obs-daily')) return;
   const btn = document.createElement('button');
   btn.type = 'button';
-  btn.className = 'cn-open obs-daily';
+  // The card buttons' one neutral style (check / history / daily): connect's accent marks the one action that hands
+  // something out; these three only look (the UX audit).
+  btn.className = 'obs-btn obs-daily';
   btn.setAttribute('aria-haspopup', 'dialog');
   btn.textContent = 'daily';
   btn.addEventListener('click', () => {

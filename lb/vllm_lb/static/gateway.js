@@ -4903,9 +4903,9 @@ function machineBody(s, box) {
   if (h.swap_used_mb > 0) figs.push(['swap', `${(h.swap_used_mb / 1024).toFixed(1)} GiB`]);
   const rows = Array.isArray(h.rows) ? h.rows : [];
   rows.filter((r) => r.vram_label).forEach((r) => figs.push([r.vram_label, vramOf(r)]));
-  // BOX HEALTH: the kernel's counts beside the figures, the RoCE ports / disks / models below.
-  const extra = typeof hwExtraHtml === 'function' ? { figs: hwExtraFigs(h, s, box), html: hwExtraHtml(h, s, box) } : { figs: [], html: '' };
-  figs.push(...extra.figs);
+  // BOX HEALTH: the kernel's counts beside the figures. The RoCE ports / disks / models are the
+  // flight recorder strip's (`renderMachines`), so the card keeps its height.
+  if (typeof hwExtraFigs === 'function') figs.push(...hwExtraFigs(h, s, box));
   const hist = h.history || {};
   const gpus = rows.map((r) => { const g = rowReading(s, box, r); return [r.label, g.pct, g.series]; });
   const gauges = [...gpus, ['MEM', h.ram_percent, hist.ram_pct]];
@@ -4925,7 +4925,7 @@ function machineBody(s, box) {
     </div>
     <div class="tiles tiles${Math.min(5, Math.max(3, figures.length))} flat">
       ${figures.map(([label, v, series]) => graphOf(label, v, series)).join('')}
-    </div>${extra.html}`;
+    </div>`;
 }
 
 /** The boxes, in the order their servers are listed, then any that only broadcast hardware. */
@@ -4969,7 +4969,13 @@ function renderMachines(s) {
       + servers.map((n) => `<span class="tag box-cluster" title="server ${esc(n)} runs a rank here">${esc(n)}</span>`).join('')
       + (h.stale ? `<span class="stale">no sample for ${Math.round(h.age_s)}s</span>` : ''));
     paint(card.querySelector('.machine-body'), machineBody(s, box));
-    if (typeof recorderPaint === 'function') recorderPaint(slot.querySelector('.rec'), box, h.recorder || null);
+    // The strip also carries the box's health (hwextra.js): its figures on the closed line, its RoCE / disk /
+    // models sections in the open recorder.
+    // `html` is a builder: recorder.js draws the sections with the user's own port toggles, on this status
+    // and on its own repaints between statuses.
+    const hx = typeof hwExtraStrip === 'function'
+      ? { ...hwExtraStrip(h, s, box), html: (ports) => hwExtraHtml(h, s, box, ports) } : null;
+    if (typeof recorderPaint === 'function') recorderPaint(slot.querySelector('.rec'), box, h.recorder || null, hx);
     // CHECK and HISTORY (observe.js): the card head's two on-demand buttons.
     if (typeof observePaint === 'function') observePaint(card, box);
   });
@@ -6366,7 +6372,8 @@ async function pollOnce() {
  *  on its host, and `basic`, an edge that takes HTTP Basic on the API — and the budgets a client must out-wait.
  *
  *  THE DOORS (2026-10-12, each checked against a live one):
- *    lb      the LB itself 404s /auth/session (proxy.py: an unknown path outside /v1/): no credential.
+ *    lb      the LB itself answers /auth/session 200 `{"door": "lb", "auth": "none", "why"}` (connect.py LB_SESSION;
+ *            it used to 404, which logged a failed request on every gate-less page): no credential.
  *    open    vllm-gate VLLM_GATE_AUTH=false answers `{"auth":"false"}`. A GET passes; a POST must carry Origin ==
  *            the gate's origin (the gate's own check), and an API client sends none → 403.
  *    signin  vllm-gate jwt: a session (200 + email) or 401. Only the browser's session cookie opens it — nginx drops
@@ -6415,7 +6422,7 @@ const cn = { parts: null, server: null, door: null, doorStatus: 0, model: null, 
 
 /** Which door this origin is, from what its /auth/session answered. */
 function connectDoor(status, body) {
-  if (status === 404) return 'lb';
+  if (status === 200 && body && body.door === 'lb') return 'lb';
   if (status === 200 && body && body.auth === 'false') return 'open';
   if (status === 401 || (status === 200 && body && typeof body.email === 'string')) return 'signin';
   return 'unknown';

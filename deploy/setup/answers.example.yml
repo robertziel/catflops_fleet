@@ -163,6 +163,7 @@ health.busy_gpu_pct: 90
 health.low_power_margin_w: 2
 health.counter_window_s: 3600
 health.backend_down_s: 120
+health.disk_full_pct: 90
 
 clients.kinds: [claude-code, openai-sdk]
 clients.where: this-host
