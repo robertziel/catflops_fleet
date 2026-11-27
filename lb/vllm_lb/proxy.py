@@ -41,7 +41,7 @@ import urllib.parse
 from dataclasses import asdict, dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from vllm_lb import multipart, panel_styles, prompt_count, roles, router, status_delta, topology, websearch
+from vllm_lb import events, health, multipart, panel_styles, prompt_count, roles, router, status_delta, topology, websearch
 from vllm_lb.bench import BenchStore
 from vllm_lb.benchswarm import CAP_MIN_RANGE, BenchSwarm, SwarmRefused
 from vllm_lb.catalog import SGLANG as SGLANG_ENGINE
@@ -54,6 +54,8 @@ from vllm_lb.cluster_defaults import box_total, kv_auto, kv_auto_resolver, memor
 from vllm_lb.config import Config
 from vllm_lb.fleet import BLUEPRINTS_MOVED
 from vllm_lb.host_guard import HostGuard
+from vllm_lb import observe_routes
+from vllm_lb import fidelity
 from vllm_lb.hub import Hub
 from vllm_lb.memory_estimate import CLASSIC_MEMORY, estimate_memory
 from vllm_lb.models_view import models_payload
@@ -758,6 +760,14 @@ class Proxy:
         #: starts nothing; `loaded` is how it knows whether there is a model to put under load,
         #: because a swarm never loads one.
         self.swarm = BenchSwarm(cfg.swarm_state, loaded=self._model_loaded)
+        # THE FIDELITY BENCH (fidelity.py): the corpus through this gateway to the LOADED model, on
+        # the operator's POST only; one run at a time; runs kept in the state volume beside the perf log.
+        self.fidelity = fidelity.FidelityBench(
+            fidelity.FidelityStore(str(pathlib.Path(cfg.perf_dir) / "fidelity")),
+            post=fidelity.gateway_post(cfg.listen_host, lambda: self.port),
+            describe=lambda server=None: fidelity.loaded_target(
+                self.hub.snapshot(), self.catalog, {c.name: c.task for c in self.cfg.clusters},
+                self._model_loaded()[1], server))
         # ── the real-traffic performance log (perflog.py) — this block and `perf_index` only ──
         #: What the recorder wrote (read-only here), and the recorder itself for its status line.
         #: None = this LB records nothing (LB_PERF=0), which the page then says.
@@ -1363,6 +1373,10 @@ class Proxy:
         # THE CONNECT DIALOG (connect.py): the routes only the deployment can state, and the budgets a client must
         # out-wait. Read once per dialog; never anything secret.
         out["connect"] = connect_view(self.cfg)
+        # THE PERSISTED HARDWARE HISTORY's state (hw_tiers.py): loaded / empty / corrupt with why / off.
+        out["hardware_tiers"] = observe_routes.tiers_status(self)
+        # HEALTH (health.py, alerts.py): the findings pending or firing, what has no data, the alert sender.
+        out["health"] = health.status_view()
         if not self.cfg.broker_enabled:
             for key in self.BROKER_STATUS_KEYS:
                 out.pop(key, None)
@@ -1462,7 +1476,7 @@ class Proxy:
                 last_doc, last_seq = doc, seq
                 if seq is not None:
                     seen = seq
-                self.hub.wait_for_tick(seen, idle_s)
+                self.hub.wait_for_tick(seen, idle_s, stop=self._streams_end)
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, TimeoutError):
             return                                  # the tab went away; nothing to answer
 
@@ -1681,6 +1695,9 @@ class Proxy:
             return h.send_json(200, self.status_for(member))
         if path == "/lb/stream" and h.command in ("GET", "HEAD"):
             return self.status_stream(h)
+        # OBSERVABILITY: /metrics, /lb/perf/daily, /lb/check, /lb/history.
+        if path in observe_routes.ROUTES and h.command in ("GET", "HEAD"):
+            return observe_routes.ROUTES[path](self, h, urllib.parse.urlsplit(h.path).query)
         if path == "/lb/cluster" and h.command == "POST":
             return self.cluster_switch_request(h)
         # PER-CLUSTER (worklog/parallel-clusters.md): /lb/clusters/<name> (its switch), /activate, /deactivate (the run).
@@ -1725,6 +1742,21 @@ class Proxy:
         # grows past what /lb/perf will hand over (MAX_WINDOWS).
         if path in ("/lb/sessions", "/lb/sessions/") and h.command in ("GET", "HEAD"):
             return self.sessions_index(h, urllib.parse.urlsplit(h.path).query)
+        # THE FIDELITY BENCH (fidelity.py): runs + corpus (GET), a paired comparison (GET), a run (POST).
+        if path == "/lb/fidelity" and h.command in ("GET", "HEAD"):
+            return h.send_json(200, self.fidelity.view())
+        if path == "/lb/fidelity/compare" and h.command in ("GET", "HEAD"):
+            return h.send_json(*fidelity.answer_compare(self.fidelity, urllib.parse.urlsplit(h.path).query))
+        if path == "/lb/fidelity/run" and h.command == "POST":
+            return h.send_json(*fidelity.answer_start(self.fidelity, h.read_body(), h.headers.get("Content-Type"),
+                                                      self._asked_by(h)))
+        # THE ACTIVITY FEED (events.py): cluster states, kills, findings, alerts — newest first.
+        if path == "/lb/events" and h.command in ("GET", "HEAD"):
+            return h.send_json(*events.answer(urllib.parse.urlsplit(h.path).query))
+        if path == "/lb/events" and h.command == "POST":        # fleet-power's executed actions (power.action only)
+            status, body = events.post_answer(h.headers.get("Content-Type"), h.headers.get("Content-Length"), h.read_body)
+            h.close_connection = h.close_connection or status in (411, 413)    # an unread body ends the connection
+            return h.send_json(status, body)
         if path in ("/sessions", "/sessions/") and h.command in ("GET", "HEAD"):
             path = "/sessions.html"
         if path in ("/benchmarks", "/benchmarks/") and h.command in ("GET", "HEAD"):
@@ -2485,6 +2517,7 @@ class Proxy:
             return h.send_json(200, {"killed": {**facts, "by": turn.killed.get("by"), "outcome": None,
                                                 "already": True, "message": "already killed; still ending"}})
         log.warning("[proxy] kill: %s — %s", request_kill.describe(facts), request_kill.by_line(who, self._asked_by(h)))
+        events.record("request.killed", facts.get("box") or turn.backend, request_kill.describe(facts), id=rid, by=who)
         # A turn with no connection waits where it was held: wake it — the cluster hold on the hub's change, a claim
         # wait on its own poll, the drain's held on `_turns_cv`.
         self.hub.notify_change()

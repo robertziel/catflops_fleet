@@ -17,6 +17,7 @@ facts:
   visible_gib: {value: null, source: "not measured: no vLLM has started on a 3090 in this project, so no boot log has printed the total it sees"}
   free_at_start_gib: {value: null, source: "not measured: no vLLM has started on a 3090 in this project, so no boot log has printed its free memory at start"}
   mfu_patch_loads: {value: null, source: "not established: no node with the MFU byte-size patch has run on a 3090 on this fleet, so no launch that needs it is offered there"}
+  idle_gpu_power_w: {value: null, source: "not stated or measured: NVIDIA's RTX 3090 spec page gives only the board's total graphics power, and no idle nvidia-smi power.draw reading of a 3090 is recorded in this project"}
   peak_tflops:
     bf16: {value: 71.2, source: "NVIDIA RTX Blackwell GPU Architecture whitepaper v1.1 (2025), Appendix A, Table 3: 'Peak BF16 Tensor TFLOPS with FP32 Accumulate 71.2/142.4' — dense (the X of X/Y; Y is with sparsity), at GPU Boost Clock"}
     fp8: {value: null, source: "NVIDIA RTX Blackwell GPU Architecture whitepaper v1.1 (2025), Appendix A, Table 3: 'Peak FP8 Tensor TFLOPS' N/A for the RTX 3090 — Ampere's Tensor Cores have no FP8"}

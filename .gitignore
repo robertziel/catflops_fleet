@@ -2,6 +2,8 @@ node_modules/
 # Claude Code's local state and its worktrees (copies of tracked files): never published.
 .claude/
 lb/.env
+# A sender's disk binds (lb/hw_sender/disks.example.yml is the generic one; render.py writes it per sender).
+lb/hw_sender/disks.yml
 # The LB's fleet file — this deployment's boxes, hosts and addresses (lb/fleet.example.yml is the generic one).
 lb/fleet.yml
 __pycache__/

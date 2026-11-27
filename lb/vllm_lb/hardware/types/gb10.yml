@@ -21,6 +21,7 @@ facts:
   visible_gib: {value: null, source: "not measured: no vLLM boot log on a GB10 in this project has printed its start check (the pair is launched by tp-rank, and a one-card start check is not run on it here)"}
   free_at_start_gib: {value: null, source: "no constant of the type: on unified memory vLLM reads the free memory at start as the box's available RAM at that moment (psutil virtual_memory().available, vllm/utils/mem_utils.py:143-151 @2eb491e) — the box's, not the chip's"}
   mfu_patch_loads: {value: true, source: "lb/cluster/tp-rank injects the modelopt_mixed byte size into each rank's vLLM (CLUSTER_MFU_QUANT_FIX=1, tp-rank:93-99, its heredoc) on every pair start on a GB10 pair since 2026-10 — the FLOP/s and GB/s the panel reads off them"}
+  idle_gpu_power_w: {value: 8.9, source: "measured 2026-11-27 on one GB10 of this project's pair: nvidia-smi power.draw 8.87–8.97 W over 5 s at 0 % utilization, 2190 MHz SM clock, a model process resident"}
   peak_tflops:
     bf16: {value: 96.5, source: "measured on ONE idle GB10 of this project's pair, 2026-09-30, the pair stopped: torch.matmul bf16, 96.5 TFLOP/s per GPU (lb/docker-compose.yml SATURATION note, the measurement that set LB_GPU_PEAK_TFLOPS)"}
     fp8: {value: 188.3, source: "measured on ONE idle GB10 of this project's pair, 2026-09-30, the pair stopped: torch._scaled_mm fp8, 188.3 TFLOP/s per GPU (lb/docker-compose.yml SATURATION note)"}

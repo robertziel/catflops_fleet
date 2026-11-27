@@ -43,6 +43,9 @@ DEEP_GPU = "gpu"                                # one entry per card:
 CARD_TEMP_C, CARD_POWER_W, CARD_POWER_INST_W = "temp_c", "power_w", "power_inst_w"
 CARD_SM_MHZ, CARD_THROTTLE_HEX, CARD_THROTTLE_INDEX = "sm_mhz", "throttle_hex", "throttle_index"
 CARD_POWER_LABEL, CARD_FAN_PCT = "power_label", "fan_pct"
+#: °C of headroom below the GPU's own throttle limit, as its driver states it (NVIDIA `temperature.gpu.tlimit`; amdgpu
+#: `temp*_crit − temp*_input`) — and, where absent, why (the card entry carries the reason beside the null).
+CARD_TEMP_HEADROOM_C, CARD_TEMP_HEADROOM_WHY = "temp_headroom_c", "temp_headroom_why"
 #: A driver's power-sensor label → what the reading covers, as the panel names it ("GPU POWER (package)"): amdgpu's
 #: `PPT` on an APU is the whole package, CPU and GPU — not the GPU's own draw. A label not here names nothing more.
 POWER_SCOPE = {"PPT": "package"}
@@ -56,3 +59,17 @@ DEEP_WHY = "why"                                # {figure key: reason} for what 
 # ── containers ───────────────────────────────────────────────────────────────────────────────────────────────────
 C_NAME, C_IMAGE, C_RAM_MB = "name", "image", "ram_mb"
 TOTAL_COUNT, TOTAL_RAM_MB = "count", "ram_mb"
+
+# ── box health: top-level blocks ─────────────────────────────────────────────────────────────────────
+RDMA, RDMA_PORTS, RDMA_WHY = "rdma", "ports", "why"
+P_DEV, P_PORT, P_STATE, P_PHYS, P_RATE_GBPS = "dev", "port", "state", "phys_state", "rate_gbps"
+P_LINK_LAYER, P_NETDEV, P_MTU, P_COUNTERS, P_WHY, P_RATES = "link_layer", "netdev", "mtu", "counters", "why", "rates"
+P_PFC, P_TRUST, P_DSCP_MAP, P_QOS_AT = "pfc_prios", "trust", "dscp_map", "qos_at"
+KERNEL = "kernel"
+K_XID_TOTAL, K_OOM_TOTAL, K_LAST_XID = "xid_total", "oom_kills_total", "last_xid"
+K_XID_SINCE, K_XID_COMPLETE, K_WHY = "xid_since", "xid_complete", "why"
+DISKS, DISKS_WHY = "disks", "disks_why"
+D_PATH, D_TOTAL, D_USED, D_FREE, D_WHY = "path", "total_bytes", "used_bytes", "free_bytes", "why"
+MODELS, MODELS_WHY = "models", "models_why"
+M_ROOT, M_DIRS, M_MEASURED_AT, M_TOOK_S = "root", "dirs", "measured_at", "took_s"
+M_MORE_COUNT, M_MORE_BYTES, M_UNREADABLE, M_WHY = "more_count", "more_bytes", "unreadable", "why"

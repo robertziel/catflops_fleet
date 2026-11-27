@@ -19,8 +19,8 @@ import pytest
 from tests.palette_tokens import root_tokens, rules_flat, strip_comments
 
 STATIC = pathlib.Path(__file__).resolve().parent.parent / "vllm_lb" / "static"
-COLOUR_SHEETS = ("gateway.css", "layout.css", "recorder.css", "benchmarks.css", "sessions.css")
-TYPE_SHEETS = ("gateway.css", "layout.css", "recorder.css")
+COLOUR_SHEETS = ("gateway.css", "layout.css", "recorder.css", "benchmarks.css", "sessions.css", "health.css")
+TYPE_SHEETS = ("gateway.css", "layout.css", "recorder.css", "health.css")
 
 HEX = re.compile(r"#[0-9a-fA-F]{3,8}\b")
 COLOUR_FN = re.compile(r"\b(?:rgba?|hsla?|hwb|oklch|lab|lch)\(\s*[\d.]")

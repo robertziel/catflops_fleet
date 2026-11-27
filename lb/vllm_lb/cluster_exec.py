@@ -512,6 +512,22 @@ class SshExecutor(ClusterExecutor):
         self.last_error[host.box] = ""
         return seen
 
+    def reach(self, host: ClusterHost, timeout_s: float = 8.0) -> tuple[bool, str]:
+        """IS THE BOX REACHABLE OVER SSH, as the loop reaches it (same key, known hosts, options) — `true` and nothing
+        else: no tp-rank script on stdin, nothing run by path, nothing changed (GET /lb/check, vllm_lb/connectivity.py).
+        (ok, detail). Never touches `last_error`: that is the loop's word on its own calls, not a check's."""
+        try:
+            proc = subprocess.run(self._argv(host, "true"), stdin=subprocess.DEVNULL, capture_output=True,
+                                  timeout=timeout_s)
+        except subprocess.TimeoutExpired:
+            return False, f"timed out after {timeout_s:g} s"
+        except OSError as exc:
+            return False, f"{type(exc).__name__}: {exc}"[:ERROR_MAX_CHARS]
+        if proc.returncode == 0:
+            return True, "ssh ok"
+        err = proc.stderr.decode("utf-8", "replace").strip().splitlines()
+        return False, f"ssh exit {proc.returncode}: {err[-1] if err else 'no stderr'}"[:ERROR_MAX_CHARS]
+
     # ── plumbing ───────────────────────────────────────────────────────────
 
     def _argv(self, host: ClusterHost, command: str) -> list[str]:

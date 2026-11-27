@@ -120,6 +120,7 @@ power.enabled: true
 power.origin: "https://vllm.example.test"
 power.allowed_hosts: [vllm.example.test]
 power.dry_run: true
+power.lb_events: http://127.0.0.1:8010/lb/events
 power.gate_secret: i-will-do-it
 power.boxes: [box-a, box-c]
 power_box.ssh_host: {box-a: 192.0.2.2, box-c: 127.0.0.1}
@@ -143,6 +144,9 @@ sender.gpu_kind: {box-a: nvidia, box-b: nvidia, box-c: amd}
 sender.bridged: {box-a: false, box-b: false, box-c: true}
 sender.docker_root: {box-a: /var/lib/docker, box-b: /var/lib/docker, box-c: /var/lib/docker}
 sender.lb_network: {box-c: lb_default}
+sender.disks: {box-a: [/srv, /mnt/models], box-b: [/srv, /mnt/models], box-c: [/srv]}
+sender.models_dirs: {box-a: [/srv/models, /mnt/models], box-b: [/srv/models], box-c: [none]}
+sender.kernel_log: {box-a: true, box-b: true, box-c: false}
 
 bench.enabled: false
 
@@ -151,6 +155,14 @@ extras.crawl: false
 extras.dashboard: false
 
 panel.style: glass
+health.enabled: true
+health.hold_s: 90
+health.temp_margin_c: 5
+health.low_ram_fraction: 0.03
+health.busy_gpu_pct: 90
+health.low_power_margin_w: 2
+health.counter_window_s: 3600
+health.backend_down_s: 120
 
 clients.kinds: [claude-code, openai-sdk]
 clients.where: this-host

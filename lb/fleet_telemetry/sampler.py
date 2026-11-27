@@ -6,6 +6,10 @@ state is absent with why that source is silent. The sender never dies for a sens
 
 `net=None` is the BRIDGED sender (lb/hw_sender/bridged.yml): its /proc/net/dev is a container's veth, not the box —
 so there are no counters, with that reason, never the container's figures under the box's name.
+
+BOX HEALTH: the RDMA ports, the kernel's counts, the disks and the models roots are read the same way — a
+reader that raises costs only its block, absent with the reason (`rdma.why`, `kernel.why`, `disks_why`,
+`models_why`). `models=None` is a box whose sender names no models root (HW_SENDER_MODELS_DIRS=none).
 """
 from __future__ import annotations
 
@@ -17,14 +21,17 @@ from fleet_telemetry.model import Sample
 from fleet_telemetry.readers.base import Reader
 
 GPU_KEYS = ("gpu_temp_c", "gpu_power_w", F.GPU_POWER_INST_W, "gpu_mhz", "throttle")
+MODELS_NONE = "HW_SENDER_MODELS_DIRS=none: this box's sender names no models root"
 BRIDGED = "the sender runs bridged (bridged.yml): its network namespace is a container's, not the box's"
 
 
 class Sampler:
     def __init__(self, *, gpu: Reader, cpu: Reader, memory: Reader, sensors: Reader, zones: Reader, fans: Reader,
-                 net: Reader | None, containers: Reader) -> None:
+                 net: Reader | None, containers: Reader, rdma: Reader, kernel: Reader, disks: Reader,
+                 models: Reader | None) -> None:
         self.gpu, self.cpu, self.memory, self.sensors = gpu, cpu, memory, sensors
         self.zones, self.fans, self.net, self.containers = zones, fans, net, containers
+        self.rdma, self.kernel, self.disks, self.models = rdma, kernel, disks, models
 
     @staticmethod
     def _read(reader: Reader, why: dict[str, str], keys: tuple[str, ...]):
@@ -70,7 +77,21 @@ class Sampler:
         s.containers, s.containers_why = self._read(self.containers, {}, ())
         if s.containers_why:
             s.containers_why = f"the containers could not be read: {s.containers_why}"
+        self._health(s)
         return s
+
+    def _health(self, s: Sample) -> None:
+        s.rdma, s.rdma_why = self._read(self.rdma, {}, ())
+        if s.rdma == []:
+            s.rdma_why = "/sys/class/infiniband lists no port"
+        s.kernel, s.kernel_why = self._read(self.kernel, {}, ())
+        s.disks, s.disks_why = self._read(self.disks, {}, ())
+        if s.disks is not None and all(d.why for d in s.disks):
+            s.disks_why = "no configured path could be read: " + "; ".join(d.why for d in s.disks)
+        if self.models is None:
+            s.models_why = MODELS_NONE
+        else:
+            s.models, s.models_why = self._read(self.models, {}, ())
 
     @staticmethod
     def _gpu_why(s: Sample, why: dict[str, str]) -> None:

@@ -14,6 +14,7 @@ import os
 from dataclasses import dataclass, field, replace
 
 from vllm_lb import topology
+from vllm_lb.alerts import channels_from_env
 from vllm_lb.cluster import ClusterHost, parse_hosts
 from vllm_lb.connect import parse_flag, parse_tunnel
 from vllm_lb.fleet import CONTROLS, Fleet, load_fleet
@@ -387,6 +388,14 @@ class Config:
     perf_enabled: bool = True
     perf_window_s: float = 60.0
     perf_max_mb: float = 256.0
+    #: ── PROMETHEUS /metrics (prom.py), opt-in (LB_METRICS=1; off = a 404 naming the switch);
+    #: and the PERSISTED HARDWARE HISTORY's file (hw_tiers.py: 48 h @ 1 min, 30 d @ 15 min), on the state volume —
+    #: empty (LB_HW_TIERS_FILE=) keeps none, and the panel and /lb/history say so.
+    metrics_enabled: bool = False
+    hw_tiers_file: str = "/data/hw-tiers.json"
+    #: ── OUTBOUND ALERTS (alerts.py) — the channels LB_ALERT_* configure, each validated when set; () = none
+    #: (the panel says no channel is configured). Kept as built channels so a bad one refuses the boot here.
+    alert_channels: tuple = ()
     #: ── the clusters (worklog/parallel-clusters.md; the one-cluster plane: worklog/vllm-cluster-control-plane.md,
     #: worklog/standalone-cluster-panel.md) ────────────────────────────────────────────────────────────────────
     #: EVERY cluster the fleet names, in its order, each keyed by its NAME. The singular `cluster_*` fields below are
@@ -733,6 +742,9 @@ class Config:
             perf_enabled=e.get("LB_PERF", "1").strip().lower() not in ("0", "false", "no", "off"),
             perf_window_s=f("LB_PERF_WINDOW_S", cls.perf_window_s),
             perf_max_mb=f("LB_PERF_MAX_MB", cls.perf_max_mb),
+            metrics_enabled=parse_flag("LB_METRICS", e.get("LB_METRICS")),
+            hw_tiers_file=e.get("LB_HW_TIERS_FILE", cls.hw_tiers_file).strip(),
+            alert_channels=channels_from_env(e),
             clusters=fleet_fields["clusters"],
             cluster_state_path=e.get("LB_CLUSTER_STATE", cls.cluster_state_path),
             cluster_ssh_key=e.get("LB_CLUSTER_SSH_KEY", cls.cluster_ssh_key),

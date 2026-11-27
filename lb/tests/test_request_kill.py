@@ -308,6 +308,30 @@ def test_a_turn_held_for_the_cluster_is_killed_never_sent_and_told_not_to_retry(
     assert row["outcome"] == "killed" and row["id"] == turn.id
 
 
+def test_a_kill_is_an_event_on_the_activity_feed_naming_the_turn_and_who(lb, tmp_path):
+    """The kill is a typed line of the feed (events.py), not only a log line."""
+    from vllm_lb import events
+    feed = events.EventLog(str(tmp_path / "feed"))
+    events.install(feed)
+    try:
+        engine = Engine("hold")
+        proxy, hub = lb(engine, kind="cluster", cluster_hold_s=60)
+        hub.update_backend(engine.url, live=False)
+        hub.set_cluster({"configured": True, "state": "starting", "detail": "the pair is starting", "held": False,
+                         "desired": {"mode": "cluster"}, "max_depth": 8})
+        out: dict = {}
+        t = ask(proxy.port, "/v1/messages", anthropic_body(), out)
+        turn = wait(lambda: next((x for x in list(proxy._turns) if x.holding), None))
+        assert kill(proxy.port, turn.id, headers={"X-Vllm-User": USER})[0] == 200
+        t.join(5)
+    finally:
+        events.install(None)
+    feed.drain()
+    got = feed.read(kinds={"request.killed"})["events"]
+    assert len(got) == 1 and got[0]["id"] == turn.id and got[0]["by"] == USER
+    assert turn.id in got[0]["summary"]
+
+
 def test_a_turn_held_by_a_drain_is_killed_at_once_not_answered_draining(lb):
     engine = Engine("sse", ANTHROPIC_HEAD, ANTHROPIC_DELTA)
     proxy, _ = lb(engine)
@@ -338,6 +362,9 @@ def test_a_turn_queued_at_the_engine_is_killed_by_closing_its_connection(lb, kin
     proxy, hub = lb(engine, kind=kind)
     out: dict = {}
     t = ask(proxy.port, "/v1/messages", anthropic_body(), out, headers={"X-Claude-Code-Session-Id": "s" * 36})
+    # The row is live as soon as the LB holds the turn; the engine records its POST a moment later (under load, after
+    # the first read) — wait for that, then read the row the kill will act on.
+    wait(lambda: len(engine.posts()) == 1)
     r = live_row(proxy)
     assert r["state"] in ("queued", "prefill", "sent") and len(engine.posts()) == 1
     time.sleep(0.3)

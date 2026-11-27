@@ -59,6 +59,7 @@ import sys
 
 from vllm_lb import kv_dtype, panel_styles, yamlfile
 from vllm_lb.hardware import PLATFORMS, HardwareProfile, compatibility, profile, types
+from vllm_lb.health import HealthPolicy, parse_policy
 
 
 @dataclass(frozen=True)
@@ -322,6 +323,9 @@ class Fleet:
     backends: Mapping[str, Backend]
     #: The style the gateway panel opens in for a browser that chose none (`panel.style`; panel_styles.py).
     panel_style: str
+    #: THE HEALTH POLICY (`health:`, vllm_lb/health.py): opt-in — None when the file has no block, and the
+    #: findings then say they are off; a block states every key (`health.parse_policy`).
+    health: HealthPolicy | None = None
 
     @property
     def hw_hosts(self) -> dict[str, str]:
@@ -387,7 +391,7 @@ def _unretired(source: str, raw: Any) -> Any:
 
 #: The fleet file's top-level keys: what every fleet states, and what it may.
 FLEET_KEYS = ("boxes", "clusters", "backends", "panel")
-FLEET_OPTIONAL = ("checkpoints",)
+FLEET_OPTIONAL = ("checkpoints", "health")
 
 
 def _top(source: str, raw: Any) -> str:
@@ -1582,7 +1586,8 @@ def parse_fleet(text: str, source: str, library: Mapping[str, HardwareProfile] |
             raise ValueError(f"{source}: boxes.{b.name} serves, so it needs a label (its GPU lane: what its servers "
                              f"are called)")
     return Fleet(source=source, boxes=MappingProxyType(boxes), clusters=MappingProxyType(clusters),
-                 backends=MappingProxyType(backends), panel_style=panel_style)
+                 backends=MappingProxyType(backends), panel_style=panel_style,
+                 health=parse_policy(f"{source}: health", raw["health"]) if "health" in raw else None)
 
 
 def start_checker(cluster: Cluster, catalog):

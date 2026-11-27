@@ -28,6 +28,7 @@ facts:
   visible_gib: {value: null, source: "not measured: …"}
   free_at_start_gib: {value: null, source: "not measured: …"}
   mfu_patch_loads: {value: null, source: "not established: …"}
+  idle_gpu_power_w: {value: null, source: "not measured: …"}   # W at 0 % util: the health GPU POWER floor
   peak_tflops: {bf16: {value: …, source: "… dense …"}}
 ```
 

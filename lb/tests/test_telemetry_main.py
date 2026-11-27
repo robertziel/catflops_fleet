@@ -28,12 +28,18 @@ LIVE_PORT = 48291
 
 # ── settings ──────────────────────────────────────────────────────────────────
 
-GOOD = {"HW_SENDER_GPU": "amd", "HW_SENDER_NETWORK": "host", "HW_SENDER_PORT": "47999"}
+GOOD = {"HW_SENDER_GPU": "amd", "HW_SENDER_NETWORK": "host", "HW_SENDER_PORT": "47999",
+        "HW_SENDER_DISKS": "/:/mnt/models", "HW_SENDER_MODELS_DIRS": "/mnt/models"}
 
 
 def test_settings_from_the_environment():
     s = Settings.from_env(GOOD)
     assert (s.gpu_kind, s.network, s.port) == ("amd", "host", 47999)
+    assert (s.disks, s.models_dirs) == (("/", "/mnt/models"), ("/mnt/models",))
+
+
+def test_models_dirs_none_is_a_box_with_no_models_root():
+    assert Settings.from_env({**GOOD, "HW_SENDER_MODELS_DIRS": "none"}).models_dirs is None
 
 
 @pytest.mark.parametrize("over,named", [
@@ -41,6 +47,9 @@ def test_settings_from_the_environment():
     ({"HW_SENDER_NETWORK": None}, "HW_SENDER_NETWORK"), ({"HW_SENDER_NETWORK": "macvlan"}, "macvlan"),
     ({"HW_SENDER_PORT": None}, "HW_SENDER_PORT"), ({"HW_SENDER_PORT": "0"}, "HW_SENDER_PORT"),
     ({"HW_SENDER_PORT": "udp"}, "HW_SENDER_PORT"),
+    ({"HW_SENDER_DISKS": None}, "HW_SENDER_DISKS"), ({"HW_SENDER_DISKS": "models"}, "HW_SENDER_DISKS"),
+    ({"HW_SENDER_DISKS": "/::/x"}, "HW_SENDER_DISKS"),
+    ({"HW_SENDER_MODELS_DIRS": None}, "HW_SENDER_MODELS_DIRS"), ({"HW_SENDER_MODELS_DIRS": "~/m"}, "MODELS_DIRS"),
 ])
 def test_a_setting_unset_or_unknown_is_refused_by_name(over, named):
     env = {k: v for k, v in {**GOOD, **over}.items() if v is not None}

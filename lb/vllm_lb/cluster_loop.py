@@ -25,7 +25,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
 
-from vllm_lb import topology
+from vllm_lb import events, topology
 from vllm_lb.atomic import write_json
 from vllm_lb.catalog import RANK_ROLES, ModelCatalog, availability_key
 from vllm_lb.cluster import (CLUSTER_MODE, RELEASE, BoxObs, Desired, DesiredStore, Down, Halt, Heal, Observed, Plan,
@@ -1298,6 +1298,10 @@ class ClusterLoop:
         """The state clock: a change of state is logged and restarts `since`. All a one-host node's tick keeps."""
         if p.state != self._state:
             log.info("[cluster] %s → %s: %s", self._state, p.state, p.detail)
+            # THE ACTIVITY FEED (events.py): every change of state, once — the alert sender listens for
+            # `failed` / `stalled` on it (alerts.py).
+            events.record("cluster.state", self.cfg.cluster_name, f"{self._state} → {p.state}: {p.detail}"[:300],
+                          state=p.state, previous=self._state, detail=str(p.detail or "")[:300])
             self._state, self._since = p.state, now
 
     def _track(self, p: Plan, now: float, desired: Desired) -> None:

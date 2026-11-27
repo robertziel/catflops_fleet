@@ -13,6 +13,7 @@ Configuration (environment):
   POWER_DRY_RUN         1 = use the dry-run key (its forced command powers nothing off)
   POWER_AUDIT           the JSON-lines audit log
   POWER_LB_STATUS       the gateway's read-only status URL (cluster state only; never a control call)
+  POWER_LB_EVENTS       REQUIRED: the gateway's POST /lb/events URL, told each executed action (lb_events.py), or `none`
 """
 from __future__ import annotations
 
@@ -29,6 +30,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from fleet_power.app import CLOCK_RECONCILE_S, MAX_BODY, PowerApp, Settings
 from fleet_power.boxes import load_boxes
 from fleet_power.host_guard import parse_allowed
+from fleet_power.lb_events import LbNotifier, lb_events_url_from_env
 from fleet_power.wol import send_wol
 
 
@@ -132,16 +134,18 @@ def make_handler(app: PowerApp):
 def main():
     settings = settings_from_env()
     boxes = load_boxes(os.environ)                # ValueError at boot if POWER_BOXES is malformed
+    events_url = lb_events_url_from_env(os.environ)   # ValueError at boot: required, or `none`
     app = PowerApp(settings, boxes, runner=run_ssh, wol=send_wol, probe=probe,
                    cluster_state=cluster_reader(os.environ.get(
-                       "POWER_LB_STATUS", "http://127.0.0.1:8010/lb/status")))
+                       "POWER_LB_STATUS", "http://127.0.0.1:8010/lb/status")),
+                   notify=LbNotifier(events_url).notify if events_url else None)
     host, port = settings.bind.rsplit(":", 1)
     srv = ThreadingHTTPServer((host, int(port)), make_handler(app))
     app.listening_on(host, srv.server_address[1])
     threading.Thread(target=reconcile_forever, args=(app,), daemon=True).start()
     print(f"vllm-power on {host}:{port} dry_run={settings.dry_run} "
           f"gate={'set' if settings.gate_secret else 'MISSING (refusing all)'} "
-          f"origins={len(settings.origins)} boxes={len(boxes)} "
+          f"origins={len(settings.origins)} boxes={len(boxes)} lb_events={events_url or 'none'} "
           f"hosts={','.join(str(a) for a in app.host_guard.allowed)}"
           + ("" if boxes else " (POWER_BOXES unset: no box may be acted on)")
           + ("" if settings.origins else " (POWER_ORIGINS unset: every request is refused)"),

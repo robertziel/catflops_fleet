@@ -1,0 +1,14 @@
+# DISKS AND MODELS ROOTS: one READ-ONLY bind per host path the sender reports (fleet_telemetry/readers/disk.py,
+# readers/models.py) — the host's <path> at /host/fs<path> (fleet_telemetry/__main__.py HOST_FS). The sender sees these
+# directories and no other host file; a path in HW_SENDER_DISKS or HW_SENDER_MODELS_DIRS without its bind here is shown
+# absent, naming the bind it needs (never the container's own disk under the host path's name).
+#
+# deploy/setup/render.py writes this file as lb/hw_sender/disks.yml from the sender.disks and sender.models_dirs answers.
+# Without the wizard: copy it to disks.yml (gitignored), list every path of BOTH variables once, and add disks.yml to
+# COMPOSE_FILE in lb/hw_sender/.env, e.g. COMPOSE_FILE=docker-compose.yml:gpu-nvidia.yml:disks.yml
+# A bind exposes that directory tree read-only. For a filesystem whose top should not be readable (the root disk), name
+# a small directory on it instead — statvfs reports the whole filesystem from any directory on it.
+services:
+  hw-sender:
+    volumes:
+      - /mnt/models:/host/fs/mnt/models:ro

@@ -371,3 +371,33 @@ def test_lb_status_carries_a_hardware_block_per_box():
     assert body["hardware"]["box-a"]["mem_unified"] is True
     assert body["hardware"]["box-a"]["cpu_per_core"] is None, "an old sender: no matrix"
     assert len(body["hardware"]["box-b"]["cpu_per_core"]) == 20, "the matrix reaches the apps"
+
+
+# ── the GPU's temperature headroom, as its driver states it ────────────────────────────────────────────
+
+def _with_deep(raw: str, cards: list) -> str:
+    d = json.loads(raw)
+    d["deep"] = {"gpu": cards}
+    return json.dumps(d)
+
+
+def test_the_temperature_headroom_is_the_tightest_cards_and_absent_with_the_senders_why():
+    """health.py's GPU TEMP rule reads `temp_headroom_c`: °C below the GPU's own throttle limit (nvidia-smi
+    temperature.gpu.tlimit, amdgpu crit − input), the TIGHTEST card's. A card that states none makes it absent, with
+    that card's reason — a headroom over the other cards would name a box that is not this one."""
+    two = _with_deep(TWO_CARDS, [{"temp_c": 64, "temp_headroom_c": 26}, {"temp_c": 70, "temp_headroom_c": 9}])
+    box = _c().ingest_and_snapshot(two, now=NOW)
+    assert (box["temp_headroom_c"], box["temp_headroom_why"]) == (9, None)
+    gone = _with_deep(TWO_CARDS, [{"temp_headroom_c": 26},
+                                  {"temp_headroom_c": None, "temp_headroom_why": "no temp1_crit in the amdgpu hwmon"}])
+    box = _c().ingest_and_snapshot(gone, now=NOW)
+    assert box["temp_headroom_c"] is None and box["temp_headroom_why"] == "card 1: no temp1_crit in the amdgpu hwmon"
+    box = _c().ingest_and_snapshot(BOX_A, now=NOW)
+    assert box["temp_headroom_c"] is None and "deep" in box["temp_headroom_why"]
+
+
+def test_a_stale_box_withdraws_its_headroom():
+    c = _c()
+    c.ingest(_with_deep(BOX_A, [{"temp_headroom_c": 12}]), now=NOW)
+    box = c.snapshot(now=NOW + 10_000)["box-a"]
+    assert box["stale"] and box["temp_headroom_c"] is None

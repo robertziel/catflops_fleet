@@ -1,0 +1,64 @@
+# THE DEMO FLEET: what lb/tests/demo/up.sh runs the gateway against — three demo boxes on a local docker
+# network, no real host: two unified-memory boxes — box-a runs a one-host cluster the LB routes to but does not start
+# (control: none: the demo never opens an SSH connection), box-b telemetry only — and one discrete-GPU box, box-c,
+# with a classic server — and box-d, an iGPU box that sends telemetry only.
+#
+# Thresholds are deliberately LOW so the findings band has something in every state within a minute of `up.sh`:
+#   firing   box-c GPU TEMP (sender: 3 °C below its own throttle limit ≤ the 5 °C margin), box-a XID / RoCE ERR
+#            (rising counters), box-b RAM AVAIL (under 10 % of its RAM), GPU POWER (97 % busy at 9.5 W ≤ its GB10
+#            type's 8.9 W idle + the 2 W margin) and RoCE ERR (a DOWN port's link_downed rising)
+#   no data  box-d GPU TEMP: an amdgpu-style card whose driver states no crit temperature (headroom absent + why)
+#   pending  box-c SERVER — its fake engine answers, then stops (engine.py); backend_down_s holds it pending for 1 h
+# The engines are lb/tests/demo/engine.py in demo-lb's network namespace (up.sh); telemetry is lb/tests/demo/sender.py.
+
+panel:
+  style: vibe
+
+health:
+  hold_s: 20
+  temp_margin_c: 5
+  low_ram_fraction: 0.10
+  busy_gpu_pct: 90
+  low_power_margin_w: 2
+  counter_window_s: 3600
+  backend_down_s: 3600
+
+boxes:
+  box-a:
+    hostname: box-a-host
+    label: box-a-gpu
+    platform: linux/arm64
+    cards:
+      - {index: 0, type: gb10, serves: true}
+  box-b:
+    hostname: box-b-host
+    platform: linux/arm64
+    cards:
+      - {index: 0, type: gb10, serves: false}
+  box-c:
+    hostname: box-c-host
+    label: box-c-gpu
+    platform: linux/amd64
+    cards:
+      - {index: 0, type: rtx5090, serves: true}
+  box-d:
+    hostname: box-d-host
+    platform: linux/amd64
+    cards:
+      - {index: 0, type: radeon8060s, serves: false}
+
+clusters:
+  node:
+    control: none
+    model: qwen3.8-27b-nvidia-nvfp4
+    url: http://127.0.0.1:8100
+    ranks:
+      - {box: box-a}
+
+backends:
+  box-c: {url: http://127.0.0.1:8001}
+
+checkpoints:
+  qwen3.8-27b-nvidia-nvfp4: {path: Qwen3.8-27B-NVFP4, uncensored: Qwen3.8-27B-NVFP4_uncensored}
+  qwen3.8-27b-dflash2: {path: dflash2-27b-tp2/Qwen3.8-27B-NVFP4-bf16head, draft: dflash2-27b-tp2/Qwen3.8-27B-DFlash2}
+  mai-ui-2b: {path: MAI-UI-2B}

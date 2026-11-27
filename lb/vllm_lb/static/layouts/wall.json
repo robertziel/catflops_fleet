@@ -9,7 +9,7 @@
     ] },
     { "cols": [
       { "width": "1", "items": ["engine", "saturation"] },
-      { "width": "1", "items": ["requests"] }
+      { "width": "1", "items": ["requests", "events"] }
     ] },
     { "cols": [
       { "width": "1", "items": ["tabs"] }

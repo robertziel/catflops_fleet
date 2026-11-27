@@ -30,6 +30,8 @@ each box's cards by those keys (vllm_lb/fleet.py). What the gateway may CLAIM ab
                       (deploy/standalone/node-gpu.<value>.yml, `fleet.node_env` EDGE_NODE_GPU_RUNTIME) — data, never
                       an `if <vendor>:`
   controls            the cluster control methods proven on it (the fleet's `control: ssh` is lb/cluster/tp-rank)
+  idle_gpu_power_w    what the GPU draws idle, W, measured (the driver's averaged draw at 0 % utilization) — the health
+                      GPU POWER finding's floor (vllm_lb/health.py); absent where no GPU-only idle figure exists
   memory              its BEHAVIOUR FAMILY — `UnifiedProfile` (the GPU's memory is the box's RAM) or
                       `DiscreteProfile` (VRAM of its own); the class, never a caller, decides what that changes
 
@@ -83,6 +85,9 @@ class HardwareProfile:
     #: and image — measured, or null with why. A launch whose checkpoint needs it is refused where it is not true
     #: (fleet.py `_mfu_patch`): under ROCm the patch's sitecustomize recursed until OOM (2026-10-17).
     mfu_patch_loads: Fact
+    #: WHAT THE GPU DRAWS IDLE, W (its driver's averaged draw at 0 % utilization) — measured, or null with why: the floor
+    #: the health GPU POWER finding holds a busy GPU's draw against (vllm_lb/health.py, plus `health.low_power_margin_w`).
+    idle_gpu_power_w: Fact
 
     #: The family's memory model (memory.py) — a property of the CLASS: every type of a family shares it.
     memory: ClassVar[MemoryModel]
@@ -125,6 +130,7 @@ class HardwareProfile:
                 "bandwidth_counter": self.bandwidth_counter.view(), "host_platform": self.host_platform.view(),
                 "visible_gib": self.visible_gib.view(), "free_at_start_gib": self.free_at_start_gib.view(),
                 "gpu_runtime": self.gpu_runtime.view(), "mfu_patch_loads": self.mfu_patch_loads.view(),
+                "idle_gpu_power_w": self.idle_gpu_power_w.view(),
                 "peak_tflops": {p: f.view() for p, f in self.peak_tflops.items()}}
 
 
@@ -149,7 +155,7 @@ FAMILIES: Mapping[str, type[HardwareProfile]] = MappingProxyType({"unified": Uni
 _TOP = ("name", "memory", "accelerator", "controls", "facts")
 _FACTS = {"memory_gb": "number", "cuda_cores": "count", "peak_gbps": "number",
           "bandwidth_counter": "bool", "host_platform": "platform", "visible_gib": "number",
-          "free_at_start_gib": "number", "mfu_patch_loads": "bool",
+          "free_at_start_gib": "number", "mfu_patch_loads": "bool", "idle_gpu_power_w": "number",
           "peak_tflops": "per precision"}
 _PRECISION = re.compile(r"[a-z0-9_]+")
 

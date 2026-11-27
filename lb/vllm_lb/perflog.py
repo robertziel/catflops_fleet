@@ -680,9 +680,11 @@ class JsonlWriter:
     raises; every failure is a count and a sentence (`status`)."""
 
     def __init__(self, directory: str, *, max_total_bytes: int, max_file_bytes: int,
-                 queue_size: int = 1024, prefix: str = "perf") -> None:
+                 queue_size: int = 1024, prefix: str = "perf", stamp: str = "t_start") -> None:
         self.dir = pathlib.Path(directory)
         self.prefix = prefix
+        #: The record key whose epoch names the UTC day file a record goes to: a window's `t_start`, an event's `t`.
+        self.stamp = stamp
         self._file_re = file_re(prefix)
         self.max_total_bytes = max(1, int(max_total_bytes))
         self.max_file_bytes = max(1, int(max_file_bytes))
@@ -743,7 +745,7 @@ class JsonlWriter:
     def write(self, rec: dict) -> None:
         try:
             line = json.dumps(rec, separators=(",", ":"), allow_nan=False) + "\n"
-            path = self.dir / f"{self.prefix}-{day_of(rec['t_start'])}.jsonl"
+            path = self.dir / f"{self.prefix}-{day_of(rec[self.stamp])}.jsonl"
             self.dir.mkdir(parents=True, exist_ok=True)
             size = path.stat().st_size if path.exists() else 0
             if size + len(line) > self.max_file_bytes:

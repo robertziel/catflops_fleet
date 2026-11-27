@@ -240,3 +240,14 @@ def test_a_stale_reader_never_puts_an_older_frame_back(lb):
     assert seq == newer[0] + 1 and patch is not None
     name, _, body = patch.decode().partition("data: ")
     assert status_delta.apply(json.loads(body), json.loads(json.dumps(newer[1]))) == json.loads(json.dumps(doc))
+
+
+def test_a_drain_before_the_stream_waits_is_never_slept_through(lb):
+    """THE LOST WAKE-UP: a drain whose wake-up lands while a stream is still sending its event — before it waits for
+    the next tick — must not leave that stream asleep for its idle bound (2 × tick_s). The end flag is checked under
+    the same lock the wake-up takes, so a stream that arrives late sees it and does not wait at all."""
+    proxy, hub = lb(tick_s=15.0)
+    proxy._end_streams()                         # the drain's flag + wake-up, BEFORE anyone waits
+    t0 = time.monotonic()
+    hub.wait_for_tick(hub.tick_count(), 30.0, stop=proxy._streams_end)
+    assert time.monotonic() - t0 < 1.0, "a stream arriving after the drain's wake-up slept through it"

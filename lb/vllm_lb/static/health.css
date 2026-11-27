@@ -1,0 +1,67 @@
+/* HEALTH AND ACTIVITY (health.js): the findings band under the header and the Activity tile. Colours are
+   the style's tokens only (tests/test_style_tokens.py), so every style — light or dark — draws them in its own. */
+
+/* THE BAND: one row of chips that wraps; a chip never wider than the page (390 px phone). */
+.lb-health { display: flex; flex-wrap: wrap; gap: .35rem; margin: .4rem 1rem; }
+.lb-health[hidden] { display: none; }
+.hl-chip {
+  display: inline-block; max-width: 100%; padding: .2rem .6rem; font-size: var(--small); font-weight: 600;
+  font-variant-numeric: tabular-nums; line-height: 1.45; border: var(--rule); border-radius: var(--radius-pill);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.hl-firing { color: var(--bad); border-color: var(--bad); background: rgba(var(--bad-rgb), .12); }
+.hl-pending { color: var(--warn); border-color: var(--warn); background: rgba(var(--warn-rgb), .10); }
+.hl-failed { color: var(--bad); border-style: dashed; border-color: var(--bad); }
+
+/* THE TILE: the kind chips, the list (time · kind · subject · summary), the health line. */
+.ev-count { margin-left: .4rem; font-size: var(--small); font-weight: 400; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+.ev-kinds { display: flex; flex-wrap: wrap; gap: .3rem; margin: .1rem 0 .45rem; }
+.ev-chip {
+  font: inherit; font-size: var(--small); color: var(--ink-dim); background: transparent; border: var(--rule);
+  border-radius: var(--radius-pill); padding: .05rem .55rem; cursor: pointer;
+}
+.ev-chip[aria-pressed="true"] { color: var(--ink); border-color: var(--accent); background: rgba(var(--accent-rgb), .12); }
+.ev-chip:hover, .ev-chip:focus-visible { color: var(--ink); }
+.ev-list {
+  list-style: none; margin: 0; padding: 0; max-height: 22rem; overflow-y: auto; font-size: var(--fs-76);
+  /* ONE grid for the whole list, each row a SUBGRID of it: the columns line up down the list AND each is as wide as its
+     widest cell — an older day's "Nov 26 13:10" is wider than today's "08:11:42" and ran into the kind column when
+     the time track was a fixed 4.6em (the Playwright audit). */
+  display: grid; grid-template-columns: max-content max-content minmax(0, 7em) minmax(0, 1fr); column-gap: .6rem;
+}
+.ev-row {
+  display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; row-gap: .1rem;
+  align-items: baseline; padding: .2rem 0; border-bottom: var(--rule);
+}
+.ev-empty { grid-column: 1 / -1; }
+.ev-row:last-child { border-bottom: 0; }
+.ev-t { color: var(--ink-faint); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ev-k { color: var(--ink-dim); white-space: nowrap; }
+.ev-ok { color: var(--ok); }
+.ev-warn { color: var(--warn); }
+.ev-bad { color: var(--bad); }
+.ev-s { color: var(--ink); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The summary wraps rather than cuts: a finding's summary names every counter that rose (health.py), and a "…" would
+   hide the one the reader is looking for (the UX audit). */
+.ev-m { color: var(--ink-dim); white-space: normal; overflow-wrap: anywhere; min-width: 0; }
+.ev-empty { color: var(--ink-faint); padding: .3rem 0; }
+.ev-foot { display: flex; flex-wrap: wrap; align-items: baseline; gap: .5rem; margin-top: .4rem; font-size: var(--small); color: var(--ink-faint); }
+.ev-more { font: inherit; font-size: var(--small); color: var(--accent); background: transparent; border: 0; padding: 0; cursor: pointer; }
+.ev-more[hidden], .ev-badline[hidden] { display: none; }
+.ev-badline { color: var(--warn); }
+.ev-health { display: grid; gap: .2rem; margin-top: .45rem; font-size: var(--small); color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+.ev-nd summary { cursor: pointer; color: var(--ink-faint); }
+.ev-nd ul { margin: .2rem 0 0; padding-left: 1rem; color: var(--ink-faint); }
+.ev-why { color: var(--ink-faint); }
+
+/* A PHONE: time and kind on one line with the subject; the summary under them, full width. */
+@media (max-width: 600px) {
+  .lb-health { margin: .4rem .6rem; }
+  .ev-list { grid-template-columns: max-content max-content minmax(0, 1fr); }
+  .ev-m { grid-column: 1 / -1; white-space: normal; overflow-wrap: anywhere; }
+  /* A finger, not a cursor: every control of the tile is at least 32 px each way. */
+  .ev-chip { min-height: 32px; min-width: 32px; padding: 0 .75rem; }
+  #events-section > summary { min-height: 32px; display: flex; align-items: center; }
+  .ev-nd summary { min-height: 32px; display: flex; align-items: center; }
+  .ev-more { min-height: 32px; min-width: 32px; }
+}

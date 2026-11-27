@@ -1,0 +1,13 @@
+# KERNEL LOG: the sender reads /dev/kmsg to count GPU Xid errors (fleet_telemetry/readers/kernel.py). The NVIDIA driver
+# reports a GPU fault only as a kernel log line; no sysfs file or nvidia-smi field counts them. OPT-IN, because it grants:
+#   * the device /dev/kmsg with cgroup permission `r` — READ ONLY: the sender can never write a line into the host's log;
+#   * CAP_SYSLOG — needed to read it under kernel.dmesg_restrict=1 (the Ubuntu default). It would also allow clearing
+#     the ring buffer through syslog(2); the sender never calls syslog(2), it only reads /dev/kmsg.
+# Without this file the Xid figures are absent with that reason; OOM kills (/proc/vmstat) are read either way.
+# Select it in lb/hw_sender/.env: COMPOSE_FILE=docker-compose.yml:gpu-nvidia.yml:kmsg.yml (+ :bridged.yml).
+services:
+  hw-sender:
+    devices:
+      - /dev/kmsg:/dev/kmsg:r
+    cap_add:
+      - SYSLOG

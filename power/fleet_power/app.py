@@ -184,8 +184,11 @@ class RateLimit:
 class PowerApp:
     def __init__(self, settings: Settings, boxes: dict[str, Box], *, runner: Callable,
                  wol: Callable, probe: Callable, cluster_state: Callable,
-                 clock: Callable[[], float] = time.time):
+                 clock: Callable[[], float] = time.time, notify: Callable[[dict], None] | None = None):
         self.settings, self.boxes = settings, boxes
+        #: Told each EXECUTED action as a `power.action` event (lb_events.LbNotifier.notify: off this thread) — the
+        #: gateway's activity feed; None = POWER_LB_EVENTS=none.
+        self.notify = notify
         self.runner, self.wol, self.probe = runner, wol, probe
         self.cluster_state, self.clock = cluster_state, clock
         self.lock = threading.Lock()
@@ -433,10 +436,26 @@ class PowerApp:
                     self.pending[box.name] = {"action": action, "since": now}
         self.audit("execute", ctx, result, box=box.name, action=action, rc=rc,
                    output=output[-500:], cluster=cluster["state"])
+        self._tell_lb(box, action, result, rc, ctx)
         return self._json(200 if ok else 502, {
             "result": result, "box": box.name, "action": action, "output": output[-2000:],
             "clock": self._clock_state(box), "dry_run": self.settings.dry_run,
         })
+
+    def _tell_lb(self, box: Box, action: str, result: str, rc, ctx: dict) -> None:
+        """One `power.action` event for the gateway's activity feed (lb_events.py). A notifier that raises costs a log
+        line here, never the action that already happened."""
+        if self.notify is None:
+            return
+        dry = self.settings.dry_run
+        event = {"kind": "power.action", "subject": box.name,
+                 "summary": f"{action} {box.name}: {result}{' (dry run)' if dry else ''} by {ctx.get('user') or '?'}",
+                 "action": action, "result": result, "user": ctx.get("user"), "dry_run": dry,
+                 "rc": rc if isinstance(rc, int) and not isinstance(rc, bool) else None}
+        try:
+            self.notify(event)
+        except Exception as exc:  # noqa: BLE001
+            print(f"lb-events: could not hand {action} {box.name} to the notifier: {exc!r}", flush=True)
 
     def _record_clock(self, box: Box, spec: ActionSpec, now: float, by: str) -> None:
         """Caller holds self.lock."""

@@ -75,9 +75,9 @@ def test_every_movable_element_is_a_host_with_a_stable_id_and_a_label():
     assert len(ids) == len(set(ids)), f"a layout id is given twice: {ids}"
     for id_ in ids:
         assert re.search(rf'data-ly="{id_}" data-ly-label="[^"]+"', html), f"{id_} has no label"
-    # The seven parts of the panel (operator 2026-10-17/18: the queued leases, the Cluster of boxes, the server
-    # tabs, the selected server's card, its engine's throughput, its requests, its saturation).
-    assert ids == ["queued", "cluster", "tabs", "server", "engine", "requests", "saturation"]
+    # The parts of the panel (operator 2026-10-17/18: the queued leases, the Cluster of boxes, the server tabs, the
+    # selected server's card, its engine's throughput, its requests, its saturation; the Activity feed).
+    assert ids == ["queued", "cluster", "tabs", "server", "engine", "requests", "saturation", "events"]
     main = re.search(r'<main id="layout" class="layout"[^>]*>(.*?)</main>', html, re.S)
     assert main, "the movable elements sit in <main id=layout>"
     assert re.findall(r'data-ly="([^"]+)"', main.group(1)) == ids, "every host is a direct part of the layout"

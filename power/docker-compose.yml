@@ -28,6 +28,8 @@ services:
       POWER_BOXES: "${POWER_BOXES:-}"
       POWER_DRY_RUN: "${POWER_DRY_RUN:-1}"
       POWER_LB_STATUS: http://127.0.0.1:8010/lb/status     # read-only GET: the cluster state
+      # Each executed action, told to the gateway's activity feed (POST /lb/events); `none` = off. No default.
+      POWER_LB_EVENTS: "${POWER_LB_EVENTS:?set POWER_LB_EVENTS in power/.env — the LB's /lb/events URL, or none}"
     volumes:
       - ${HOME}/.config/fleet-power/keys:/keys:ro                  # 700 dir, 600 keys, not in git
       - ${HOME}/.config/fleet-power/gate_secret:/run/secrets/gate:ro

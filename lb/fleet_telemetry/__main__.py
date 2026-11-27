@@ -4,7 +4,11 @@ SETTINGS are the environment the compose files give it, every one REQUIRED (no d
   HW_SENDER_GPU      the GPU kind its gpu-*.yml names (readers.GPU_READERS)
   HW_SENDER_NETWORK  host (docker-compose.yml) | bridged (bridged.yml): whether /proc/net/dev is the box's
   HW_SENDER_PORT     the gateway's LB_HW_PORT (lb/hw_sender/.env)
-and two read-only mounts at the image's paths (CGROUP_ROOT, CONTAINERS_DIR; docker-compose.yml). A retired engine
+  HW_SENDER_DISKS        the host paths whose filesystems are reported, `:`-separated absolute paths (readers/disk.py)
+  HW_SENDER_MODELS_DIRS  the host's models roots whose folders are sized, `:`-separated absolute paths, or `none`
+                         (readers/models.py)
+two read-only mounts at the image's paths (CGROUP_ROOT, CONTAINERS_DIR; docker-compose.yml), and one read-only bind
+per disk path / models root at HOST_FS<path> (lb/hw_sender/disks.yml). A retired engine
 name (QUEUE_WORKFLOWS_*) still set is refused, naming its replacement.
 
 PREFLIGHT: the named GPU kind's reader answers with at least one card. Otherwise nothing is sent: an empty GPU row
@@ -26,8 +30,9 @@ from dataclasses import dataclass
 from typing import Mapping
 
 from fleet_telemetry.broadcast import LanBroadcaster
-from fleet_telemetry.readers import (GPU_READERS, Cgroups, CpuSensors, Fans, Meminfo, NetDev, ProcStat,
-                                     ThermalZones)
+from fleet_telemetry.readers.base import Binds
+from fleet_telemetry.readers import (GPU_READERS, Cgroups, CpuSensors, Disks, Fans, KernelLog, Meminfo, ModelDirs,
+                                     NetDev, ProcStat, RdmaPorts, ThermalZones)
 from fleet_telemetry.sampler import Sampler, envelope
 
 #: One sample a second: the gateway page follows the LB's 1 s probe, and a box's graphs move with it.
@@ -37,6 +42,10 @@ NETWORKS = ("host", "bridged")
 #: The host's /sys/fs/cgroup and <DockerRootDir>/containers, mounted read-only by docker-compose.yml.
 CGROUP_ROOT = "/host/sys/fs/cgroup"
 CONTAINERS_DIR = "/host/docker/containers"
+#: Where lb/hw_sender/disks.yml binds each HW_SENDER_DISKS / HW_SENDER_MODELS_DIRS host path, read-only: the host's
+#: `<path>` at `HOST_FS<path>`. A prefix of its own (not /host itself): a configured `/` must not land on the parent of
+#: the cgroup and containers mounts, and no configured path may collide with them.
+HOST_FS = "/host/fs"
 #: Names the sender read when it was the engine's; refused so a stale .env or compose file is found, not ignored.
 RETIRED = {"QUEUE_WORKFLOWS_HW_BROADCAST_PORT": "HW_SENDER_PORT",
            "QUEUE_WORKFLOWS_BROADCAST_HW_STATS": "nothing (this sender always broadcasts)"}
@@ -56,6 +65,8 @@ class Settings:
     gpu_kind: str
     network: str
     port: int
+    disks: tuple[str, ...]
+    models_dirs: tuple[str, ...] | None
 
     @classmethod
     def from_env(cls, env: Mapping[str, str]) -> "Settings":
@@ -75,7 +86,19 @@ class Settings:
         if not raw.isdigit() or not 0 < int(raw) < 65536:
             raise Refused(f"HW_SENDER_PORT={raw!r}: the gateway's LB_HW_PORT, a UDP port (lb/hw_sender/.env)",
                           EX_CONFIG)
-        return cls(gpu_kind=kind, network=network, port=int(raw))
+        disks = _paths(env, "HW_SENDER_DISKS", "the host paths whose disks the panel shows (e.g. /:/mnt/models)")
+        models = None if env.get("HW_SENDER_MODELS_DIRS", "") == "none" else _paths(
+            env, "HW_SENDER_MODELS_DIRS", "the host's models roots whose folders are sized, or none")
+        return cls(gpu_kind=kind, network=network, port=int(raw), disks=disks, models_dirs=models)
+
+
+def _paths(env: Mapping[str, str], key: str, what: str) -> tuple[str, ...]:
+    """A `:`-separated list of absolute host paths, at least one — or Refused naming the key."""
+    raw = env.get(key, "")
+    parts = tuple(p for p in raw.split(":"))
+    if not raw or any(not p.startswith("/") for p in parts):
+        raise Refused(f"{key}={raw!r}: {what}, `:`-separated absolute paths (lb/hw_sender/.env)", EX_CONFIG)
+    return parts
 
 
 def sampler_for(settings: Settings, root: str = "/") -> Sampler:
@@ -85,7 +108,9 @@ def sampler_for(settings: Settings, root: str = "/") -> Sampler:
         raise Refused(str(exc), EX_CONFIG) from exc
     return Sampler(gpu=GPU_READERS[settings.gpu_kind](), cpu=ProcStat(root), memory=Meminfo(root),
                    sensors=CpuSensors(root), zones=ThermalZones(root), fans=Fans(root),
-                   net=NetDev(root) if settings.network == "host" else None, containers=containers)
+                   net=NetDev(root) if settings.network == "host" else None, containers=containers,
+                   rdma=RdmaPorts(root), kernel=KernelLog(root), disks=Disks(list(settings.disks), Binds(HOST_FS)),
+                   models=ModelDirs(list(settings.models_dirs), Binds(HOST_FS)) if settings.models_dirs else None)
 
 
 def preflight(sampler: Sampler, kind: str) -> str:
