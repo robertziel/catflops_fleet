@@ -18,8 +18,9 @@ import pytest
 from fleet_telemetry.model import ContainerUsage, GpuReading, NetCounters, ThermalZone, throttle_index
 from fleet_telemetry.readers import (GPU_READERS, AmdgpuSysfs, Cgroups, CpuSensors, Fans, Meminfo, NetDev,
                                      NvidiaSmi, ProcStat, ThermalZones)
-from tests.telemetry_fixtures import (AMD_APU, CGROUP_MEMORY_CURRENT, CGROUP_MEMORY_STAT, NVIDIA_TWO_CARDS,
-                                      NVIDIA_UNIFIED, PROC_STAT_0, PROC_STAT_1, plant)
+from tests.telemetry_fixtures import (AMD_APU, CGROUP_MEMORY_CURRENT, CGROUP_MEMORY_STAT, NVIDIA_NO_TLIMIT,
+                                      NVIDIA_TWO_CARDS, NVIDIA_TWO_CARDS_HEADROOM, NVIDIA_UNIFIED,
+                                      NVIDIA_UNIFIED_HEADROOM, PROC_STAT_0, PROC_STAT_1, nvidia_run, plant)
 
 
 @pytest.fixture
@@ -28,12 +29,9 @@ def apu(tmp_path):
 
 
 def smi(answer: str, calls: list | None = None):
-    def run(argv):
-        if calls is not None:
-            calls.append(argv)
-        assert argv == NvidiaSmi.ARGV, f"unexpected argv {argv}"
-        return answer
-    return run
+    """The sample's query answers `answer`; the headroom query its fixture's twin."""
+    headroom = {NVIDIA_UNIFIED: NVIDIA_UNIFIED_HEADROOM, NVIDIA_TWO_CARDS: NVIDIA_TWO_CARDS_HEADROOM}[answer]
+    return nvidia_run(answer, headroom, calls)
 
 
 # ── GPUs ──────────────────────────────────────────────────────────────────────
@@ -45,9 +43,11 @@ def test_the_gpu_readers_are_one_per_named_kind():
 def test_nvidia_unified_memory_card_one_query_and_na_is_none():
     calls = []
     (g,) = NvidiaSmi(run=smi(NVIDIA_UNIFIED, calls)).read()
-    assert len(calls) == 1, "ONE nvidia-smi run per sample: the tiles' and the recorder's columns together"
+    assert calls == [NvidiaSmi.ARGV, NvidiaSmi.HEADROOM_ARGV], \
+        "ONE run for the tiles' and the recorder's columns together, ONE more for the headroom — never more"
     assert g == GpuReading(id=0, use_pct=96, vram_used_mb=None, vram_total_mb=None, temp_c=84, power_w=73.1,
-                           power_inst_w=112.78, sm_mhz=2405, throttle_hex="0x0000000000000048", fan_pct=None)
+                           power_inst_w=112.78, sm_mhz=2405, throttle_hex="0x0000000000000048", fan_pct=None,
+                           temp_headroom_c=3)
     assert g.throttle_index == 100, "hw_thermal (0x40) is at the wall: the max over active bits, never a sum"
 
 
@@ -56,6 +56,41 @@ def test_nvidia_two_cards_each_a_reading():
     assert (a.id, a.use_pct, a.vram_used_mb, a.vram_total_mb, a.power_w, a.throttle_index) == (0, 36, 7256, 24576,
                                                                                               210.55, 30)
     assert (b.id, b.vram_total_mb, b.fan_pct, b.throttle_index) == (1, 32607, 0, 0), "a fan at 0 % is a reading"
+
+
+def test_nvidia_temperature_headroom_is_the_drivers_tlimit_and_na_is_absent_with_why():
+    """`temperature.gpu.tlimit` — °C below the GPU's own throttle limit (GB10: 49 at 47 °C). The health GPU TEMP
+    finding is held against it (vllm_lb/health.py): the driver's limit, never a figure of the LB's own."""
+    a, b = NvidiaSmi(run=smi(NVIDIA_TWO_CARDS)).read()
+    assert (a.temp_headroom_c, a.temp_headroom_why) == (26, None)
+    assert b.temp_headroom_c is None and "tlimit" in b.temp_headroom_why and "N/A" in b.temp_headroom_why
+    assert a.deep()["temp_headroom_c"] == 26 and "temp_headroom_why" not in a.deep()
+    assert b.deep()["temp_headroom_c"] is None and b.deep()["temp_headroom_why"] == b.temp_headroom_why
+
+
+def test_a_driver_that_refuses_tlimit_still_yields_every_card_with_headroom_absent_in_its_words():
+    """Review r4717289755: the headroom is its OWN call, so a driver without `temperature.gpu.tlimit` (before R530)
+    costs the headroom only — the cards, their memory, temperature and power stay. Nothing is substituted."""
+    run = nvidia_run(NVIDIA_TWO_CARDS, RuntimeError(f"nvidia-smi exited 2: {NVIDIA_NO_TLIMIT}"))
+    a, b = NvidiaSmi(run=run).read()
+    assert (a.use_pct, a.vram_total_mb, a.temp_c, b.vram_total_mb) == (36, 24576, 64, 32607)
+    for g in (a, b):
+        assert g.temp_headroom_c is None
+        assert "temperature.gpu.tlimit" in g.temp_headroom_why and "not a valid field" in g.temp_headroom_why
+
+
+def test_a_card_the_headroom_call_does_not_list_is_absent_with_why():
+    a, b = NvidiaSmi(run=nvidia_run(NVIDIA_TWO_CARDS, "0, 26\n")).read()
+    assert a.temp_headroom_c == 26 and b.temp_headroom_c is None and "card 1" in b.temp_headroom_why
+
+
+def test_amdgpu_temperature_headroom_is_crit_minus_input_where_the_driver_states_crit(tmp_path):
+    from tests.telemetry_fixtures import AMD_APU
+    files = dict(AMD_APU)
+    mon = next(k for k in files if k.endswith("temp1_input") and "drm" in k)[: -len("temp1_input")]
+    files[mon + "temp1_crit"] = "100000"
+    (g,) = AmdgpuSysfs(root=plant(tmp_path / "r", files)).read()
+    assert (g.temp_headroom_c, g.temp_headroom_why) == (52.0, None)
 
 
 def test_nvidia_smi_failing_raises_for_the_sampler_to_name():
@@ -68,7 +103,9 @@ def test_nvidia_smi_failing_raises_for_the_sampler_to_name():
 def test_amdgpu_card_from_its_driver_sysfs(apu):
     (g,) = AmdgpuSysfs(root=apu).read()
     assert g == GpuReading(id=0, use_pct=0, vram_used_mb=194, vram_total_mb=512, temp_c=48.0, power_w=63.09,
-                           power_inst_w=63.09, power_label="PPT", sm_mhz=600, throttle_hex=None, fan_pct=None)
+                           power_inst_w=63.09, power_label="PPT", sm_mhz=600, throttle_hex=None, fan_pct=None,
+                           temp_headroom_c=None, temp_headroom_why=g.temp_headroom_why)
+    assert "temp1_crit" in g.temp_headroom_why, "this APU's hwmon has only temp1_input: no limit, said so"
     assert g.throttle_index is None, "amdgpu has no NVML throttle mask: absent, not 0"
 
 

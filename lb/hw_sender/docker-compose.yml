@@ -36,12 +36,18 @@ services:
       HW_SENDER_PORT: "${HW_SENDER_PORT:?set in lb/hw_sender/.env}"
       # Host networking: /proc/net/dev is the box's, so the recorder sends its NIC counters (bridged.yml: none).
       HW_SENDER_NETWORK: host
+      # The host paths whose disks the panel shows, and the models roots whose folders it sizes (or `none`).
+      HW_SENDER_DISKS: "${HW_SENDER_DISKS:?set in lb/hw_sender/.env}"
+      HW_SENDER_MODELS_DIRS: "${HW_SENDER_MODELS_DIRS:?set in lb/hw_sender/.env}"
     # The recorder's containers (name, image, RAM), READ-ONLY, never the docker socket (even `:ro` the socket is the
     # docker API, i.e. control of the host):
     #   * the host's cgroup v2 tree: one directory per running container, its memory.current and memory.stat;
     #   * docker's per-container state (<DockerRootDir>/containers): config.v2.json's Name and Config.Image. That
     #     file also holds each container's environment, which this mount makes readable here (read, never changed).
     # The targets are fleet_telemetry/__main__.py's CGROUP_ROOT / CONTAINERS_DIR.
+    # The disks and models roots (HW_SENDER_DISKS, HW_SENDER_MODELS_DIRS) are NOT mounted here: disks.yml (added to
+    # COMPOSE_FILE) binds each configured path read-only at /host/fs<path>, and nothing else of the host. The wizard
+    # renders it; disks.example.yml is the hand-written form. A configured path without its bind is shown absent.
     volumes:
       - /sys/fs/cgroup:/host/sys/fs/cgroup:ro
       - ${HW_SENDER_DOCKER_ROOT:?set in lb/hw_sender/.env}/containers:/host/docker/containers:ro

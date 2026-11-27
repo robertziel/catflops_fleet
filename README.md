@@ -288,7 +288,8 @@ unleased.
 ## Security model — read before you expose anything
 
 * **No authentication is implemented anywhere in this repository.** The gateway (`:8010`) has none of its own. Its control endpoints (`POST /lb/cluster`,
-  `/lb/clusters/<name>`, `/lb/swarm/start`) change what runs on your GPUs, and `POST /lb/requests/<id>/kill`
+  `/lb/clusters/<name>`, `/lb/swarm/start`) change what runs on your GPUs, `POST /lb/fidelity/run` puts the frozen
+  fidelity corpus through the loaded model, and `POST /lb/requests/<id>/kill`
   ends a client's request (the front proxy's `X-Vllm-User` names who, in the log). It publishes on
   `127.0.0.1` only; put an authenticating reverse proxy in front before any other machine can reach
   it — this repository ships none (the fleet it comes from runs a private sign-in service in front; yours is

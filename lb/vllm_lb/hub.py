@@ -613,11 +613,15 @@ class Hub:
         with self._lock:
             return self._ticks
 
-    def wait_for_tick(self, seen: int, timeout: float) -> int:
+    def wait_for_tick(self, seen: int, timeout: float, stop: threading.Event | None = None) -> int:
         """Sleep until a tick finished after `seen` (a `tick_count`), `timeout` passed or `wake_tick_waiters` was
-        called. Returns the count now; the caller tells a tick from a timeout by comparing it with `seen`."""
+        called. Returns the count now; the caller tells a tick from a timeout by comparing it with `seen`.
+
+        `stop` (the proxy's end-of-streams flag) is checked UNDER THE LOCK `wake_tick_waiters` notifies under: the
+        drain sets it, then wakes. A stream still sending its event when that wake-up lands would otherwise wait out
+        its whole idle bound — it sees the flag here instead and does not wait at all."""
         with self._lock:
-            if self._ticks == seen and timeout > 0:
+            if self._ticks == seen and timeout > 0 and not (stop is not None and stop.is_set()):
                 self._ticked.wait(timeout)
             return self._ticks
 

@@ -17,12 +17,16 @@ import signal
 import sys
 import threading
 
-from vllm_lb import topology
+from vllm_lb import box_health
+from vllm_lb import events, health, topology
+from vllm_lb.alerts import AlertSender
+from vllm_lb.health import HealthEvaluator, HealthMonitor
 from vllm_lb.catalog import ModelCatalog
 from vllm_lb.config import Config
 from vllm_lb.control import Controller
 from vllm_lb.hub import Hub
 from vllm_lb.hw import HwCollector
+from vllm_lb.hw_tiers import HwTiers
 from vllm_lb.perflog import PerfRecorder
 from vllm_lb.probe import probe_backend
 from vllm_lb.proxy import Proxy
@@ -133,10 +137,28 @@ def main() -> int:
         hub.set_cluster(Hub._initial_view(cfg, catalog.get(switch.load().model_choice)), cfg.cluster_name)
     # Hardware is best-effort and starts BEFORE the proxy only so the first /lb/status can
     # already carry a sample; `start()` never raises — an unavailable port costs tiles.
-    hw = HwCollector(cfg)
+    # The persisted hardware history tiers (hw_tiers.py): loaded here, saved on their own cadence; none when the file
+    # setting is empty. A corrupt file starts them empty and says so in /lb/status — never a failed boot.
+    tiers = (HwTiers(cfg.hw_tiers_file, boxes=list(cfg.fleet.boxes) if cfg.fleet is not None else None)
+             if cfg.hw_tiers_file else None)
+    if tiers is not None:
+        tiers.start()
+    # Its checkpoint folders: which fleet checkpoints each models-root folder a box sizes holds.
+    hw = HwCollector(cfg, tiers=tiers, checkpoints=box_health.deployment_folders())
     hw.start()
     # The real-traffic performance log: never raises, None when switched off (LB_PERF=0).
     recorder = PerfRecorder.from_config(cfg)
+    # ── the activity feed (events.py), health findings (health.py), outbound alerts (alerts.py) ──
+    feed = events.EventLog.from_config(cfg)          # None with the perf log off (LB_PERF=0): the feed says so
+    events.install(feed)
+    alerts = AlertSender(cfg.alert_channels)         # no channel configured: it sends nothing and says so
+    events.subscribe(alerts.hear)
+    alerts.start()
+    monitor = HealthMonitor(HealthEvaluator(cfg.fleet.health if cfg.fleet is not None else None, cfg.fleet),
+                            hardware=hw.snapshot, backends=hub.backends, broker_enabled=cfg.broker_enabled,
+                            period_s=cfg.tick_s)
+    health.install(monitor, alerts)
+    monitor.start()
     proxy = Proxy(cfg, hub, hw=hw, cluster_switch=switch, perf_recorder=recorder, run=run)
     proxy.start()                    # ← the only thing that must succeed at boot
     if cfg.broker_enabled:
@@ -173,6 +195,12 @@ def main() -> int:
         ctl.close()                  # no new probe; one still out ends on its own timeouts
         proxy.stop()
         hw.stop()
+        if tiers is not None:
+            tiers.stop()             # the last save
+        monitor.stop()
+        alerts.stop()
+        if feed is not None:
+            feed.close()
     log.info("[main] stopped%s", "; leases are kept for the next start to adopt" if cfg.broker_enabled else "")
     return 0
 

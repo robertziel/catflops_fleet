@@ -14,7 +14,7 @@ from pathlib import Path
 
 import yaml
 
-from fleet_telemetry.__main__ import CGROUP_ROOT, CONTAINERS_DIR
+from fleet_telemetry.__main__ import CGROUP_ROOT, CONTAINERS_DIR, HOST_FS
 from fleet_telemetry.readers import GPU_READERS
 from tests.publishable_words import offenders
 
@@ -38,10 +38,15 @@ def _instructions(path: Path) -> list[str]:
     return out
 
 
-def test_the_image_runs_the_package_and_installs_nothing():
+def test_the_image_runs_the_package_and_installs_only_ethtool_and_iproute2():
+    """Stdlib only in Python; the one install is the two tools the RoCE reader runs (readers/rdma.py: ethtool -S for
+    the PHY counters, iproute2's dcb for PFC / trust), and the build fails if either is not on PATH."""
     ins = _instructions(SENDER / "Dockerfile")
     assert ins[0] == "FROM python:3.12-slim", "multi-arch base"
-    assert not [i for i in ins if "pip install" in i or "apt-get" in i], "stdlib only: nothing to install"
+    assert not [i for i in ins if "pip install" in i], "stdlib only: no Python package"
+    assert [i for i in ins if "apt-get" in i] == [
+        "RUN apt-get update && apt-get install -y --no-install-recommends ethtool iproute2 && rm -rf /var/lib/apt/lists/*"]
+    assert any("ethtool --version" in i and "dcb -V" in i for i in ins), "the build proves both tools run"
     assert "COPY fleet_telemetry/ /opt/telemetry/fleet_telemetry/" in ins
     assert [i for i in ins if i.startswith("COPY")] == ["COPY fleet_telemetry/ /opt/telemetry/fleet_telemetry/"]
     assert ins[-1] == 'ENTRYPOINT ["python", "-m", "fleet_telemetry"]'
@@ -64,7 +69,7 @@ def test_a_gpu_kind_file_exists_for_every_reader_and_names_it():
 
 # ── 6. compose: per-server values from .env, GPU kind named, no published port ───────────────────
 
-COMPOSE = ("docker-compose.yml", "gpu-nvidia.yml", "gpu-amd.yml", "bridged.yml")
+COMPOSE = ("docker-compose.yml", "gpu-nvidia.yml", "gpu-amd.yml", "bridged.yml", "kmsg.yml", "disks.example.yml")
 VAR = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)([^}]*)\}")
 IPV4 = re.compile(r"\b\d{1,3}(?:\.\d{1,3}){3}\b")
 #: Names that would make a compose file describe one installation beyond the deployment's own words
@@ -132,17 +137,30 @@ def test_the_base_is_the_lan_broadcast_with_its_own_project():
     assert svc["container_name"] == "vllm-hw-sender"
     assert "hostname" not in svc, "host networking: the wire says the server's own hostname"
     assert svc["environment"] == {"HW_SENDER_PORT": "${HW_SENDER_PORT:?set in lb/hw_sender/.env}",
-                                  "HW_SENDER_NETWORK": "host"}
+                                  "HW_SENDER_NETWORK": "host",
+                                  "HW_SENDER_DISKS": "${HW_SENDER_DISKS:?set in lb/hw_sender/.env}",
+                                  "HW_SENDER_MODELS_DIRS": "${HW_SENDER_MODELS_DIRS:?set in lb/hw_sender/.env}"}
     for key in ("devices", "deploy", "gpus", "runtime", "privileged", "cap_add", "pid"):
         assert key not in svc, f"the base grants {key}: GPU access comes only from a NAMED gpu-*.yml"
 
 
 def test_the_containers_are_read_from_two_read_only_mounts_never_the_docker_socket():
     """The recorder's containers (name, image, RAM) need the host's cgroup tree and docker's containers directory,
-    READ-ONLY, at the paths fleet_telemetry reads. The docker socket — even `:ro` — is the API: control of the host."""
+    READ-ONLY, at the paths fleet_telemetry reads. The docker socket — even `:ro` — is the API: control of the host.
+    The base mounts nothing else: no host root, no disk."""
     assert _svc("docker-compose.yml")["volumes"] == [
         f"/sys/fs/cgroup:{CGROUP_ROOT}:ro",
         f"${{HW_SENDER_DOCKER_ROOT:?set in lb/hw_sender/.env}}/containers:{CONTAINERS_DIR}:ro"]
+
+
+def test_disks_binds_each_path_read_only_at_host_fs_and_grants_nothing_else():
+    """Least privilege: one `<path>:HOST_FS<path>:ro` bind per configured path — the sender sees those
+    directories and no other host file. The real disks.yml is a deployment's (gitignored); the example is its form."""
+    svc = _svc("disks.example.yml")
+    assert set(svc) == {"volumes"}
+    for v in svc["volumes"]:
+        host, target, mode = v.split(":")
+        assert host.startswith("/") and target == HOST_FS + host and mode == "ro", v
     for name in COMPOSE:
         assert not any("docker.sock" in ln for ln in _code(name)), f"{name} mounts the docker socket"
 
@@ -182,6 +200,12 @@ def test_bridged_puts_the_sender_on_the_lbs_network_under_a_named_host():
     assert set(svc) == {"network_mode", "hostname", "networks", "environment"}, "GPU access stays with the gpu-*.yml"
 
 
+def test_kmsg_grants_the_kernel_log_read_only_and_nothing_else():
+    """The Xid counts need /dev/kmsg (readers/kernel.py): the device with cgroup permission `r` only — the sender can
+    never write into the host's log — and CAP_SYSLOG (dmesg_restrict). Opt-in: the base grants neither."""
+    assert _svc("kmsg.yml") == {"devices": ["/dev/kmsg:/dev/kmsg:r"], "cap_add": ["SYSLOG"]}
+
+
 def test_no_server_specific_literal_in_code():
     for name in COMPOSE:
         for ln in _code(name):
@@ -212,4 +236,6 @@ def test_every_variable_used_is_documented_and_nothing_else():
     assert combos, ".env.example must show the COMPOSE_FILE a server picks"
     for combo in combos:
         for part in combo.split(":"):
-            assert (SENDER / part).is_file(), f".env.example selects {part}, which does not exist"
+            # disks.yml is the deployment's own (gitignored), written from its committed disks.example.yml
+            shipped = SENDER / (part.replace(".yml", ".example.yml") if part == "disks.yml" else part)
+            assert shipped.is_file(), f".env.example selects {part}, which does not exist"

@@ -64,11 +64,12 @@ The sections (`questions.yml` `sections`, in asking order):
 | `network` | the ports `lb/` fixes are free | 1 |
 | `exposure` | localhost / LAN / internet; the proxy, **its sign-in** (there is no "none"), domain, TLS, frp | 10 |
 | `search` | the SearXNG secret; web search on/off | 2 |
-| `power` | power panel on/off, origin, dry run, the gate secret, and per machine: SSH, Wake-on-LAN, clock cap, the panel's words | 16 |
+| `power` | power panel on/off, origin, dry run, the activity-feed URL (`POWER_LB_EVENTS`), the gate secret, and per machine: SSH, Wake-on-LAN, clock cap, the panel's words | 17 |
 | `telemetry` | hardware senders: port, which machines, GPU kind, bridged network | 6 |
 | `bench` | the sealed swarm runner and its networks | 8 |
 | `extras` | usage-mcp (build / register), the Crawl4AI service, the legacy dashboard | 8 |
 | `panel` | the gateway panel's default style (`lb/fleet.yml` `panel.style`: one of `lb/vllm_lb/static/styles/index.json`; docs/guides/panel-styles.md) | 1 |
+| `health` | opt-in health findings (`lb/fleet.yml` `health:`: hold, temperature margin, RAM floor, busy/idle-draw, counter window, server-down hold) and the alert channels (`LB_ALERT_*`: ntfy, Gotify, webhook, Slack, Discord) | 15 |
 | `tuning` | any gateway knob changed from what `lb/.env.example` documents | 1 |
 | `clients` | which clients connect and from where (sets up the smoke test) | 2 |
 

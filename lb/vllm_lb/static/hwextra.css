@@ -1,0 +1,29 @@
+/* BOX HEALTH on a machine card (hwextra.js): RoCE ports, disk bars, models folders. The style's
+   own tokens only (styles/*.css), so every style — light and dark — draws it in its own colours. */
+.hx { display: grid; gap: .45rem; min-width: 0; font-size: var(--fs-80); font-variant-numeric: tabular-nums; }
+.hx-sec { display: grid; gap: .2rem; min-width: 0; border-top: 1px solid var(--line); padding-top: .35rem; }
+.hx-h { font-size: var(--small); text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); }
+.hx-bad, .hx-port.down .hx-ph b { color: var(--bad); }
+.hx-port { display: flex; flex-wrap: wrap; gap: .15rem .6rem; align-items: baseline; min-width: 0; }
+.hx-ph { white-space: nowrap; color: var(--ink-dim); }
+.hx-ph b { font-weight: 600; color: var(--ok); }
+.hx-cs { display: flex; flex-wrap: wrap; gap: .15rem .55rem; min-width: 0; }
+.hx-c { white-space: nowrap; color: var(--ink-faint); }
+.hx-c b { font-weight: 600; color: var(--ink); }
+.hx-c i { font-style: normal; font-weight: 600; }
+.hx-c.up, .hx-c.up b, .hx-c.up i { color: var(--bad); }
+.hx-c.none { opacity: .6; }
+.hx-disk { display: grid; grid-template-columns: minmax(3rem, max-content) minmax(3rem, 1fr) max-content; gap: .5rem;
+  align-items: center; min-width: 0; }
+.hx-dp { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-dim); }
+.hx-bar { height: 6px; border-radius: 3px; background: var(--track-bar); overflow: hidden; }
+.hx-bar i { display: block; height: 100%; background: var(--ink-faint); }
+.hx-disk b, .hx-f b { font-weight: 600; white-space: nowrap; }
+.hx-disk.none, .hx-f.none { opacity: .6; }
+.hx-f { display: flex; justify-content: space-between; gap: .6rem; min-width: 0; }
+.hx-f span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-dim); }
+.hx-f.other span { color: var(--ink-faint); }
+
+/* A kernel figure a pending / firing xid / oom finding flags (hwExtraFigs' third element): the fault colour, like the
+   band's chip for the same finding. */
+.fig.bad b { color: var(--bad); }

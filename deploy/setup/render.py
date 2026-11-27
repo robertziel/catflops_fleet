@@ -199,10 +199,16 @@ def retired_fleet_keys(repo: Path) -> set[str]:
     return set(re.findall(r'RETIRED_(?:FLEET|CLUSTER)_KEYS = \{"([a-z_]+)"', src))
 
 
+#: The loader's files: fleet.py, and the modules it hands a whole block to (`health:` → health.py `parse_policy`).
+FLEET_LOADERS = ("lb/vllm_lb/fleet.py", "lb/vllm_lb/health.py")
+
+
 def fleet_keys(repo: Path) -> set[str]:
-    """The keys lb/vllm_lb/fleet.py names: every quoted lowercase word in its source (its `_keys` tuples and the key
-    constants are such words) — less the RETIRED ones it names only to refuse them."""
-    words = set(re.findall(r'"([a-z_][a-z0-9_]*)"', (repo / "lb/vllm_lb/fleet.py").read_text(encoding="utf-8")))
+    """The keys the fleet loader names: every quoted lowercase word in its sources (FLEET_LOADERS: its `_keys` tuples
+    and the key constants are such words) — less the RETIRED ones it names only to refuse them."""
+    words = set()
+    for rel in FLEET_LOADERS:
+        words |= set(re.findall(r'"([a-z_][a-z0-9_]*)"', (repo / rel).read_text(encoding="utf-8")))
     return words - retired_fleet_keys(repo)
 
 
@@ -875,6 +881,8 @@ class Plan:
         self.env: dict[str, dict[str, str]] = {}
         self.arrays: dict[tuple[str, str], dict[str, dict]] = {}
         self.fleet: dict | None = None
+        #: Whole documents a derivation renders (a sender's disks.yml): file → text.
+        self.docs: dict[str, str] = {}
         self.origin: dict[tuple[str, str], str] = {}
         self.notes: list[str] = []
         self.errors: list[str] = []
@@ -945,6 +953,9 @@ class Plan:
         self.origin[(file, key)] = origin
 
     def text(self, file: str, sheet_name: str) -> str:
+        if file in self.docs:
+            return (f"# Rendered by deploy/setup/render.py from {sheet_name}: change the answer sheet and re-render.\n"
+                    f"# The example next to this file documents it. Never commit it.\n\n" + self.docs[file])
         if file == "lb/fleet.yml":
             return (f"# Rendered by deploy/setup/render.py from {sheet_name}: change the answer sheet and re-render.\n"
                     f"# What this deployment IS (lb/fleet.example.yml documents every key).\n\n"
@@ -961,7 +972,7 @@ class Plan:
         return "\n".join(out) + "\n"
 
     def files(self) -> list[str]:
-        return (["lb/fleet.yml"] if self.fleet is not None else []) + list(self.env)
+        return (["lb/fleet.yml"] if self.fleet is not None else []) + list(self.env) + list(self.docs)
 
 
 def _subst(template: str, scope: str | None, inst: str | None, sheet: Sheet, lib: Library) -> list[tuple[str, str | None]]:
@@ -998,10 +1009,18 @@ def _derive(rule: str, d: Question, inst: str | None, sheet: Sheet) -> str | Non
                 parts.append(f)
         return ":".join(parts) if len(parts) > 1 else None
     if rule == "hw_sender_compose":
-        parts = ["docker-compose.yml", f"gpu-{e['sender.gpu_kind'][inst]}.yml"]
+        parts = ["docker-compose.yml", f"gpu-{e['sender.gpu_kind'][inst]}.yml", "disks.yml"]
         if e["sender.bridged"].get(inst) is True:
             parts.append("bridged.yml")
+        if e["sender.kernel_log"].get(inst) is True:
+            parts.append("kmsg.yml")
         return ":".join(parts)
+    if rule == "hw_sender_disks":
+        # LEAST PRIVILEGE: one read-only bind per path the sender reads, at HOST_FS<path>
+        # (lb/fleet_telemetry/__main__.py) — never the host's /. A path in both answers is bound once; `none` binds none.
+        paths = [p for p in e["sender.disks"][inst] + e["sender.models_dirs"][inst] if p != "none"]
+        doc = {"services": {"hw-sender": {"volumes": [f"{p}:/host/fs{p}:ro" for p in dict.fromkeys(paths)]}}}
+        return miniyaml.dump(doc)
     if rule == "box_hostname":
         return e["box.hostname"][inst]
     if rule == "bench_compose":
@@ -1188,7 +1207,9 @@ def build(lib: Library, sheet: Sheet, *, check: bool) -> Plan:
                         node_lines.append((inst, f))
                         continue
                     v = _derive(d.raw["rule"], d, i, sheet)
-                    if v is not None:
+                    if v is not None and k_t == "*":
+                        plan.docs[f] = v                       # a whole document (a sender's disks.yml)
+                    elif v is not None:
                         plan._line(f, k_t, v, d.id)
     for cluster, f in node_lines:
         _node_env(plan, sheet, cluster, f, check)

@@ -10,9 +10,13 @@ from fleet_telemetry.readers.base import Reader
 from fleet_telemetry.readers.containers import Cgroups
 from fleet_telemetry.readers.cpu import CpuSensors, ProcStat
 from fleet_telemetry.readers.gpu import GPU_READERS, AmdgpuSysfs, NvidiaSmi
+from fleet_telemetry.readers.disk import Disks
+from fleet_telemetry.readers.kernel import KernelLog
 from fleet_telemetry.readers.memory import Meminfo
+from fleet_telemetry.readers.models import ModelDirs
 from fleet_telemetry.readers.net import NetDev
+from fleet_telemetry.readers.rdma import RdmaPorts
 from fleet_telemetry.readers.thermal import Fans, ThermalZones
 
-__all__ = ["GPU_READERS", "AmdgpuSysfs", "Cgroups", "CpuSensors", "Fans", "Meminfo", "NetDev", "NvidiaSmi",
-           "ProcStat", "Reader", "ThermalZones"]
+__all__ = ["GPU_READERS", "AmdgpuSysfs", "Cgroups", "CpuSensors", "Disks", "Fans", "KernelLog", "Meminfo",
+           "ModelDirs", "NetDev", "NvidiaSmi", "ProcStat", "RdmaPorts", "Reader", "ThermalZones"]

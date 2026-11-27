@@ -74,6 +74,7 @@ sections:
   - {id: bench, title: "Benchmark swarm runner"}
   - {id: extras, title: "Optional services"}
   - {id: panel, title: "The gateway panel"}
+  - {id: health, title: "Health findings and outbound alerts"}
   - {id: tuning, title: "Gateway knobs"}
   - {id: clients, title: "Clients and the smoke test"}
 
@@ -96,6 +97,7 @@ files:
   power/.env: {format: env, example: power/.env.example, compose: [power/docker-compose.yml]}
   deploy/standalone/*: {format: env, example: deploy/standalone/.env.example, compose: [deploy/standalone/node.yml, deploy/standalone/node-engine.vllm.yml, deploy/standalone/node-engine.sglang.yml, deploy/standalone/node-engine.faster-whisper.yml, deploy/standalone/node-engine.nemo.yml, deploy/standalone/node-gpu.nvidia.yml, deploy/standalone/node-gpu.rocm.yml, deploy/standalone/lb.override.yml]}
   hosts/*/lb/hw_sender/.env: {format: env, example: lb/hw_sender/.env.example, compose: [lb/hw_sender/docker-compose.yml, lb/hw_sender/bridged.yml]}
+  hosts/*/lb/hw_sender/disks.yml: {format: compose, example: lb/hw_sender/disks.example.yml}
   lb/bench_runner/.env: {format: env, example: lb/bench_runner/.env.example, compose: [lb/bench_runner/docker-compose.yml, lb/bench_runner/subnet.yml]}
   crawl/.env: {format: env, example: crawl/.env.example, compose: [crawl/docker-compose.yml]}
   .env: {format: env, example: .env.example, compose: [dashboard/docker-compose.yml]}
@@ -124,8 +126,15 @@ derived:
     when: telemetry.enabled == true
     writes: ["hosts/<sender>/lb/hw_sender/.env COMPOSE_FILE"]
     rule: hw_sender_compose
-    from: [sender.gpu_kind, sender.bridged]
-    why: "the base, exactly one GPU kind, and bridged.yml where the LB runs on the same server"
+    from: [sender.gpu_kind, sender.bridged, sender.kernel_log]
+    why: "the base, exactly one GPU kind, disks.yml, bridged.yml where the LB runs on the same server, kmsg.yml where the kernel log is read"
+  - id: sender.disk_binds
+    per: sender
+    when: telemetry.enabled == true
+    writes: ["hosts/<sender>/lb/hw_sender/disks.yml *"]
+    rule: hw_sender_disks
+    from: [sender.disks, sender.models_dirs]
+    why: "one read-only bind per configured disk path and models root, at /host/fs<path> — the sender sees nothing else of the host"
   - id: sender.hostname
     per: sender
     when: telemetry.enabled == true and sender.bridged == true
@@ -515,6 +524,15 @@ questions:
     validate: "{value, source}"
     manual: true
     writes: ["lb/vllm_lb/hardware/types/<hwtype>.yml facts.mfu_patch_loads"]
+  - id: hwtype.idle_gpu_power_w
+    section: hwtype
+    per: hwtype
+    ask: "What the GPU draws idle, W — its driver's averaged draw at 0 % utilization, measured on the card (nvidia-smi power.draw), with the date (null + why where no GPU-only figure exists, e.g. an APU's package sensor)."
+    why: "the health GPU POWER finding's floor: a busy GPU at idle draw is wedged; null = that finding has none and says so"
+    kind: fact
+    validate: "{value, source}: the measurement, its date and conditions"
+    manual: true
+    writes: ["lb/vllm_lb/hardware/types/<hwtype>.yml facts.idle_gpu_power_w"]
   # ── runtime ─────────────────────────────────────────────────────────────────────────────────────────────────────────
   - id: box.gpu_runtime
     section: runtime
@@ -1738,6 +1756,15 @@ questions:
     values: {"true": "1", "false": "0"}
     validate: "true or false"
     writes: [power/.env POWER_DRY_RUN]
+  - id: power.lb_events
+    section: power
+    when: "power.enabled == true"
+    ask: "Where does the power panel tell the gateway's activity feed about each executed action (POST /lb/events)? The URL as the power container reaches the LB — it runs with network_mode: host and the LB publishes 127.0.0.1:8010, so on one host http://127.0.0.1:8010/lb/events — or `none` to tell it nothing."
+    why: "the LB cannot see a poweroff, a Wake-on-LAN or a clock cap; this puts them on the panel's Activity feed"
+    kind: text
+    pattern: 'none|https?://[^\s/]+(/\S*)?'
+    validate: "an http(s) URL ending /lb/events, or none"
+    writes: [power/.env POWER_LB_EVENTS]
   - id: power.gate_secret
     section: power
     when: "power.enabled == true"
@@ -1893,6 +1920,24 @@ questions:
     also_from: machines.boxes
     validate: "fleet boxes (a sample is matched by its box's hostname)"
     writes: ["none — the sender instances below"]
+  - id: telemetry.history_file
+    section: telemetry
+    when: "telemetry.enabled == true"
+    required: false
+    ask: "Keep 48 h (1 min) and 30 d (15 min) of each box's GPU temperature, power, utilisation, memory and network across gateway restarts? Give the file inside the container (/data/hw-tiers.json is the documented one, on the state volume); answer an empty string to keep none; leave unanswered for the documented one."
+    why: "the box history the panel's 48 h / 30 d toggle draws; empty keeps none"
+    kind: text
+    validate: "an absolute path under /data (the state volume), or empty"
+    writes: [lb/.env LB_HW_TIERS_FILE]
+  - id: telemetry.metrics
+    section: telemetry
+    required: false
+    ask: "Serve Prometheus text on the gateway's GET /metrics (backends, clusters, boxes — the panel's own status), for a Prometheus inside the same trust boundary as the panel? Unanswered = off."
+    why: "opt-in; off answers 404 naming LB_METRICS"
+    kind: bool
+    values: {"true": "1", "false": null}
+    validate: "true only if a scraper inside the panel's trust boundary will read it"
+    writes: [lb/.env LB_METRICS]
   - id: sender.gpu_kind
     section: telemetry
     per: sender
@@ -1923,6 +1968,37 @@ questions:
     validate: "an existing directory with a containers/ subdirectory"
     probe: "docker info --format '{{.DockerRootDir}}'"
     writes: ["hosts/<sender>/lb/hw_sender/.env HW_SENDER_DOCKER_ROOT"]
+  - id: sender.disks
+    section: telemetry
+    per: sender
+    when: "telemetry.enabled == true"
+    ask: "Which of that machine's paths should the panel show disk usage for, `:`-separated (e.g. the models disk)? Each is bind-mounted read-only into the sender, its whole tree readable there: for the root disk name a small directory on it (e.g. /srv), not /."
+    why: "the sender statvfs-es exactly these, each through its own read-only bind (disks.yml); nothing is discovered"
+    kind: list
+    env_format: colon
+    validate: "absolute paths that exist on that machine"
+    probe: "df -h --output=target,size,used,avail"
+    writes: ["hosts/<sender>/lb/hw_sender/.env HW_SENDER_DISKS"]
+  - id: sender.models_dirs
+    section: telemetry
+    per: sender
+    when: "telemetry.enabled == true"
+    ask: "The models roots on that machine whose folders the panel sizes, `:`-separated absolute paths — or `none` if it holds no checkpoints."
+    why: "each top-level folder's size is measured on the box every 10 min and named by the fleet's checkpoints"
+    kind: list
+    env_format: colon
+    validate: "absolute paths on that machine (the expansion of its MODELS_SEARCH_DIRS entries), or none"
+    probe: "ls -d ~/models /mnt/models 2>/dev/null"
+    writes: ["hosts/<sender>/lb/hw_sender/.env HW_SENDER_MODELS_DIRS"]
+  - id: sender.kernel_log
+    section: telemetry
+    per: sender
+    when: "telemetry.enabled == true"
+    ask: "Should the sender read that machine's kernel log for GPU Xid errors (grants /dev/kmsg read-only and CAP_SYSLOG: kmsg.yml)?"
+    why: "an Xid is only ever a kernel log line; without it the Xid count is absent with that reason (OOM kills are read either way)"
+    kind: bool
+    validate: "true on a box with an NVIDIA GPU whose faults should be counted"
+    writes: ["none — the sender's COMPOSE_FILE (derived)"]
   - id: sender.lb_network
     section: telemetry
     per: sender
@@ -2078,6 +2154,140 @@ questions:
     choices_from: panel_styles
     validate: "a key of lb/vllm_lb/static/styles/index.json"
     writes: ["lb/fleet.yml panel.style"]
+  # ── health ──────────────────────────────────────────────────────────────────────────────────────────────────────────
+  - id: health.enabled
+    section: health
+    ask: "Should the gateway judge each box's hardware (GPU temperature, RAM available, a busy GPU at idle draw, Xid / OOM-kill / RoCE error counters rising, a server that stopped answering) and raise findings on the panel (and alerts, below)?"
+    why: "the fleet's `health:` block is opt-in: absent, findings are off and the panel says so"
+    kind: bool
+    validate: "true or false"
+    writes: ["none — true asks the health.* thresholds below"]
+  - id: health.hold_s
+    section: health
+    when: "health.enabled"
+    ask: "How many seconds must a condition hold before it fires (e.g. 90)? Shorter = earlier, noisier."
+    why: "a finding is pending until then; one transient spike never pages anyone"
+    kind: number
+    min: 0
+    validate: "seconds ≥ 0"
+    writes: ["lb/fleet.yml health.hold_s"]
+  - id: health.temp_margin_c
+    section: health
+    when: "health.enabled"
+    ask: "Within how many °C of the GPU's OWN throttle limit should GPU TEMP fire (e.g. 5)? The limit is the driver's, read live by the box's sender: nvidia-smi temperature.gpu.tlimit (°C of headroom), amdgpu temp*_crit − temp*_input. A card whose driver states none (an APU hwmon with no _crit) has no GPU TEMP finding and says so."
+    why: "the warning's distance from the driver's limit"
+    kind: number
+    min: 0
+    validate: "°C ≥ 0"
+    writes: ["lb/fleet.yml health.temp_margin_c"]
+  - id: health.low_ram_fraction
+    section: health
+    when: "health.enabled"
+    ask: "Under what SHARE of a box's own RAM available should its RAM AVAIL fire (0-1, e.g. 0.03 = 3 %: 3.8 GiB of a 128 GB box, 0.5 GiB of a 16 GB host)? On unified memory this is also the GPU's memory."
+    why: "the kernel's OOM killer is next; a share scales across boxes of every size, one number for the fleet"
+    kind: number
+    min: 0.001
+    max: 0.999
+    validate: "0 < share < 1"
+    writes: ["lb/fleet.yml health.low_ram_fraction"]
+  - id: health.busy_gpu_pct
+    section: health
+    when: "health.enabled"
+    ask: "At what GPU utilisation (%) is a GPU busy, for the wedged-GPU rule (e.g. 90)?"
+    why: "busy AND at idle draw = wedged"
+    kind: number
+    min: 1
+    max: 100
+    validate: "1-100"
+    writes: ["lb/fleet.yml health.busy_gpu_pct"]
+  - id: health.low_power_margin_w
+    section: health
+    when: "health.enabled"
+    ask: "How many watts ABOVE its card type's measured idle draw may a busy GPU draw and still count as wedged (e.g. 2)? The idle draw is each type's own (hardware/types/<type>.yml idle_gpu_power_w, measured: a GB10 8.9 W); a type with none has no GPU POWER finding and says so."
+    why: "busy at idle draw = wedged; the idle draw is the card's, the margin is yours"
+    kind: number
+    min: 0
+    validate: "W ≥ 0"
+    writes: ["lb/fleet.yml health.low_power_margin_w"]
+  - id: health.counter_window_s
+    section: health
+    when: "health.enabled"
+    ask: "For how many seconds does a rise of an Xid, OOM-kill or RoCE error counter keep its finding firing (e.g. 3600)?"
+    why: "a counter rise is an instant; the finding stays up long enough to be seen"
+    kind: number
+    min: 1
+    validate: "seconds > 0"
+    writes: ["lb/fleet.yml health.counter_window_s"]
+  - id: health.backend_down_s
+    section: health
+    when: "health.enabled"
+    ask: "For how many seconds must a classic server that answered stop answering before SERVER fires (e.g. 120)? (A cluster head's failure is its cluster's state; with the broker on, servers come and go by lease and are not judged.)"
+    why: "a restart is not an outage"
+    kind: number
+    min: 0
+    validate: "seconds ≥ 0"
+    writes: ["lb/fleet.yml health.backend_down_s"]
+  - id: health.ntfy_url
+    section: health
+    required: false
+    ask: "OPTIONAL — an ntfy server to send alerts to (https://ntfy.sh or your own)? Every alert goes to every channel you set; a failed send is shown on the panel, never retried elsewhere."
+    why: "findings firing / clearing and a failed cluster reach a phone"
+    kind: url
+    validate: "an http(s) URL"
+    writes: [lb/.env LB_ALERT_NTFY_URL]
+  - id: health.ntfy_topic
+    section: health
+    when: "health.ntfy_url"
+    ask: "Its topic (1-64 letters, digits, - or _; on a public server an unguessable one: anyone who knows it can read the alerts)."
+    why: "ntfy delivers by topic"
+    kind: text
+    pattern: '[A-Za-z0-9_-]{1,64}'
+    validate: "1-64 letters, digits, - or _"
+    writes: [lb/.env LB_ALERT_NTFY_TOPIC]
+  - id: health.gotify_url
+    section: health
+    required: false
+    ask: "OPTIONAL — a Gotify server to send alerts to?"
+    why: "a self-hosted push channel"
+    kind: url
+    validate: "an http(s) URL"
+    writes: [lb/.env LB_ALERT_GOTIFY_URL]
+  - id: health.gotify_token
+    section: health
+    when: "health.gotify_url"
+    secret: true
+    ask: "Its application token (Gotify → Apps)."
+    why: "Gotify accepts a message only with it"
+    kind: secret
+    validate: "the token Gotify shows; never echoed or committed"
+    writes: [lb/.env LB_ALERT_GOTIFY_TOKEN]
+  - id: health.webhook_url
+    section: health
+    required: false
+    secret: true
+    ask: "OPTIONAL — a webhook URL to POST every alert to as JSON (the event: kind, subject, summary, figures)?"
+    why: "any other receiver; its URL often carries a secret, so it is treated as one"
+    kind: secret
+    validate: "an http(s) URL; never echoed or committed (the gateway refuses to start on one that is not http(s))"
+    writes: [lb/.env LB_ALERT_WEBHOOK_URL]
+  - id: health.slack_url
+    section: health
+    required: false
+    secret: true
+    ask: "OPTIONAL — a Slack incoming-webhook URL to post every alert to (Slack → Apps → Incoming Webhooks)?"
+    why: "alerts in a Slack channel; the URL is the credential, so it is treated as a secret"
+    kind: secret
+    validate: "an http(s) URL; never echoed or committed (the gateway refuses to start on one that is not http(s))"
+    writes: [lb/.env LB_ALERT_SLACK_URL]
+  - id: health.discord_url
+    section: health
+    required: false
+    secret: true
+    ask: "OPTIONAL — a Discord channel-webhook URL to post every alert to (Channel settings → Integrations → Webhooks)?"
+    why: "alerts in a Discord channel; the URL is the credential, so it is treated as a secret"
+    kind: secret
+    validate: "an http(s) URL; never echoed or committed (the gateway refuses to start on one that is not http(s))"
+    writes: [lb/.env LB_ALERT_DISCORD_URL]
   # ── tuning ──────────────────────────────────────────────────────────────────────────────────────────────────────────
   - id: lb.tuning
     section: tuning

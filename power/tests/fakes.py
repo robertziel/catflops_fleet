@@ -79,7 +79,7 @@ class FakeClock:
 
 
 def make_app(tmp_path, *, dry_run=False, cluster=None, runner=None, wol=None, probe=None,
-             clock=None):
+             clock=None, notify=None):
     settings = Settings(
         origins=(ORIGIN,),
         gate_secret=GATE,
@@ -94,7 +94,7 @@ def make_app(tmp_path, *, dry_run=False, cluster=None, runner=None, wol=None, pr
         lambda: {"ok": True, "state": "off", "boxes": ["box-a", "box-b"]})
     app = PowerApp(settings, suite_boxes(), runner=runner or FakeRunner(),
                    wol=wol or FakeWol(), probe=probe or FakeProbe(),
-                   cluster_state=cluster_state, clock=clock or FakeClock())
+                   cluster_state=cluster_state, clock=clock or FakeClock(), notify=notify)
     return app
 
 

@@ -460,6 +460,26 @@ class Rendering(unittest.TestCase):
         for s in secrets:
             self.assertNotIn(s, r.stdout + r.stderr)
 
+    def test_each_sender_gets_one_read_only_bind_per_disk_and_models_root_and_nothing_else(self):
+        """Least privilege: lb/hw_sender/disks.yml binds each path of sender.disks and sender.models_dirs
+        once, at /host/fs<path>, read-only — the sender sees those directories and no other host file — and the
+        sender's COMPOSE_FILE adds it."""
+        r = _render(PAIR, self.tmp / "out")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        sheet = miniyaml.parse(PAIR.read_text(encoding="utf-8"), PAIR.name)
+        for box in sheet["telemetry.boxes"]:
+            with self.subTest(box=box):
+                doc = miniyaml.parse((self.tmp / f"out/hosts/{box}/lb/hw_sender/disks.yml").read_text(), "disks.yml")
+                paths = list(dict.fromkeys(sheet["sender.disks"][box]
+                                           + [p for p in sheet["sender.models_dirs"][box] if p != "none"]))
+                self.assertEqual(doc, {"services": {"hw-sender": {"volumes": [f"{p}:/host/fs{p}:ro" for p in paths]}}})
+                env = render.read_env(self.tmp / f"out/hosts/{box}/lb/hw_sender/.env")
+                self.assertIn("disks.yml", env["COMPOSE_FILE"].split(":"))
+        a = miniyaml.parse((self.tmp / "out/hosts/box-a/lb/hw_sender/disks.yml").read_text(), "disks.yml")
+        self.assertEqual(a["services"]["hw-sender"]["volumes"],
+                         ["/srv:/host/fs/srv:ro", "/mnt/models:/host/fs/mnt/models:ro", "/srv/models:/host/fs/srv/models:ro"],
+                         "a path in both answers is bound once; `none` binds nothing")
+
     def test_check_only_writes_nothing(self):
         r = _render(PAIR, self.tmp / "out", "--check")
         self.assertEqual(r.returncode, 0, r.stderr)
@@ -736,6 +756,9 @@ class Docs(unittest.TestCase):
 
     def test_the_rendered_files_for_other_machines_are_never_tracked(self):
         self.assertIn("/hosts/", (REPO / ".gitignore").read_text(encoding="utf-8").splitlines())
+        # a hand-written sender disks.yml in this checkout is a deployment's too (lb/hw_sender/disks.example.yml)
+        self.assertIn("lb/hw_sender/disks.yml", (REPO / ".gitignore").read_text(encoding="utf-8").splitlines())
+
 
 
 @needs_lb_loader

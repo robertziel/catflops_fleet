@@ -14,11 +14,12 @@ import json
 import pytest
 
 from fleet_telemetry import figures
-from fleet_telemetry.model import ContainerSet, ContainerUsage
+from fleet_telemetry.model import ContainerSet, ContainerUsage, DiskUsage, KernelReading
 from fleet_telemetry.readers import AmdgpuSysfs, Cgroups, CpuSensors, Fans, Meminfo, NetDev, NvidiaSmi, ProcStat, \
     ThermalZones
 from fleet_telemetry.sampler import Sampler, envelope
-from tests.telemetry_fixtures import AMD_APU, NVIDIA_UNIFIED, PROC_STAT_0, PROC_STAT_1, plant
+from tests.telemetry_fixtures import (AMD_APU, NVIDIA_UNIFIED, NVIDIA_UNIFIED_HEADROOM, PROC_STAT_0, PROC_STAT_1,
+                                      nvidia_run, plant)
 from vllm_lb import recorder
 from vllm_lb.config import Config
 from vllm_lb.fleet import parse_fleet
@@ -27,7 +28,8 @@ from vllm_lb.recorder import FlightRecorder
 
 #: Exactly the top-level fields of today's broadcast that a gateway reads, plus the recorder's.
 WIRE = {"sampled_at", "host", "cpu_percent", "ram_percent", "ram_used_mb", "ram_total_mb", "swap_used_mb", "gpus",
-        "cpu_per_core", "deep", "containers", "containers_total"}
+        "cpu_per_core", "deep", "containers", "containers_total",
+        "rdma", "kernel", "disks", "disks_why", "models", "models_why"}       # box health
 
 
 class Fixed:
@@ -47,7 +49,8 @@ def many(n: int) -> ContainerSet:
                                         i + 1) for i in range(n)])
 
 
-def apu_sampler(tmp_path, *, network="host", containers=None, gpu=None) -> Sampler:
+def apu_sampler(tmp_path, *, network="host", containers=None, gpu=None, rdma=None, kernel=None, disks=None,
+                models=None) -> Sampler:
     root = plant(tmp_path / "root", AMD_APU)
     (root / "proc" / "stat").write_text(PROC_STAT_0)
     cpu = ProcStat(root=root)
@@ -55,7 +58,11 @@ def apu_sampler(tmp_path, *, network="host", containers=None, gpu=None) -> Sampl
     return Sampler(gpu=gpu or AmdgpuSysfs(root=root), cpu=cpu, memory=Meminfo(root=root),
                    sensors=CpuSensors(root=root), zones=ThermalZones(root=root), fans=Fans(root=root),
                    net=NetDev(root=root) if network == "host" else None,
-                   containers=containers or Fixed("cgroup v2", many(3)))
+                   containers=containers or Fixed("cgroup v2", many(3)),
+                   rdma=rdma or Fixed("/sys/class/infiniband", OSError("no /sys/class/infiniband")),
+                   kernel=kernel or Fixed("/proc/vmstat", KernelReading(0, 0, None, 0.0, True, None)),
+                   disks=disks or Fixed("statvfs", [DiskUsage("/", 100, 40, 60)]),
+                   models=models)
 
 
 def collector(host: str, cards: tuple[str, ...], platform: str) -> HwCollector:
@@ -88,7 +95,7 @@ def test_the_gateway_tiles_read_the_new_sender_as_they_read_the_old(tmp_path):
 
 
 def test_a_unified_memory_cards_na_memory_is_none_on_the_wire_and_the_tile_shows_the_ram(tmp_path):
-    s = apu_sampler(tmp_path, gpu=NvidiaSmi(run=lambda argv: NVIDIA_UNIFIED)).sample()
+    s = apu_sampler(tmp_path, gpu=NvidiaSmi(run=nvidia_run(NVIDIA_UNIFIED, NVIDIA_UNIFIED_HEADROOM))).sample()
     env = json.loads(envelope(s, host="box-a-host", now=0.0))
     assert env["gpus"] == [{"id": 0, "use_pct": 96, "vram_used_mb": None, "vram_total_mb": None}], \
         "[N/A] is no reading — not the 0 the old sender invented"

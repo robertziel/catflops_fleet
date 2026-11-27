@@ -87,12 +87,16 @@ sender.gpu_kind: {box-s: nvidia}
 sender.bridged: {box-s: true}
 sender.docker_root: {box-s: /var/lib/docker}
 sender.lb_network: {box-s: lb_default}
+sender.disks: {box-s: [/srv]}
+sender.models_dirs: {box-s: [/srv/models]}
+sender.kernel_log: {box-s: true}
 
 extras.usage_mcp: skip
 extras.crawl: false
 extras.dashboard: false
 
 panel.style: glass
+health.enabled: false
 
 clients.kinds: [claude-code]
 clients.where: other-machines-via-tunnel

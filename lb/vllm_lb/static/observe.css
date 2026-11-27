@@ -1,0 +1,77 @@
+/* OBSERVABILITY VIEWS (observe.js): the machine card's "check" / "history" buttons, the server's
+   "daily" button, and their one dialog — the connect dialog's frame (gateway.css `.cn`), every colour a panel token so
+   each style (light or dark) re-values it. At 390 px everything stacks: rows wrap, tiles go one per line. */
+
+.obs-tools { display: inline-flex; gap: .3rem; margin-left: auto; flex: none; }
+.obs-btn {
+  font: inherit; font-size: var(--small); line-height: 1.4; padding: .02rem .45rem; cursor: pointer;
+  color: var(--ink-dim); background: transparent; border: var(--rule); border-radius: var(--radius-pill);
+}
+.obs-btn:hover, .obs-btn:focus-visible { color: var(--accent); border-color: var(--accent); }
+
+.obs-dlg .cn-box { max-width: 880px; }
+.obs-dlg .cn-head { flex-wrap: wrap; }
+.obs-dlg .cn-title { flex: 1 1 auto; min-width: 0; }
+.obs-dlg .ok { color: var(--ok); }
+.obs-dlg .bad { color: var(--bad); }
+.obs-na { margin: 0; color: var(--ink-faint); font-size: var(--fs-80); overflow-wrap: anywhere; }
+
+/* CHECK: one row per capability — mark · capability · target, then the probe's words, then the hint. */
+.obs-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: .35rem; }
+.obs-row {
+  display: grid; grid-template-columns: 1.2rem 5.5rem minmax(0, 1fr); gap: .1rem .5rem; align-items: baseline;
+  padding: .35rem .5rem; background: var(--panel-2); border: var(--rule); border-radius: var(--radius-box);
+  font-size: var(--fs-80); font-variant-numeric: tabular-nums;
+}
+.obs-row.bad { border-color: rgba(var(--bad-rgb), .55); }
+.obs-mark { font-weight: 700; }
+.obs-row.ok .obs-mark { color: var(--ok); }
+.obs-row.bad .obs-mark { color: var(--bad); }
+.obs-cap { text-transform: uppercase; letter-spacing: .04em; font-size: var(--small); }
+.obs-target { font-family: var(--mono); font-size: var(--fs-74); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.obs-detail, .obs-hint { grid-column: 2 / -1; overflow-wrap: anywhere; color: var(--ink-dim); }
+.obs-hint { color: var(--warn); }
+
+/* No SSH row: "ssh —", opening to the reason (connectivity.py `ssh_why`). */
+.obs-why { margin-top: .35rem; font-size: var(--fs-80); color: var(--ink-faint); }
+.obs-why summary { cursor: pointer; width: max-content; text-transform: uppercase; letter-spacing: .04em; font-size: var(--small); }
+.obs-why-r { margin: .2rem 0 0; overflow-wrap: anywhere; }
+
+/* HISTORY: the range toggle, then a tile per figure — label · numbers, the band chart, min · bucket count. */
+.obs-seg { display: inline-flex; border: var(--rule); border-radius: var(--radius-pill); overflow: hidden; flex: none; }
+.obs-tier {
+  font: inherit; font-size: var(--small); padding: .1rem .6rem; cursor: pointer; border: 0;
+  color: var(--ink-dim); background: transparent;
+}
+.obs-tier[aria-pressed="true"] { color: var(--panel); background: var(--accent); }
+.obs-tier:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.obs-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr)); gap: .5rem .7rem; }
+.obs-tile { display: grid; gap: .15rem; min-width: 0; }
+.obs-th, .obs-tf { display: flex; justify-content: space-between; gap: .5rem; min-width: 0; font-variant-numeric: tabular-nums; }
+.obs-th > span, .obs-tf { font-size: var(--small); color: var(--ink-faint); letter-spacing: .03em; }
+.obs-th > b { font-size: var(--fs-80); font-weight: 600; white-space: nowrap; }
+.obs-svg { width: 100%; height: 56px; display: block; background: var(--panel-2); border-radius: var(--radius-box); }
+.obs-band { fill: var(--accent); fill-opacity: .22; stroke: none; }
+.obs-avg { fill: none; stroke: var(--accent); stroke-width: 1.4; vector-effect: non-scaling-stroke; }
+
+/* DAILY: per model, its head (name · 24 h · 30 d), then two rows of 30 bars and the day axis. */
+.obs-sum { margin: 0; font-size: var(--fs-80); color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+.obs-model { display: grid; gap: .3rem; padding: .5rem .6rem; background: var(--panel-2); border: var(--rule); border-radius: var(--radius-box); }
+.obs-mh { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .2rem .7rem; font-variant-numeric: tabular-nums; }
+.obs-mh > b { overflow-wrap: anywhere; }
+.obs-mh > span { font-size: var(--fs-80); color: var(--ink-dim); }
+.obs-brow { display: grid; gap: .1rem; }
+.obs-bl { font-size: var(--small); color: var(--ink-faint); letter-spacing: .03em; font-variant-numeric: tabular-nums; }
+.obs-bars { width: 100%; height: 44px; display: block; border-bottom: var(--rule); }
+.obs-bar { fill: var(--accent); }
+.obs-bar:hover { fill: var(--ink); }
+.obs-axis { display: flex; justify-content: space-between; font-size: var(--small); color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+
+/* A PHONE: every control of these views is at least 32 px each way (the Playwright audit, 390 px). */
+@media (max-width: 600px) {
+  .obs-btn { min-height: 32px; min-width: 32px; padding: 0 .7rem; }
+  .obs-tier { min-height: 32px; min-width: 44px; }
+  .obs-dlg .obs-again { min-height: 32px; min-width: 32px; }
+  .obs-dlg .obs-x { min-width: 36px; min-height: 36px; }
+  .obs-why summary { min-height: 32px; line-height: 32px; }
+}

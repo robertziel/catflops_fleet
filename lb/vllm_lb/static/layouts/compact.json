@@ -13,6 +13,9 @@
     ] },
     { "cols": [
       { "width": "1", "items": [{ "id": "requests", "size": "half" }, { "id": "cluster", "size": "half" }] }
+    ] },
+    { "cols": [
+      { "width": "1", "items": ["events"] }
     ] }
   ],
   "hidden": []

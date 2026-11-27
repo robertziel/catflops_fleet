@@ -34,6 +34,7 @@ import time
 from collections import deque
 from typing import Any, Callable
 
+from vllm_lb import box_health
 from vllm_lb.config import Config
 from vllm_lb.hardware import MemoryModel
 from vllm_lb.recorder import FlightRecorder
@@ -72,6 +73,10 @@ class _Box:
         #: sample lacks gets None for that sample, so every ring keeps one clock.
         self.cards: dict[int, deque] = {}
         self.ring_n = max(1, ring_n)
+        #: BOX HEALTH: the last sample's blocks as /lb/status serves them, and
+        #: each RDMA port's (time, counters) that the next sample's rates are taken against.
+        self.health: dict[str, Any] = {}
+        self.rdma_last: dict = {}
 
 
 def _num(value: Any) -> float | int | None:
@@ -135,6 +140,27 @@ def _cards_of(gpus: list) -> list[dict]:
     return out
 
 
+def _temp_headroom(sample: dict) -> tuple[float | int | None, str | None]:
+    """(°C below the GPU's own throttle limit, why absent) — the TIGHTEST card's, as the sender read it from the
+    driver (fleet_telemetry `temp_headroom_c`: nvidia-smi temperature.gpu.tlimit, amdgpu temp crit − input). One card
+    without it makes the box's absent, with that card's reason (health.py's GPU TEMP rule)."""
+    deep = sample.get("deep") if isinstance(sample.get("deep"), dict) else None
+    cards = deep.get("gpu") if deep is not None and isinstance(deep.get("gpu"), list) else None
+    if deep is None:
+        return None, "this box's sender broadcasts no recorder block (`deep`): it predates the temperature headroom"
+    if not cards:
+        return None, "the sample carries no GPU card"
+    vals = []
+    for i, c in enumerate(cards):
+        v = _finite(c.get("temp_headroom_c")) if isinstance(c, dict) else None
+        if v is None:
+            why = c.get("temp_headroom_why") if isinstance(c, dict) else None
+            return None, f"card {i}: {why}" if isinstance(why, str) and why else \
+                f"card {i}: the sender states no temperature headroom (it predates temp_headroom_c)"
+        vals.append(v)
+    return min(vals), None
+
+
 def _gpu_percent(gpus: list) -> int | None:
     """The BUSIEST card. A box with two GPUs where one is pinned is not half idle — the tile
     has one number, and the honest one is the constraint."""
@@ -146,8 +172,11 @@ def _gpu_percent(gpus: list) -> int | None:
 class HwCollector:
     """Listens for hardware datagrams and answers `snapshot()`. Thread-safe."""
 
-    def __init__(self, cfg: Config, *, clock: Callable[[], float] = time.time) -> None:
+    def __init__(self, cfg: Config, *, clock: Callable[[], float] = time.time, tiers=None,
+                 checkpoints: tuple[dict[str, list[str]], str | None] = ({}, "no fleet checkpoints given")) -> None:
         self._cfg = cfg
+        #: Top-level models folder → the fleet's checkpoints in it, or why none are named (box_health.deployment_folders).
+        self._folders, self._folders_why = checkpoints
         self.clock = clock
         self._lock = threading.Lock()
         self._boxes: dict[str, _Box] = {}
@@ -164,6 +193,9 @@ class HwCollector:
         #: `ingest` with every sample that maps to a box; read by `snapshot` (the summary) and the
         #: /lb/hardware/<box>/recorder endpoint (`recorder_series`, the whole hour).
         self.recorder = FlightRecorder()
+        #: The PERSISTED HISTORY TIERS (hw_tiers.py): 48 h / 30 d of coarse min·avg·max per box, fed by
+        #: `ingest` beside the recorder; None = none kept (LB_HW_TIERS_FILE empty, or a test).
+        self.tiers = tiers
 
     # ── intake ─────────────────────────────────────────────────────────────
 
@@ -215,9 +247,21 @@ class HwCollector:
                     b.cards[cid] = deque(maxlen=b.ring_n)
             for cid, ring in b.cards.items():
                 ring.append(cards[cid]["use_pct"] if cid in cards else None)
+            b.health = self._health(data, b)
             self.received += 1
         self.recorder.ingest(box, data, now)
+        if self.tiers is not None:
+            self.tiers.ingest_sample(box, data, now, gpu_pct=gpu_pct, mem_used_mb=used)
         return box
+
+    def _health(self, data: dict, b: _Box) -> dict[str, Any]:
+        """The sample's box-health blocks as /lb/status serves them (box_health.py); keeps the RDMA counters for the
+        next sample's rates."""
+        rdma, b.rdma_last = box_health.rdma_view(data, b.rdma_last)
+        disks, disks_why = box_health.disks_view(data)
+        models, models_why = box_health.models_view(data, self._folders, self._folders_why)
+        return {"rdma": rdma, "kernel": box_health.kernel_view(data), "disks": disks, "disks_why": disks_why,
+                "models": models, "models_why": models_why}
 
     def _named(self, box: str):
         """The fleet's entry for `box` (vllm_lb/fleet.py `Box`), or None where no fleet names it."""
@@ -264,6 +308,9 @@ class HwCollector:
                     # Every card as the sender broadcast it — what a reader that needs ONE card (the card a
                     # server runs on, vllm_lb/topology.py) reads, never the busiest.
                     "gpus": cards,
+                    # °C below the tightest GPU's own throttle limit, and why when absent.
+                    **dict(zip(("temp_headroom_c", "temp_headroom_why"), _temp_headroom(s))),
+                    **b.health,
                 }
                 if stale:
                     # The history is what it DID; that stays true and stays drawn. Only the

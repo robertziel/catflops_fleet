@@ -241,3 +241,18 @@ def test_a_kv_tier_in_the_hosts_ram_is_the_familys_to_allow():
     assert DISCRETE.ram_tier_refusal == ""
     assert UNIFIED.ram_tier_refusal.startswith("unified memory: the host RAM is the GPU's own pool"), \
         UNIFIED.ram_tier_refusal
+
+
+# ── the GPU's idle draw (the health GPU POWER finding's floor) ───────────────────────────────────────────
+
+def test_a_cards_idle_gpu_draw_is_measured_or_absent_with_why():
+    """The wedged-GPU rule (health.py low_power) fires on a busy GPU drawing no more than its TYPE's idle draw plus the
+    fleet's margin — one figure per card type, sourced, never one number for a GB10 and a 5090 alike."""
+    gb10 = profile("gb10").idle_gpu_power_w
+    assert gb10.value == 8.9 and "2026-11-27" in gb10.source and "0 % utilization" in gb10.source
+    apu = profile("radeon8060s").idle_gpu_power_w
+    assert apu.value is None and "whole APU package" in apu.source
+    for key in ("rtx5090", "rtx3090"):
+        f = profile(key).idle_gpu_power_w
+        assert f.value is None and f.source.startswith("not "), (key, f)
+    assert profile("gb10").view()["idle_gpu_power_w"]["value"] == 8.9

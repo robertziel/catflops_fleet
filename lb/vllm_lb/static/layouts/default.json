@@ -9,7 +9,7 @@
     ] },
     { "cols": [
       { "width": "side", "items": ["server"] },
-      { "width": "1", "items": ["engine", "requests", "saturation"] }
+      { "width": "1", "items": ["engine", "requests", "saturation", "events"] }
     ] }
   ],
   "hidden": []

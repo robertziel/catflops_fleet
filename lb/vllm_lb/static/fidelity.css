@@ -1,0 +1,60 @@
+/* THE FIDELITY SECTION of /benchmarks (static/fidelity.js). Tokens only — the style's palette
+   (gateway.css and styles/*) carries light and dark; nothing here names a colour. The table reuses benchmarks.css's
+   run table (`.tablewrap`, `table.runs-t`); this adds the head row, the two-line model cell and the comparison line. */
+.fid-head { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem .8rem; margin: 0 0 .5rem; }
+.fid-head h2 { margin: 0; }
+.fid-run {
+  font: inherit; font-size: .8rem; padding: .3rem .9rem; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--accent); background: rgba(var(--accent-rgb), .14); color: var(--ink);
+}
+.fid-run:hover:not([disabled]) { background: rgba(var(--accent-rgb), .26); }
+.fid-run:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.fid-run[disabled] { cursor: default; border-color: var(--line-strong); background: var(--panel-2); color: var(--ink-dim); }
+.fid-corpus { font-size: var(--small); color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+.fid-alert { margin: 0 0 .5rem; }
+table.fid-t tbody tr { cursor: default; }
+table.fid-t td:first-child, table.fid-t th:first-child { width: 1.6rem; padding-right: 0; }
+.fid-model { display: block; color: var(--ink); }
+.fid-target { display: block; font-size: var(--small); color: var(--ink-faint); }
+/* "<n> unread": what the LB could not read about the run's model, opening (tap / keyboard) to the reasons. */
+.fid-why { font-size: var(--small); color: var(--warn); }
+.fid-why summary { cursor: pointer; width: max-content; }
+.fid-why ul { margin: .2rem 0 0; padding-left: 1rem; color: var(--ink-dim); white-space: normal; overflow-wrap: anywhere; max-width: 36rem; }
+.fid-status { color: var(--warn); }
+.fid-failed .fid-status, .fid-unreadable .fid-status { color: var(--bad); }
+.fid-err { color: var(--ink-dim); white-space: normal; }
+table.fid-t td:nth-child(3) { white-space: normal; }
+.fid-none td { color: var(--ink-faint); }
+.fid-cmp-box { margin: .55rem 0 0; font-size: .8rem; font-variant-numeric: tabular-nums; }
+.fid-cmp-box p { margin: 0 0 .2rem; }
+.fid-cmp-hint, .fid-cmp-figs { color: var(--ink-faint); font-size: var(--small); }
+.fid-cmp.same .fid-verdict { color: var(--ok); }
+.fid-cmp.diff .fid-verdict { color: var(--warn); }
+.fid-cmp.bad { color: var(--bad); }
+@media (max-width: 480px) {
+  .fid-head { gap: .3rem .5rem; }
+  .fid-corpus { flex-basis: 100%; }
+}
+/* A PHONE: the eight-column table scrolled sideways and hid mean NLL, perplexity and tokens off-screen (the UX
+   Playwright audit, 390 px). Each run becomes a card instead — the tick, then the model, then its figures two to a line,
+   each under its column's name (fidelity.js puts it in `data-label`) — and the tick and Run are finger-sized. */
+@media (max-width: 600px) {
+  .fid-run { min-height: 32px; min-width: 32px; }
+  .fid-why summary { min-height: 32px; line-height: 32px; }
+  table.fid-t, table.fid-t tbody { display: block; }
+  table.fid-t thead { display: none; }
+  table.fid-t tbody tr.fid-row {
+    display: grid; grid-template-columns: 2.4rem minmax(0, 1fr) minmax(0, 1fr); gap: .35rem .8rem; padding: .5rem .5rem;
+    border-bottom: var(--rule);
+  }
+  table.fid-t tbody tr.fid-row > td { display: block; padding: 0; border: 0; width: auto; white-space: normal; text-align: left; }
+  table.fid-t tbody tr.fid-row > td.fid-pick { grid-column: 1; grid-row: 1 / span 4; align-self: start; box-shadow: none; }
+  table.fid-t tbody tr.fid-row[aria-selected="true"] { box-shadow: inset 3px 0 0 var(--accent); }
+  table.fid-t td.fid-pick input { width: 32px; height: 32px; margin: 0; }
+  table.fid-t tbody tr.fid-row > td.fid-m, table.fid-t tbody tr.fid-row > td.fid-wide { grid-column: 2 / -1; }
+  table.fid-t tbody tr.fid-row > td[data-label] { font-variant-numeric: tabular-nums; min-width: 0; overflow-wrap: anywhere; }
+  table.fid-t tbody tr.fid-row > td[data-label]::before {
+    content: attr(data-label); display: block; color: var(--ink-faint); font-size: var(--small); letter-spacing: .03em;
+  }
+  table.fid-t tr.fid-none { display: block; }
+}

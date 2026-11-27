@@ -1,0 +1,91 @@
+# THE FIDELITY CORPUS (vllm_lb/fidelity.py): the frozen text a loaded model is scored on by prompt log-probability.
+#
+# Source and licence: every document below is an excerpt of a work in the PUBLIC DOMAIN (published before 1900;
+# its author died more than a century ago), transcribed from the original edition named on its own `@@` line. No
+# modern edition, translation, annotation or typesetting is reproduced. Use, copy and modify freely.
+#
+# Frozen: the corpus is the exact bytes of this file. Its sha256 is pinned in vllm_lb/fidelity.py (CORPUS_SHA256),
+# the loader refuses a file that does not match, and every run records it: two runs compare only on one corpus.
+# Changing a single byte here is a new corpus, made deliberately (update the pin; old runs then stop pairing).
+#
+# Format: lines starting with `#` before the first document are this header. `@@ <id> | <source>` opens a
+# document; its text is every line up to the next `@@`, with leading and trailing blank lines dropped.
+@@ gettysburg | Abraham Lincoln, Address at Gettysburg, Pennsylvania (1863)
+Four score and seven years ago our fathers brought forth on this continent, a new nation, conceived in Liberty, and dedicated to the proposition that all men are created equal.
+
+Now we are engaged in a great civil war, testing whether that nation, or any nation so conceived and so dedicated, can long endure. We are met on a great battle-field of that war. We have come to dedicate a portion of that field, as a final resting place for those who here gave their lives that that nation might live. It is altogether fitting and proper that we should do this.
+
+But, in a larger sense, we can not dedicate -- we can not consecrate -- we can not hallow -- this ground. The brave men, living and dead, who struggled here, have consecrated it, far above our poor power to add or detract. The world will little note, nor long remember what we say here, but it can never forget what they did here.
+@@ declaration | The Declaration of Independence of the United States, second paragraph (1776)
+We hold these truths to be self-evident, that all men are created equal, that they are endowed by their Creator with certain unalienable Rights, that among these are Life, Liberty and the pursuit of Happiness. That to secure these rights, Governments are instituted among Men, deriving their just powers from the consent of the governed, That whenever any Form of Government becomes destructive of these ends, it is the Right of the People to alter or to abolish it, and to institute new Government, laying its foundation on such principles and organizing its powers in such form, as to them shall seem most likely to effect their Safety and Happiness.
+@@ pride | Jane Austen, Pride and Prejudice, chapter 1 (1813)
+It is a truth universally acknowledged, that a single man in possession of a good fortune, must be in want of a wife.
+
+However little known the feelings or views of such a man may be on his first entering a neighbourhood, this truth is so well fixed in the minds of the surrounding families, that he is considered as the rightful property of some one or other of their daughters.
+
+"My dear Mr. Bennet," said his lady to him one day, "have you heard that Netherfield Park is let at last?"
+
+Mr. Bennet replied that he had not.
+@@ mobydick | Herman Melville, Moby-Dick; or, The Whale, chapter 1 (1851)
+Call me Ishmael. Some years ago -- never mind how long precisely -- having little or no money in my purse, and nothing particular to interest me on shore, I thought I would sail about a little and see the watery part of the world. It is a way I have of driving off the spleen, and regulating the circulation. Whenever I find myself growing grim about the mouth; whenever it is a damp, drizzly November in my soul; whenever I find myself involuntarily pausing before coffin warehouses, and bringing up the rear of every funeral I meet; then, I account it high time to get to sea as soon as I can.
+@@ twocities | Charles Dickens, A Tale of Two Cities, book 1, chapter 1 (1859)
+It was the best of times, it was the worst of times, it was the age of wisdom, it was the age of foolishness, it was the epoch of belief, it was the epoch of incredulity, it was the season of Light, it was the season of Darkness, it was the spring of hope, it was the winter of despair, we had everything before us, we had nothing before us, we were all going direct to Heaven, we were all going direct the other way -- in short, the period was so far like the present period, that some of its noisiest authorities insisted on its being received, for good or for evil, in the superlative degree of comparison only.
+@@ genesis | The Bible, Authorized (King James) Version, Genesis 1:1-8 (1611)
+In the beginning God created the heaven and the earth. And the earth was without form, and void; and darkness was upon the face of the deep. And the Spirit of God moved upon the face of the waters. And God said, Let there be light: and there was light. And God saw the light, that it was good: and God divided the light from the darkness. And God called the light Day, and the darkness he called Night. And the evening and the morning were the first day.
+
+And God said, Let there be a firmament in the midst of the waters, and let it divide the waters from the waters. And God made the firmament, and divided the waters which were under the firmament from the waters which were above the firmament: and it was so. And God called the firmament Heaven. And the evening and the morning were the second day.
+@@ alice | Lewis Carroll, Alice's Adventures in Wonderland, chapter 1 (1865)
+Alice was beginning to get very tired of sitting by her sister on the bank, and of having nothing to do: once or twice she had peeped into the book her sister was reading, but it had no pictures or conversations in it, "and what is the use of a book," thought Alice, "without pictures or conversations?"
+
+So she was considering in her own mind (as well as she could, for the hot day made her feel very sleepy and stupid), whether the pleasure of making a daisy-chain would be worth the trouble of getting up and picking the daisies, when suddenly a White Rabbit with pink eyes ran close by her.
+@@ hamlet | William Shakespeare, Hamlet, Prince of Denmark, act 3, scene 1 (First Folio, 1623)
+To be, or not to be, that is the question:
+Whether 'tis nobler in the mind to suffer
+The slings and arrows of outrageous fortune,
+Or to take arms against a sea of troubles,
+And by opposing end them? To die: to sleep;
+No more; and by a sleep to say we end
+The heart-ache and the thousand natural shocks
+That flesh is heir to, 'tis a consummation
+Devoutly to be wish'd. To die, to sleep;
+To sleep: perchance to dream: ay, there's the rub;
+For in that sleep of death what dreams may come
+When we have shuffled off this mortal coil,
+Must give us pause.
+@@ sonnet18 | William Shakespeare, Sonnets, 18 (1609)
+Shall I compare thee to a summer's day?
+Thou art more lovely and more temperate:
+Rough winds do shake the darling buds of May,
+And summer's lease hath all too short a date:
+Sometime too hot the eye of heaven shines,
+And often is his gold complexion dimm'd;
+And every fair from fair sometime declines,
+By chance, or nature's changing course, untrimm'd;
+But thy eternal summer shall not fade,
+Nor lose possession of that fair thou owest;
+Nor shall Death brag thou wander'st in his shade,
+When in eternal lines to time thou growest:
+So long as men can breathe, or eyes can see,
+So long lives this, and this gives life to thee.
+@@ inaugural2 | Abraham Lincoln, Second Inaugural Address, closing paragraph (1865)
+With malice toward none; with charity for all; with firmness in the right, as God gives us to see the right, let us strive on to finish the work we are in; to bind up the nation's wounds; to care for him who shall have borne the battle, and for his widow, and his orphan -- to do all which may achieve and cherish a just, and a lasting peace, among ourselves, and with all nations.
+@@ raven | Edgar Allan Poe, The Raven, stanzas 1-2 (1845)
+Once upon a midnight dreary, while I pondered, weak and weary,
+Over many a quaint and curious volume of forgotten lore --
+While I nodded, nearly napping, suddenly there came a tapping,
+As of some one gently rapping, rapping at my chamber door.
+"'Tis some visiter," I muttered, "tapping at my chamber door --
+Only this and nothing more."
+
+Ah, distinctly I remember it was in the bleak December;
+And each separate dying ember wrought its ghost upon the floor.
+Eagerly I wished the morrow; -- vainly I had sought to borrow
+From my books surcease of sorrow -- sorrow for the lost Lenore --
+For the rare and radiant maiden whom the angels name Lenore --
+Nameless here for evermore.
+@@ origin | Charles Darwin, On the Origin of Species, closing paragraph (1859)
+It is interesting to contemplate an entangled bank, clothed with many plants of many kinds, with birds singing on the bushes, with various insects flitting about, and with worms crawling through the damp earth, and to reflect that these elaborately constructed forms, so different from each other, and dependent on each other in so complex a manner, have all been produced by laws acting around us. There is grandeur in this view of life, with its several powers, having been originally breathed into a few forms or into one; and that, whilst this planet has gone cycling on according to the fixed law of gravity, from so simple a beginning endless forms most beautiful and most wonderful have been, and are being, evolved.
+@@ walden | Henry David Thoreau, Walden; or, Life in the Woods, chapter 2 (1854)
+I went to the woods because I wished to live deliberately, to front only the essential facts of life, and see if I could not learn what it had to teach, and not, when I came to die, discover that I had not lived. I did not wish to live what was not life, living is so dear; nor did I wish to practise resignation, unless it was quite necessary. I wanted to live deep and suck out all the marrow of life, to live so sturdily and Spartan-like as to put to rout all that was not life, to cut a broad swath and shave close, to drive life into a corner, and reduce it to its lowest terms.
+@@ federalist10 | James Madison, The Federalist No. 10, opening (1787)
+Among the numerous advantages promised by a well-constructed Union, none deserves to be more accurately developed than its tendency to break and control the violence of faction. The friend of popular governments never finds himself so much alarmed for their character and fate, as when he contemplates their propensity to this dangerous vice. He will not fail, therefore, to set a due value on any plan which, without violating the principles to which he is attached, provides a proper cure for it.

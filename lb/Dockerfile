@@ -44,7 +44,7 @@ RUN cd /app/vllm_lb/static/styles \
     && sed -i "s#'/styles/index.json'#'/styles/index.json?v=$v'#" ../styles.js \
     && grep -q "'/styles/index.json?v=$v'" ../styles.js
 RUN cd /app/vllm_lb/static \
-    && for f in access.js clusters.js gateway.js gateway.css layout.js layout.css benchmarks.js benchmarks.css sessions.js sessions.css server-scope.js recorder.js recorder.css palette.js styles.js status_delta.js; do \
+    && for f in access.js clusters.js gateway.js gateway.css layout.js layout.css benchmarks.js benchmarks.css sessions.js sessions.css server-scope.js recorder.js recorder.css observe.js observe.css palette.js styles.js status_delta.js hwextra.js hwextra.css health.js health.css fidelity.js fidelity.css; do \
          v=$(sha256sum "$f" | cut -c1-12) \
          && sed -i "s#\"/$f\"#\"/$f?v=$v\"#g" index.html benchmarks.html sessions.html; \
        done \
@@ -52,13 +52,17 @@ RUN cd /app/vllm_lb/static \
     && grep -q 'clusters.js?v=' index.html \
     && grep -q 'access.js?v=' index.html \
     && grep -q 'recorder.js?v=' index.html && grep -q 'recorder.css?v=' index.html \
+    && grep -q 'observe.js?v=' index.html && grep -q 'observe.css?v=' index.html \
     && grep -q 'layout.js?v=' index.html && grep -q 'layout.css?v=' index.html \
     && grep -q 'benchmarks.js?v=' benchmarks.html && grep -q 'benchmarks.css?v=' benchmarks.html \
     && grep -q 'gateway.css?v=' benchmarks.html \
+    && grep -q 'fidelity.js?v=' benchmarks.html && grep -q 'fidelity.css?v=' benchmarks.html \
     && grep -q 'sessions.js?v=' sessions.html && grep -q 'sessions.css?v=' sessions.html \
     && grep -q 'gateway.css?v=' sessions.html && grep -q 'benchmarks.css?v=' sessions.html \
     && grep -q 'server-scope.js?v=' benchmarks.html && grep -q 'server-scope.js?v=' sessions.html \
     && grep -q 'status_delta.js?v=' index.html \
+    && grep -q 'hwextra.js?v=' index.html && grep -q 'hwextra.css?v=' index.html \
+    && grep -q 'health.js?v=' index.html && grep -q 'health.css?v=' index.html \
     && grep -q 'palette.js?v=' index.html && grep -q 'palette.js?v=' benchmarks.html \
     && grep -q 'styles.js?v=' index.html && grep -q 'styles.js?v=' benchmarks.html && grep -q 'styles.js?v=' sessions.html
 ENV PYTHONPATH=/app:/opt/broker_parrot PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1

@@ -4903,6 +4903,9 @@ function machineBody(s, box) {
   if (h.swap_used_mb > 0) figs.push(['swap', `${(h.swap_used_mb / 1024).toFixed(1)} GiB`]);
   const rows = Array.isArray(h.rows) ? h.rows : [];
   rows.filter((r) => r.vram_label).forEach((r) => figs.push([r.vram_label, vramOf(r)]));
+  // BOX HEALTH: the kernel's counts beside the figures, the RoCE ports / disks / models below.
+  const extra = typeof hwExtraHtml === 'function' ? { figs: hwExtraFigs(h, s, box), html: hwExtraHtml(h, s, box) } : { figs: [], html: '' };
+  figs.push(...extra.figs);
   const hist = h.history || {};
   const gpus = rows.map((r) => { const g = rowReading(s, box, r); return [r.label, g.pct, g.series]; });
   const gauges = [...gpus, ['MEM', h.ram_percent, hist.ram_pct]];
@@ -4918,11 +4921,11 @@ function machineBody(s, box) {
   const why = missingWhy(h, 'utilisation for this GPU');
   return `<div class="rings"${rings}>
       ${cpuColumn(h)}${rows.map((r, i) => gpuColumn(r, gpus[i][1], why)).join('')}${ringGauge('MEM', h.ram_percent)}
-      <div class="figs">${figs.map(([k, v]) => `<div class="fig"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('')}</div>
+      <div class="figs">${figs.map(([k, v, tone]) => `<div class="fig${tone ? ` ${esc(tone)}` : ''}"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('')}</div>
     </div>
     <div class="tiles tiles${Math.min(5, Math.max(3, figures.length))} flat">
       ${figures.map(([label, v, series]) => graphOf(label, v, series)).join('')}
-    </div>`;
+    </div>${extra.html}`;
 }
 
 /** The boxes, in the order their servers are listed, then any that only broadcast hardware. */
@@ -4967,6 +4970,8 @@ function renderMachines(s) {
       + (h.stale ? `<span class="stale">no sample for ${Math.round(h.age_s)}s</span>` : ''));
     paint(card.querySelector('.machine-body'), machineBody(s, box));
     if (typeof recorderPaint === 'function') recorderPaint(slot.querySelector('.rec'), box, h.recorder || null);
+    // CHECK and HISTORY (observe.js): the card head's two on-demand buttons.
+    if (typeof observePaint === 'function') observePaint(card, box);
   });
   have.forEach((el) => el.remove());
 }
@@ -6273,6 +6278,8 @@ function renderStatus(s) {
   // gateway.js alone (tests/*.node.js).
   if (typeof renderClusters === 'function') renderClusters(s);
   renderMachines(s); renderRequests(s);
+  // Health band + Activity tile (health.js).
+  if (typeof renderHealth === 'function') renderHealth(s);
   placeMarks();
 }
 
