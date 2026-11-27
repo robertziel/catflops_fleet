@@ -3,7 +3,8 @@
  *   1. the Run button carries its state: "Run", "starting…" while the POST is in flight, "running 7/15" while a run
  *      runs (disabled both times), disabled with no corpus;
  *   2. a finished run is one row: model (engine × accelerator × TP under it) · quant · KV dtype · mean NLL · perplexity ·
- *      tokens · when, with a checkbox; an unread figure is "—"; a failed run shows its status and the server's words and
+ *      tokens · when, with a checkbox; an unread figure is "—"; a failed run is ONE line — its status and the error's
+ *      first clause ("failed · returned no token logprobs") — opening (<details>, title) to the server's whole words,
  *      no figure, and no checkbox; every server string is escaped;
  *   3. ticking keeps at most two (the oldest tick drops); the OLDER run is A whatever the tick order;
  *   4. the comparison prints ΔNLL with its 95 % interval and "same quality" when the interval spans 0, "B worse" /
@@ -24,7 +25,7 @@ const listeners = [];
 const root = { innerHTML: '', addEventListener: (k, fn) => listeners.push(k) };
 const document = { readyState: 'complete', addEventListener() {}, getElementById: (id) => (id === 'fid-root' ? root : null) };
 const api = new Function('document', 'fetch', 'setTimeout', 'clearTimeout',
-  `${src}\n;return { fidButton, fidRowsHtml, fidCompareHtml, fidSectionHtml, fidToggle, fidPair, fidCorpusLine };`)(
+  `${src}\n;return { fidButton, fidRowsHtml, fidCompareHtml, fidSectionHtml, fidToggle, fidPair, fidCorpusLine, fidErrLine };`)(
   document, fetch, () => 0, () => {});
 
 // ── 5. loading the page starts nothing ───────────────────────────────────────────────────────
@@ -60,6 +61,21 @@ assert.ok(html.includes('sglang × — × TP —'), 'an unread figure is a dash'
 assert.ok(html.includes('60 min ago') && html.includes('60 s ago'));
 assert.ok(html.includes('Qwen &lt;X&gt;') && !html.includes('Qwen <X>'), 'escaped');
 assert.ok(html.includes('no token logprobs &lt;x&gt;') && html.includes('fid-failed'), 'the failure in its words');
+// …as one line: status · the error's first clause, without its subject (engine, document); the whole error opens on
+// tap / keyboard (<details>) and hovers (title).
+const fe = { ...f, error: 'tensorfold (m), document genesis: returned no token logprobs (choices[0].logprobs.token_logprobs'
+  + ' is absent) — this engine does not score <the> prompt' };
+const fh = api.fidRowsHtml([fe], [], NOW);
+assert.ok(fh.includes('<details class="fid-errd"><summary title="tensorfold (m), document genesis: returned no token'), fh);
+assert.ok(fh.includes('<span class="fid-status">failed</span> · returned no token logprobs</summary>'), fh);
+assert.ok(fh.includes('does not score &lt;the&gt; prompt</p></details>'), 'the whole error inside, escaped');
+assert.strictEqual(api.fidErrLine('the gateway restarted mid-run: not resumed'), 'not resumed');
+assert.strictEqual(api.fidErrLine('HTTP 503 from the gateway for document d1: engine overloaded; retry'),
+  'engine overloaded');
+assert.strictEqual(api.fidErrLine('no colon here at all'), 'no colon here at all');
+assert.ok(api.fidErrLine(`x: ${'a'.repeat(100)}`).length <= 48 && api.fidErrLine(`x: ${'a'.repeat(100)}`).endsWith('…'));
+const iw = api.fidRowsHtml([{ ...f, status: 'interrupted', error: null }], [], NOW);
+assert.ok(iw.includes('<span class="fid-status">interrupted</span>') && !iw.includes('fid-errd'), 'no error: no details');
 assert.strictEqual((html.match(/type="checkbox"/g) || []).length, 2, 'a failed run cannot be ticked');
 // A target the LB could not resolve: the dashes say WHAT is unread, the run's `meta.why` says WHY — a short figure-style
 // label that opens (tap / keyboard: a <details>) or hovers (title) to the reason, the same reason grouped once.

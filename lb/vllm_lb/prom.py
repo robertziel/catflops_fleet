@@ -59,7 +59,9 @@ class _Out:
         if scale != 1.0:
             v = v * scale
         fam = self.families.setdefault(name, (kind, help_, []))
-        lab = ",".join(f'{k}="{_esc(x)}"' for k, x in labels)
+        # An empty or absent value is NO label: Prometheus treats `cluster=""` as the label not being there, so
+        # writing it out only adds noise to every series of a backend that is in no cluster.
+        lab = ",".join(f'{k}="{_esc(x)}"' for k, x in labels if x is not None and str(x) != "")
         fam[2].append(f"{name}{{{lab}}} {_fmt(v)}" if lab else f"{name} {_fmt(v)}")
 
     def text(self) -> str:

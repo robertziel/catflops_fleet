@@ -46,3 +46,16 @@ def test_a_machine_card_and_its_recorder_share_one_slot_so_the_card_never_grows(
     assert "machine-slot" in js and "recorderPaint" in js
     css = (STATIC / "recorder.css").read_text()
     assert "grid-template-rows: subgrid" in css
+
+
+def test_box_health_rides_the_strip_not_the_card():
+    """One dropdown that already exists, not more card space: the RoCE / disk / models
+    sections are handed to the recorder strip (`recorderPaint`'s fourth argument), not appended to the machine card's
+    body — the card keeps its earlier height; its kernel Xid / OOM figures stay beside MEMORY."""
+    js = (STATIC / "gateway.js").read_text()
+    body = js.split("function machineBody", 1)[1].split("\nfunction ", 1)[0]
+    assert "hwExtraHtml" not in body and "hwExtraFigs" in body
+    render = js.split("function renderMachines", 1)[1].split("\nfunction ", 1)[0]
+    assert "hwExtraStrip(" in render and "hwExtraHtml(" in render
+    rec = (STATIC / "recorder.js").read_text()
+    assert "recOpen(box)" in rec.split("*/", 1)[0], "recOpen is documented in recorder.js's header"

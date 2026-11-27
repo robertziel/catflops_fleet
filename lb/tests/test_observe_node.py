@@ -5,6 +5,7 @@ where to run it when not (the LB image ships no node —
 from __future__ import annotations
 
 import pathlib
+import re
 import shutil
 import subprocess
 
@@ -36,3 +37,31 @@ def test_the_build_stamps_the_observe_files():
     for name in ("observe.js", "observe.css"):
         assert name in loop, f"{name} is in the stamp loop"
         assert f"grep -q '{name}?v=' index.html" in docker, f"the build fails if {name}'s stamp missed"
+
+
+def _phone_rule(css: str, selector: str) -> str:
+    """The declarations `selector` gets inside the stylesheet's `@media (max-width: 600px)` block."""
+    block = css.split("@media (max-width: 600px)", 1)[1]
+    hit = re.search(r"(?m)^\s*" + re.escape(selector) + r"\s*\{([^}]*)\}", block)
+    assert hit, f"{selector} has a phone rule"
+    return hit.group(1)
+
+
+def test_a_phone_tap_target_is_44px_each_way():
+    """The UX audit: the card buttons (check / history / daily), the history range toggle and the Activity kind
+    chips were 32 px on a phone — under the 44 px a finger needs."""
+    observe = (STATIC / "observe.css").read_text()
+    health = (STATIC / "health.css").read_text()
+    for css, sel in ((observe, ".obs-btn"), (observe, ".obs-tier"), (health, ".ev-chip")):
+        rule = _phone_rule(css, sel)
+        assert "min-height: 44px" in rule and "min-width: 44px" in rule, (sel, rule)
+
+
+def test_the_card_buttons_share_one_neutral_style():
+    """check · history · daily are one look — `.obs-btn`, the ink-dim pill — never connect's accent `.cn-open`."""
+    js = (STATIC / "observe.js").read_text()
+    assert "btn.className = 'obs-btn obs-daily'" in js
+    assert "cn-open obs-daily" not in js
+    css = (STATIC / "observe.css").read_text()
+    rule = re.search(r"(?m)^\.obs-btn \{([^}]*)\}", css).group(1)
+    assert "color: var(--ink-dim)" in rule and "background: transparent" in rule

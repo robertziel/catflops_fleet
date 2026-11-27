@@ -9,7 +9,8 @@ to this vllm"). The page builds its snippets from the page's own origin, the LB'
   first_byte_timeout_s / stall_timeout_s   the LB's own budgets, which a client must be at least as patient as
           (fullclaudevllm's API_TIMEOUT_MS and CLAUDE_STREAM_IDLE_TIMEOUT_MS).
 
-And the door rule the dialog reads: the LB itself answers /auth/session 404 (a gate in front answers it)."""
+And the door rule the dialog reads: the LB itself answers /auth/session 200 `door: "lb"` (a gate in front answers it
+first)."""
 from __future__ import annotations
 
 import http.client
@@ -71,7 +72,12 @@ def test_an_undeclared_deployment_says_so_in_the_block():
     assert block["stall_timeout_s"] == cfg.stall_timeout_s
 
 
-def test_the_lb_itself_answers_auth_session_404_which_the_dialog_reads_as_no_gate():
+def test_the_lb_itself_answers_auth_session_200_saying_there_is_no_sign_in_gate():
+    """The LB used to 404 /auth/session by design, and every page load on a gate-less LB logged a failed
+    request in the browser's console. It now answers it itself: 200, `door: "lb"` — the address IS the gateway, no
+    sign-in gate answered first, no credential — the shape gateway.js `connectDoor` and access.js read. A gate in
+    front answers /auth/session before the LB (README "Access"), so its answers are unchanged."""
+    from vllm_lb.connect import LB_SESSION
     cfg = Config(listen_host="127.0.0.1", listen_port=0)
     p = Proxy(cfg, Hub(cfg))
     p.start()
@@ -79,7 +85,15 @@ def test_the_lb_itself_answers_auth_session_404_which_the_dialog_reads_as_no_gat
         c = http.client.HTTPConnection("127.0.0.1", p.port, timeout=10)
         c.request("GET", "/auth/session")
         r = c.getresponse()
-        assert r.status == 404
-        assert json.loads(r.read())["error"]["type"] == "not_found"
+        body = json.loads(r.read())
+        assert r.status == 200 and r.getheader("Content-Type", "").startswith("application/json")
+        assert body == LB_SESSION and body["door"] == "lb" and body["auth"] == "none"
+        assert "no sign-in gate" in body["why"] and "no credential" in body["why"]
+        assert "email" not in body and "role" not in body, "no session, no role: the page draws no Access"
+        c.request("POST", "/auth/session", body=b"{}", headers={"Content-Type": "application/json",
+                                                                 "Content-Length": "2"})
+        r = c.getresponse()
+        r.read()
+        assert r.status != 200, "only a GET is answered: the LB takes no sign-in"
     finally:
         p.stop()

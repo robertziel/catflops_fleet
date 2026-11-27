@@ -1,16 +1,27 @@
-/* BOX HEALTH on a machine card (static/hwextra.js), under node: what gateway.js `machineBody` draws
- * from /lb/status `hardware.<box>` `rdma`, `kernel`, `disks`, `models` (vllm_lb/box_health.py).
+/* BOX HEALTH (static/hwextra.js), under node:
+ * what gateway.js `machineBody` and the recorder strip (recorder.js) draw from /lb/status `hardware.<box>` `rdma`,
+ * `kernel`, `disks`, `models` (vllm_lb/box_health.py).
  *
  * What it pins:
- *   1. the kernel's counts are two figures beside MEMORY — XID and OOM — numbers only; "≥n" when the Xid count is not
- *      the whole boot; "—" when unread, never 0;
- *   2. a RoCE line per port: port · state · rate · MTU, each counter's total; a counter that MOVED shows "+r/s" and
- *      is flagged (`.up`), a port not ACTIVE is flagged (`.down`), and the head counts both;
+ *   1. the kernel's counts are two figures beside MEMORY on the CARD — XID and OOM — numbers only; "≥n" when the Xid
+ *      count is not the whole boot; "—" when unread, never 0; the RoCE / disk / models sections are NOT on the card
+ *      (they are the recorder strip's, so the card keeps its height);
+ *   2. a RoCE line per port: port · state · rate · MTU, then ONLY the counters that are non-zero or rising; a counter
+ *      that MOVED shows "+r/s" and is flagged (`.up`), a port not ACTIVE is flagged (`.down`), and the head counts
+ *      both; the rest of the counters and the QoS sit in the port's own <details>, open when the port is down or a
+ *      counter rises — each counter drawn once;
  *   3. a counter the port does not expose is "—" with its reason in the title — never 0;
  *   4. a disk bar per path: "used / total GB · %", width = the share; an unreadable path is "—" with why;
  *   5. a models root: its total, the walk's age off `s.now`, the folders holding fleet checkpoints with their count,
  *      the rest summed as "other n";
- *   6. a box without the blocks (an old sender, a stale box) draws none of it, and a name is text (`<script>` escaped).
+ *   6. a box without the blocks (an old sender, a stale box) draws none of it, and a name is text (`<script>` escaped);
+ *   9. the strip's figures (`hwExtraStrip`): "RoCE up/total up" (+ "· n rising"), "disk <fullest %>", the fault flag
+ *      ONLY on a fault (a port not ACTIVE, a counter rising, a disk path the box's pending / firing `disk` finding
+ *      names full — health.py judges it against the fleet's `health.disk_full_pct`, the ONE definition); nothing for a
+ *      box with no RDMA port (the server's why is a note for the strip's title) or no disk block — never a 0;
+ *  10. NO THRESHOLD, NO FULL DISK: health off (or a status that carries no `disk_full_pct`) draws the disk's figure,
+ *      never in the fault colour however full, and its title says no threshold is configured and why — the panel
+ *      owns no number of its own.
  *
  *   node tests/hwextra.node.js      (tests/test_hwextra_node.py runs this when node exists)
  */
@@ -33,7 +44,7 @@ const window = { addEventListener() {}, innerWidth: 1280, innerHeight: 800, matc
   matches: false, addEventListener() {} }), localStorage: { getItem: () => null, setItem() {} } };
 const api = new Function('document', 'window', 'fetch', 'location', 'setInterval', 'setTimeout',
   'getComputedStyle', 'ResizeObserver', 'localStorage', 'navigator', 'performance', 'module',
-  `${src}\n;return { machineBody, hwExtraFigs, hwExtraHtml, loadColour };`)(
+  `${src}\n;return { machineBody, hwExtraFigs, hwExtraHtml, hwExtraStrip, loadColour };`)(
   document, window, () => new Promise(() => {}), { search: '', href: '' }, () => 0, () => 0,
   () => ({}), undefined, window.localStorage, { userAgent: 'node' }, { now: () => 4321 }, undefined);
 
@@ -68,7 +79,8 @@ assert.ok(body.includes('<span>xid</span><b>2</b>') && body.includes('<span>oom 
 
 // 2. RoCE lines
 const html = api.hwExtraHtml(h, s);
-assert.ok(body.includes(html), 'machineBody carries the section');
+assert.ok(!body.includes('class="hx"') && !body.includes('hx-sec') && !body.includes('RoCE'),
+  'the card carries no box-health section: it is the recorder strip\'s');
 assert.ok(html.includes('RoCE · 2 ports') && html.includes('1 down') && html.includes('1 rising'), html);
 assert.ok(html.includes('mlx5_0/1 · <b>ACTIVE</b> · 200 Gb/s · MTU 9000'));
 assert.ok(/class="hx-c up"[^>]*>OOB <b>1,234<\/b> <i>\+20\/s<\/i>/.test(html), 'a rising counter is flagged with its rate');
@@ -81,8 +93,8 @@ assert.ok(html.includes('500 / 2,000 GB · 25%') && html.includes('width:25.0%')
 assert.ok(/hx-disk none" title="\/gone: statvfs \/gone: No such file"/.test(html));
 // 5. models
 assert.ok(html.includes('MODELS /mnt/models · 466 GB') && html.includes('4 min ago'), html);
-assert.ok(html.includes('<span>qwen-cluster</span><b>412 GB · 2 ckpt</b>'));
-assert.ok(html.includes('<span>other 3</span><b>4.0 GB</b>'), 'one unnamed folder + two not sent');
+assert.ok(html.includes('<span>qwen-cluster</span> <b>412 GB · 2 ckpt</b>'));
+assert.ok(html.includes('<span>other 3</span> <b>4.0 GB</b>'), 'one unnamed folder + two not sent');
 // 6. escaped, and nothing for a box without the blocks or a stale one
 assert.ok(!html.includes('<script>') && html.includes('&lt;script&gt;'));
 // 7. THE CARD AGREES WITH THE BAND (status.health): a pending / firing `roce` finding flags the counters it names
@@ -106,7 +118,7 @@ assert.deepStrictEqual(api.hwExtraFigs(h, sh, 'box'), [['xid', '2 · +2', 'bad']
 assert.deepStrictEqual(api.hwExtraFigs(h, sh, 'other')[1], ['oom kills', '10 · +5', 'bad']);
 const flaggedBody = api.machineBody(sh, 'box');
 assert.ok(flaggedBody.includes('<div class="fig bad"><span>xid</span><b>2 · +2</b></div>'), 'machineBody draws the flag');
-assert.ok(flaggedBody.includes('LINK DN <b>4</b> <i>+1</i>'), 'machineBody passes the box to the RoCE lines');
+assert.ok(!flaggedBody.includes('LINK DN'), 'the RoCE lines are not on the card');
 // 7. the PHY counters (ethtool -S) and the QoS (dcb) on a port line; a pause counter's rate is shown, not flagged
 const qosPort = port({ counters: { rx_discards_phy: 4242, rx_pause_ctrl_phy: 17 }, rates: { rx_discards_phy: 5,
   rx_pause_ctrl_phy: 3 }, pfc_prios: [3], trust: null, dscp_map: 4, qos_at: 1180,
@@ -131,6 +143,132 @@ const noMore = api.hwExtraHtml({ ...base, models: [{ ...h.models[0], more_count:
   more_why: 'the sender sent no readable more_count / more_bytes' }] }, s);
 assert.ok(noMore.includes('MODELS /mnt/models · —') && /title="the sender sent no readable more_count[^"]*"><span>other —/.test(noMore),
   noMore);
+// 2b. INLINE, ONLY WHAT MOVED: a port line carries its non-zero / rising counters; the rest (zeros, absent) and the
+//     QoS are behind the port's own <details> — open when the port is down or a counter rises; each counter once.
+const p0 = html.slice(html.indexOf('mlx5_0/1'), html.indexOf('mlx5_1/1'));
+const p1 = html.slice(html.indexOf('mlx5_1/1'));
+const inline0 = p0.split('<details')[0];
+assert.ok(inline0.includes('OOB <b>1,234</b>') && inline0.includes('ACK TO <b>7</b>') && !inline0.includes('RX ERR'),
+  `inline: the non-zero counters only: ${inline0}`);
+assert.ok(/<details class="hx-more" data-port="mlx5_0\/1" data-drawn="1" open><summary>1 at 0 · 13 — · QoS<\/summary>/.test(p0),
+  `a rising port: open, keyed by dev/port, drawn open: ${p0}`);
+assert.ok(/<details class="hx-more"[^>]*>[\s\S]*RX ERR <b>0<\/b>/.test(p0), 'the zero counter is in the details');
+assert.ok(/<details class="hx-more" data-port="mlx5_1\/1" data-drawn="1" open><summary>15 — · QoS<\/summary>/.test(p1),
+  `a down port: open: ${p1}`);
+assert.strictEqual((html.match(/OOB /g) || []).length, 2, 'OOB once per port (inline on one, "—" in the other\'s details)');
+assert.strictEqual((p0.match(/PFC /g) || []).length, 1, 'the QoS once, in the details');
+const calmPort = api.hwExtraHtml({ ...base, rdma: { ports: [port({ rates: {} })], why: null } }, { now: 1240 }, 'box');
+assert.ok(/<details class="hx-more" data-port="mlx5_0\/1" data-drawn="0"><summary>1 at 0 · 13 — · QoS<\/summary>/.test(calmPort), `up and still: closed: ${calmPort}`);
+// 2c. THE USER'S TOGGLE WINS: `hwExtraHtml`'s fourth argument is the user's choice per "dev/port" (recorder.js
+//     keeps it); a chosen port is drawn as chosen, an unchosen one by the fault default, and a choice names one port only.
+const isOpen = (x, key) => {
+  const m = x.match(new RegExp(`<details class="hx-more" data-port="${key}" data-drawn="([01])"( open)?>`));
+  assert.ok(m, `no hx-more for ${key}: ${x}`);
+  assert.strictEqual(m[1] === '1', !!m[2], `data-drawn says what was drawn: ${m[0]}`);
+  return !!m[2];
+};
+assert.strictEqual(isOpen(api.hwExtraHtml({ ...base, rdma: { ports: [port({ rates: {} })], why: null } }, { now: 1240 }, 'box',
+  { 'mlx5_0/1': true }), 'mlx5_0/1'), true, 'a healthy port the user opened: drawn open');
+const closedRising = api.hwExtraHtml(h, s, 'box', { 'mlx5_0/1': false });
+assert.strictEqual(isOpen(closedRising, 'mlx5_0/1'), false, 'a rising port the user closed: drawn closed');
+assert.strictEqual(isOpen(closedRising, 'mlx5_1/1'), true, 'the other port, unchosen: the fault default (down: open)');
+assert.strictEqual(isOpen(api.hwExtraHtml(h, s, 'box', {}), 'mlx5_0/1'), true, 'no choice: the fault default');
+assert.strictEqual(isOpen(api.hwExtraHtml(h, s, 'box', { 'mlx5_0/2': false, mlx5_0: false }), 'mlx5_0/1'), true,
+  'a choice for another port (or a bare device) is not this port\'s');
+// 9. THE STRIP'S FIGURES: RoCE up/total (+ rising), the fullest disk; the fault flag only on a fault.
+assert.ok(!/HX_DISK_FULL_PCT/.test(fs.readFileSync(path.join(STATIC, 'hwextra.js'), 'utf8')),
+  'no full-disk number of the panel\'s own: the fleet\'s health.disk_full_pct is the one definition');
+/** A status with health on at `pct`, and the box's `disk` finding naming `full` paths ([] = no finding). */
+const on = (pct, full = []) => ({ now: 1240, health: { enabled: true, no_data: [], hold_s: 20, disk_full_pct: pct,
+  findings: full.length ? [{ id: 'box:disk', box: 'box', kind: 'disk', state: 'pending', value: 90, threshold: pct,
+    unit: '%', full: full.map((p) => ({ path: p, pct: 90 })) }] : [] } });
+const st = api.hwExtraStrip(h, s, 'box');
+assert.deepStrictEqual(st.parts.map((p) => [p.text, !!p.bad]), [['RoCE 1/2 up · 1 rising', true], ['disk 25%', false]],
+  JSON.stringify(st));
+assert.ok(st.parts[0].title.includes('mlx5_1/1 DOWN') && st.parts[0].title.includes('mlx5_0/1 rising OOB'), st.parts[0].title);
+assert.ok(st.parts[1].title.includes('/ 500 / 2,000 GB · 25%') && st.parts[1].title.includes('/gone: statvfs /gone: No such file'),
+  st.parts[1].title);
+const disk = (path, pct) => ({ path, total_bytes: 1e12, used_bytes: pct * 1e10, free_bytes: (100 - pct) * 1e10 });
+const calm = { ...base, rdma: { ports: [port({ rates: {} }), port({ dev: 'mlx5_1', rates: {} })], why: null },
+  disks: [disk('/', 40), disk('/data', 90)], disks_why: null };
+assert.deepStrictEqual(api.hwExtraStrip(calm, on(90, ['/data']), 'box').parts.map((p) => [p.text, !!p.bad]),
+  [['RoCE 2/2 up', false], ['disk 90%', true]], 'every port up and still: plain; the disk the finding names: flagged');
+const fullRows = api.hwExtraHtml(calm, on(90, ['/data']), 'box');
+assert.ok(/class="hx-disk full" title="\/data /.test(fullRows) && !/class="hx-disk full" title="\/ /.test(fullRows),
+  'the named path\'s row is flagged, the other not');
+// the strip judges NOTHING itself: the finding (health.py, against the configured disk_full_pct) is the one definition
+assert.ok(!api.hwExtraStrip(calm, on(90), 'box').parts[1].bad, 'no disk finding: no red, whatever the percent');
+assert.ok(!api.hwExtraHtml(calm, on(90), 'box').includes('hx-disk full'), 'nor any row');
+const elsewhere = on(90, ['/data']);
+elsewhere.health.findings[0].box = 'other';
+assert.ok(!api.hwExtraStrip(calm, elsewhere, 'box').parts[1].bad, 'another box\'s finding: not ours');
+assert.ok(api.hwExtraStrip(calm, on(90, ['/data']), 'box').parts[1].title.includes('full at ≥ 90 %'),
+  'the configured line is in the title');
+// every port ACTIVE and one fault counter moving: rising alone is a fault (`bad: downs > 0` must not pass)
+const risingUp = { ...calm, rdma: { ports: [port({}), port({ dev: 'mlx5_1', rates: {} })], why: null } };
+assert.deepStrictEqual(api.hwExtraStrip(risingUp, on(90), 'box').parts[0], {
+  text: 'RoCE 2/2 up · 1 rising', title: 'mlx5_0/1 rising OOB', bad: true }, 'all up, one rising: flagged');
+// only a PAUSE counter moving (rx_pause_ctrl_phy, HX_INFO: PFC at work): not rising, not a fault
+const pausing = { ...calm, rdma: { why: null, ports: [
+  port({ counters: { rx_pause_ctrl_phy: 900 }, rates: { rx_pause_ctrl_phy: 40 } }),
+  port({ dev: 'mlx5_1', rates: {} })] } };
+assert.deepStrictEqual(api.hwExtraStrip(pausing, on(90), 'box').parts[0].text, 'RoCE 2/2 up');
+assert.strictEqual(api.hwExtraStrip(pausing, on(90), 'box').parts[0].bad, false, 'pause frames alone: plain');
+// AN UNREAD PORT STATE is missing data, not a fault: "—" with its reason, neither down nor up — counted
+// as unread — and never the fault colour on its own.
+const unread = { ...calm, rdma: { why: null,
+  ports: [port({ rates: {} }), port({ dev: 'mlx5_1', state: null, rates: {} })] } };
+const ur = api.hwExtraStrip(unread, on(90), 'box').parts[0];
+assert.deepStrictEqual([ur.text, ur.bad], ['RoCE 1/2 up · 1 unread', false], JSON.stringify(ur));
+assert.ok(ur.title.includes('mlx5_1/1 state unread: the port\'s sysfs state file was not read'), ur.title);
+const urHtml = api.hwExtraHtml(unread, on(90), 'box');
+assert.ok(!urHtml.includes('hx-port down') && !urHtml.includes('down</b>'), `not drawn down: ${urHtml}`);
+assert.ok(urHtml.includes('RoCE · 2 ports · 1 unread') && /mlx5_1\/1 · <b[^>]*>—<\/b>/.test(urHtml), urHtml);
+const urWhy = api.hwExtraStrip({ ...unread, rdma: { ports: [port({ dev: 'mlx5_1', state: undefined, rates: {},
+  why: { state: 'cannot read /sys/class/infiniband/mlx5_1/ports/1/state' } })], why: null } }, on(90), 'box').parts[0];
+assert.ok(urWhy.text === 'RoCE 0/1 up · 1 unread' && !urWhy.bad && urWhy.title.includes('cannot read /sys'),
+  JSON.stringify(urWhy));
+// THE TEXT, NOT ONLY THE LAYOUT, PARTS EVERY FIGURE (the audit read "ungrouped 98015" in box-b's RoCE
+// section): a port whose one inline counter is OOB 980 and whose details summary starts with its absent count "15 —"
+// rendered as two flex items — but its textContent (what a detached node's innerText, a copy or a screen reader gets)
+// glued them into "98015". Every figure is parted by whitespace in the markup itself.
+function unreadHtmlBox() {
+  return { ...base, rdma: { why: null, ports: [port({}), port({ dev: 'mlx5_1', state: null, rates: {} })] },
+    disks: [{ path: '/', total_bytes: 1e12, used_bytes: 9e11, free_bytes: 1e11 }], disks_why: null };
+}
+const gluedPort = port({ dev: 'mlx5_0', counters: { out_of_buffer: 980 }, rates: {} });
+const flat = api.hwExtraHtml({ ...base, rdma: { ports: [gluedPort], why: null } }, { now: 1240 }, 'box')
+  .replace(/<[^>]+>/g, '');
+assert.ok(!/\d{5,}/.test(flat) && /OOB 980\s+15 —/.test(flat), `no two figures glued in the text: ${flat}`);
+// and in general: the words of the text with the tags dropped are the words with every tag a space — no element
+// boundary is the only thing parting two figures (the whole open view, every section)
+const words = (x) => x.replace(/&[a-z#0-9]+;/g, 'x').trim().split(/\s+/);
+const wholeHtml = `${api.hwExtraHtml(h, s, 'box')} ${api.hwExtraHtml(unreadHtmlBox(), on(90), 'box')}`;
+assert.deepStrictEqual(words(wholeHtml.replace(/<[^>]+>/g, '')), words(wholeHtml.replace(/<[^>]+>/g, ' ')),
+  'two words glued across a tag');
+// 10. NO THRESHOLD: health off, or a status without the figure — the figure, never the fault colour, and why.
+const off = { now: 1240,
+  health: { enabled: false, why: 'health findings are off: no `health:` block', findings: [], no_data: [] } };
+const brim = { ...calm, disks: [disk('/', 99)] };
+[[off, 'health findings are off: no `health:` block'], [{ now: 1240 }, 'the status carries no health.disk_full_pct']]
+  .forEach(([st0, why]) => {
+    const part = api.hwExtraStrip(brim, st0, 'box').parts[1];
+    assert.ok(part.text === 'disk 99%' && !part.bad,
+      `no threshold: the figure, never flagged: ${JSON.stringify(part)}`);
+    assert.ok(part.title.includes(`no full-disk threshold configured: ${why}`), part.title);
+    const row = api.hwExtraHtml(brim, st0, 'box');
+    assert.ok(!row.includes('hx-disk full') && row.includes('99%'), row);
+    assert.ok(row.includes(`no full-disk threshold configured: ${why}`), `the row's title says why too: ${row}`);
+  });
+assert.deepStrictEqual(api.hwExtraStrip(still, sh, 'box').parts[0].text, 'RoCE 1/2 up · 1 rising',
+  'the finding\'s rise counts its port as rising (the band and the strip agree)');
+const bare = api.hwExtraStrip({ ...base, rdma: { ports: [], why: 'no /sys/class/infiniband' }, disks: [],
+  disks_why: 'the sender sends no disks block (it predates box health)' }, { now: 1240 }, 'box');
+assert.deepStrictEqual(bare.parts, [], 'no RDMA port, no disk block: no figure, never a 0');
+assert.deepStrictEqual(bare.notes, ['RoCE: no /sys/class/infiniband', 'disk: the sender sends no disks block (it predates box health)']);
+assert.deepStrictEqual(api.hwExtraStrip(base, s, 'box'), { parts: [], notes: [] }, 'a box without the blocks: nothing');
+const gone = api.hwExtraStrip({ ...base, disks: [h.disks[1]] }, s, 'box').parts[0];
+assert.ok(gone.text === 'disk —' && !gone.bad && gone.title.includes('statvfs /gone'), 'no readable disk: "—" with why');
 assert.strictEqual(api.hwExtraHtml(base, s), '');
 assert.deepStrictEqual(api.hwExtraFigs(base), []);
 assert.strictEqual(api.hwExtraHtml({ ...base, rdma: null, kernel: null, disks: null, models: null }, s), '');

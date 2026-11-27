@@ -24,6 +24,11 @@ THE RULES (`KINDS`), each per box, judged on its latest sample (hw.py `snapshot`
   xid / oom    the kernel's NVIDIA Xid count / OOM-kill count (the sender's `kernel` block) ROSE within
                `counter_window_s`. The first reading is a baseline; a counter that went down is a reboot (rebaselined).
   roce         an RDMA port's error counter (`ERROR_COUNTERS` in the sender's `rdma` block) rose within the window.
+  disk         a configured disk path (the sender's `disks` block, box_health.py `disks_view`) at or over the fleet's
+               `disk_full_pct`, judged on the WHOLE percent the panel prints (what is read is what is judged). The
+               finding names every full path (`full`): the panel's red on the strip's "disk 93%" and its disk rows
+               (hwextra.js) is this finding, never a second judgement in the browser. A box whose sender sends no
+               disks block, configures no path, or reads none is no data with the sender's why.
   backend_down a classic server that has answered since this LB started stops answering (not parked) — held for
                `backend_down_s`, not `hold_s`. Not judged: a server never live since the LB started (the fleet's
                resting state: a box with no engine up), a cluster head (its cluster's state says it — `failed` is
@@ -33,6 +38,10 @@ THE STATE OF A FINDING. Its condition holds → PENDING (`since` = when it began
 `finding.firing` event; stops holding → gone, one `finding.cleared` event if it had fired. A figure the box did not
 send is NO DATA (listed with the sender's own why): a pending finding is dropped, a FIRING one stays firing and says
 "no data" — the LB cannot claim a hot GPU cooled because it stopped hearing it.
+
+THE PANEL'S FULL DISK is the `disk` finding: one definition — the fleet's `disk_full_pct` — for the
+band's chip, the alert, and the strip's red; `view` carries the figure too, for the strip's title. Health off, there
+is no threshold and no finding: the panel draws the disk's figure unflagged and says why — never a number of its own.
 
 NO POLICY, NO FINDINGS. The fleet's `health:` block is opt-in: without it the evaluator says health is off and why.
 With it, every key is required and an unknown one refused (`parse_policy`) — no default threshold anywhere.
@@ -53,7 +62,7 @@ from vllm_lb import events
 
 log = logging.getLogger(__name__)
 
-KINDS = ("gpu_temp", "low_ram", "low_power", "xid", "oom", "roce", "backend_down")
+KINDS = ("gpu_temp", "low_ram", "low_power", "xid", "oom", "roce", "disk", "backend_down")
 #: The RDMA port counters that count an error → the `why` GROUP key the sender files their absence under when a whole
 #: source is missing (`hw_counters` / `counters`: the port's sysfs directory; `ethtool`: `ethtool -S <netdev>` refused or
 #: no netdev in this namespace). Each one the sender reads (fleet_telemetry/readers/rdma.py COUNTERS, PHY_COUNTERS;
@@ -66,7 +75,7 @@ ERROR_COUNTERS = {"out_of_buffer": "hw_counters", "local_ack_timeout_err": "hw_c
                   "tx_discards_phy": "ethtool", "rx_crc_errors_phy": "ethtool", "rx_symbol_err_phy": "ethtool"}
 #: Each kind's label and unit, as the panel prints a finding (`view`).
 LABELS = {"gpu_temp": ("GPU TEMP", "°C"), "low_ram": ("RAM AVAIL", "GiB"), "low_power": ("GPU POWER", "W"),
-          "xid": ("XID", "new"), "oom": ("OOM KILLS", "new"), "roce": ("RoCE ERR", "new"),
+          "xid": ("XID", "new"), "oom": ("OOM KILLS", "new"), "roce": ("RoCE ERR", "new"), "disk": ("DISK", "%"),
           "backend_down": ("SERVER", "")}
 OFF = "health findings are off: the fleet file has no `health:` block (fleet.example.yml documents it)"
 
@@ -82,13 +91,14 @@ class HealthPolicy:
     low_power_margin_w: float  # …and busy at no more than its card type's idle draw + this many watts is wedged
     counter_window_s: float    # a rise of an error counter keeps its finding true this long
     backend_down_s: float      # a server that was live and stopped answering, for this long, fires
+    disk_full_pct: float       # a disk path this full (% used, its printed whole percent) or fuller is a finding
 
 
 #: (minimum, maximum, minimum allowed?, maximum allowed?) per key.
 _RANGES = {"hold_s": (0, None, True, True), "temp_margin_c": (0, None, True, True),
            "low_ram_fraction": (0, 1, False, False), "busy_gpu_pct": (0, 100, False, True),
            "low_power_margin_w": (0, None, True, True), "counter_window_s": (0, None, False, True),
-           "backend_down_s": (0, None, True, True)}
+           "backend_down_s": (0, None, True, True), "disk_full_pct": (0, 100, False, True)}
 
 
 def parse_policy(where: str, raw: Any) -> HealthPolicy:
@@ -121,14 +131,16 @@ def _num(v: Any) -> float | None:
 class _Reading:
     """One rule's verdict on one box this tick: holds (True/False) with figure and threshold, or no data with why."""
 
-    __slots__ = ("holds", "value", "threshold", "why", "rose")
+    __slots__ = ("holds", "value", "threshold", "why", "rose", "full")
 
     def __init__(self, holds: bool | None, value: Any = None, threshold: Any = None, why: str = "",
-                 rose: list | None = None) -> None:
+                 rose: list | None = None, full: list | None = None) -> None:
         self.holds, self.value, self.threshold, self.why = holds, value, threshold, why
         #: roce only: the counters that rose in the window, as data — [{dev, port, counter, rise}] — so the machine
         #: card flags exactly what the finding names (hwextra.js), never a second rise computation in the browser.
         self.rose = rose
+        #: disk only: every full path, [{path, pct}] (pct the whole percent judged) — the strip's red reads it.
+        self.full = full
 
 
 def _no(why: str) -> _Reading:
@@ -268,6 +280,29 @@ class HealthEvaluator:
                         rose=[{"dev": k[2], "port": k[3], "counter": k[4], "rise": self._whole(v)}
                               for k, v in sorted(rose.items())])
 
+    def _disk(self, box: str, row: dict) -> _Reading:
+        disks = row.get("disks")
+        if not isinstance(disks, list) or not disks:
+            return _no(row.get("disks_why")
+                       or "no disk path configured on this box's sender (its `disks` block is empty)")
+        read, unread = [], []
+        for d in disks:
+            if not isinstance(d, dict):
+                continue
+            total, used = _num(d.get("total_bytes")), _num(d.get("used_bytes"))
+            if total is None or used is None or total <= 0:
+                unread.append(f"{d.get('path')}: {d.get('why') or 'not read'}")
+            else:
+                read.append((str(d.get("path")), round(100 * used / total)))
+        if not read:
+            return _no("; ".join(unread) or "no disk path in the sample")
+        limit = self.policy.disk_full_pct
+        full = [{"path": p, "pct": pct} for p, pct in read if pct >= limit]
+        top = max(pct for _, pct in read)
+        said = ", ".join(f"{f['path']} {f['pct']} %" for f in full) or f"fullest {top} %"
+        return _Reading(bool(full), top, limit, f"{said} ≥ {limit:g} %" if full else f"{said} < {limit:g} %",
+                        full=full)
+
     @staticmethod
     def _roce_why(ports: list) -> str:
         """Why no judged counter is readable: the first port's reason for its first judged counter, read by the key
@@ -303,6 +338,7 @@ class HealthEvaluator:
             readings[(box, "xid")] = self._kernel(box, row, now, "xid", "xid_total")
             readings[(box, "oom")] = self._kernel(box, row, now, "oom", "oom_kills_total")
             readings[(box, "roce")] = self._roce(box, row, now)
+            readings[(box, "disk")] = self._disk(box, row)
         for b in backends:
             if b.live:
                 self._ever_live.add(b.url)
@@ -353,20 +389,24 @@ class HealthEvaluator:
         f.update(value=r.value, threshold=r.threshold, why=r.why)
         if r.rose is not None:
             f["rose"] = r.rose
+        if r.full is not None:
+            f["full"] = r.full
         if f["state"] == "pending" and now - f["since"] >= self._hold(kind):
             f["state"], f["firing_since"] = "firing", now
             events.record("finding.firing", box, f"{label} on {box}: {r.why}", id=fid, finding=kind,
                           value=r.value, threshold=r.threshold, unit=unit, held_s=round(now - f["since"], 1))
 
     def view(self) -> dict:
-        """/lb/status `health`: the findings (firing first, then pending; oldest first) and what has no data."""
+        """/lb/status `health`: the findings (firing first, then pending; oldest first), what has no data, and the
+        policy figures the panel draws with: `hold_s`, and `disk_full_pct` — the only definition of a full disk the
+        page has (hwextra.js); absent with health off, so the page flags no disk and says there is no threshold."""
         if self.policy is None:
             return {"enabled": False, "why": OFF, "findings": [], "no_data": []}
         order = {"firing": 0, "pending": 1}
         found = sorted(({k: v for k, v in f.items()} for f in self._findings.values()),
                        key=lambda f: (order[f["state"]], f["since"], f["id"]))
         return {"enabled": True, "findings": found, "no_data": sorted(self._no_data, key=lambda n: (n["box"], n["kind"])),
-                "hold_s": self.policy.hold_s}
+                "hold_s": self.policy.hold_s, "disk_full_pct": self.policy.disk_full_pct}
 
 
 class HealthMonitor:

@@ -4,6 +4,7 @@ browser's language: tests/fidelity.node.js. This runs it when node is on the pat
 from __future__ import annotations
 
 import pathlib
+import re
 import shutil
 import subprocess
 
@@ -41,3 +42,19 @@ def test_the_page_posts_only_from_the_buttons_click():
     post_fn = js.split("async function fidStart", 1)[1].split("\nfunction ", 1)[0]
     assert "method: 'POST'" in post_fn
     assert js.count("fidStart();") == 1, "fidStart is called from the click handler only"
+
+
+def test_the_run_checkboxes_wear_the_styles_tokens():
+    """The UX audit: the native checkbox is a white square on every dark style. fidelity.css draws its own —
+    `appearance: none`, the box, the border and the tick all panel tokens, so each style (light or dark) values them."""
+    css = (STATIC / "fidelity.css").read_text()
+    box = re.search(r"(?m)^table\.fid-t input\[type=\"checkbox\"\] \{([^}]*)\}", css)
+    assert box, "the run checkbox has its own rule"
+    rule = box.group(1)
+    assert "appearance: none" in rule
+    assert "var(--panel-2)" in rule and "var(--line-strong)" in rule
+    checked = re.search(r"(?m)^table\.fid-t input\[type=\"checkbox\"\]:checked \{([^}]*)\}", css)
+    assert checked and "var(--accent)" in checked.group(1)
+    assert "table.fid-t input[type=\"checkbox\"]:focus-visible" in css, "the keyboard still sees where it is"
+    code = re.sub(r"/\*.*?\*/", "", css, flags=re.S)        # a comment's "#fff" is no colour
+    assert not re.search(r"#[0-9a-fA-F]{3,8}\b|rgba?\(\d", code), "tokens, never a literal colour"

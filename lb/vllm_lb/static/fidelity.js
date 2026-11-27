@@ -6,9 +6,13 @@
  *
  * WHAT IT DRAWS. A Run button carrying its state ("Run" · "starting…" · "running 7/15"), a line of corpus figures, and
  * one table row per run: model · quant · KV dtype · mean NLL · perplexity · tokens · when, with engine × accelerator ×
- * TP under the model — and, when the LB could not read some of those, "<n> unread" opening to its reasons. A failed / interrupted / unreadable run is a row with its status and the server's words, and no
- * figure. Ticking two finished runs (the older is A, the reference) asks the LB for the paired comparison and prints
- * ΔNLL with its interval, and "same quality" when that interval spans 0. A figure the LB could not read is "—".
+ * TP under the model — and, when the LB could not read some of those, "<n> unread" opening to its reasons. A failed /
+ * interrupted / unreadable run is a row with no figure and ONE line — its status and the error's first clause
+ * ("failed · returned no token logprobs", `fidErrLine`) — that opens (<details>, title) to the server's whole words:
+ * a three-line sentence in the table read as prose (the UX audit). The checkboxes wear the style's tokens
+ * (fidelity.css): the native white square glared on the dark styles. Ticking two finished runs (the older is A, the
+ * reference) asks the LB for the paired comparison and prints ΔNLL with its interval, and "same quality" when that
+ * interval spans 0. A figure the LB could not read is "—".
  *
  * NEVER ON ITS OWN. Nothing here POSTs except the button's click handler. The page polls GET /lb/fidelity only while
  * a run is active (every POLL_MS), so a run started from another tab is picked up on the next load, never started.
@@ -64,6 +68,20 @@ function fidWhyHtml(meta, id) {
     + `${keys.length} unread</summary><ul>${lines.map(([k, r]) => `<li><b>${fidEsc(k)}</b> · ${fidEsc(r)}</li>`).join('')}</ul></details>`;
 }
 
+/** A run error's one line: its first clause without its subject — the text after the first ": " (the engine and
+ *  document, or the file, it names), cut at the first " (" / " — " / "; " (the explanation that follows) and at 48
+ *  characters. The whole error is never dropped: the row's <details> and title carry it. */
+function fidErrLine(err) {
+  const s = String(err || '');
+  const at = s.indexOf(': ');
+  let line = at >= 0 ? s.slice(at + 2) : s;
+  for (const cut of [' (', ' — ', '; ']) {
+    const i = line.indexOf(cut);
+    if (i > 0) line = line.slice(0, i);
+  }
+  return line.length > 48 ? `${line.slice(0, 47)}…` : line;
+}
+
 /** The tbody rows. `sel` = the ticked run ids (at most two). */
 function fidRowsHtml(runs, sel, now) {
   if (!runs || !runs.length) return '<tr class="fid-none"><td colspan="8">0 runs</td></tr>';
@@ -80,9 +98,13 @@ function fidRowsHtml(runs, sel, now) {
     const when = `<td data-label="when" title="${fidEsc(r.id)}">${fidEsc(fidAgo(r.started_at, now))}</td>`;
     if (!done) {
       const what = r.status === 'running' ? `running ${fidInt(r.done_docs)}/${fidInt(r.total_docs)}` : r.status;
+      const status = `<span class="fid-status">${fidEsc(what)}</span>`;
+      const cell = r.error
+        ? `<details class="fid-errd"><summary title="${fidEsc(r.error)}">${status} · ${fidEsc(fidErrLine(r.error))}</summary>`
+          + `<p class="fid-err">${fidEsc(r.error)}</p></details>`
+        : status;
       return `<tr class="fid-row fid-${fidEsc(r.status)}"><td class="fid-pick">${box}</td><td class="fid-m">${model}</td>`
-        + `<td class="fid-wide" colspan="5"><span class="fid-status">${fidEsc(what)}</span>`
-        + `${r.error ? ` <span class="fid-err">${fidEsc(r.error)}</span>` : ''}</td>${when}</tr>`;
+        + `<td class="fid-wide" colspan="5">${cell}</td>${when}</tr>`;
     }
     return `<tr class="fid-row"${ticked ? ' aria-selected="true"' : ''}><td class="fid-pick">${box}</td><td class="fid-m">${model}</td>`
       + `<td data-label="quant">${fidEsc(m.quant || '—')}</td><td data-label="KV dtype">${fidEsc(m.kv_cache_dtype || '—')}</td>`

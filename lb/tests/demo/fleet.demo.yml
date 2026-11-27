@@ -22,6 +22,7 @@ health:
   low_power_margin_w: 2
   counter_window_s: 3600
   backend_down_s: 3600
+  disk_full_pct: 90
 
 boxes:
   box-a:

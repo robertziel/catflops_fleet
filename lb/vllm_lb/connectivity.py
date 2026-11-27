@@ -17,7 +17,13 @@ THE ROWS (`cap`):
   ssh        one per distinct SSH address of the box — its fleet-file `ssh` (what the cluster control dials;
              fleet-power dials its own POWER_BOXES, not this) and each ssh-controlled cluster rank's target: `SshExecutor.reach` — `ssh … true`, read-only, short
              timeout. A box with no ssh address has no row, and `ssh_why` says so in one line.
-A row is {cap, target, ok, detail, hint, ms}; `hint` is None on a pass. A box is ok when every row passed.
+A row is {cap, target, ok, detail, hint_short, hint, ms}; both hints are None on a pass. A box is ok when every row
+passed.
+
+TWO LENGTHS OF HINT. `hint_short` is what is wrong, as a figure the panel prints on the row ("http://e:8001
+unreachable from the gateway", at most 60 characters); `hint` is the whole recovery — which command, which env name —
+that the row's title carries. One sentence on every failed row read as prose (the UX audit); the full words are
+still one hover / long-press away, never dropped.
 
 Every probe runs in parallel (one thread per row), so the check takes as long as its slowest channel, not their sum.
 A probe that raises is a failed row with its exception's words — never a 500 for the whole check.
@@ -62,22 +68,37 @@ def plan(cfg, backends) -> list[dict]:
     return out
 
 
-def _row(cap: str, target: str, ok: bool, detail: str, hint: str | None, ms: float) -> dict:
-    return {"cap": cap, "target": target, "ok": ok, "detail": detail, "hint": None if ok else hint,
+def _row(cap: str, target: str, ok: bool, detail: str, hint: tuple[str, str] | None, ms: float) -> dict:
+    """`hint` is (short, full) on a failure — see TWO LENGTHS OF HINT — and None on a pass."""
+    short, full = (None, None) if ok or hint is None else hint
+    return {"cap": cap, "target": target, "ok": ok, "detail": detail, "hint_short": short, "hint": full,
             "ms": round(ms, 1)}
+
+
+def _short(target: str, what: str) -> str:
+    """`<target> <what>` in at most 60 characters: a long target loses its middle ("http://a-very-lo…:8001"), never
+    the words saying what is wrong — the full target is in the row's `target` and its full hint."""
+    room = 60 - len(what) - 1
+    if len(target) > room:
+        keep = room - 1
+        target = target[:keep - keep // 3] + "…" + target[len(target) - keep // 3:]
+    return f"{target} {what}"
 
 
 def _telemetry(box: str, h: dict | None, hw_state: str, max_age_s: float) -> dict:
     if not hw_state.startswith("listening"):
         return _row("telemetry", box, False, f"the hardware listener is {hw_state}",
-                    "set LB_HW_PORT (lb/.env) and publish its UDP port, then restart the gateway", 0.0)
+                    ("LB_HW_PORT not listening",
+                     "set LB_HW_PORT (lb/.env) and publish its UDP port, then restart the gateway"), 0.0)
     if not h:
         return _row("telemetry", box, False, "no sample heard from this box",
-                    f"start lb/hw_sender on {box}, and check its hostname is the fleet's boxes.{box}.hostname", 0.0)
+                    (_short(box, "no hw_sender heard"),
+                     f"start lb/hw_sender on {box}, and check its hostname is the fleet's boxes.{box}.hostname"), 0.0)
     age = h.get("age_s")
     if h.get("stale"):
         return _row("telemetry", box, False, f"last sample {age:.0f} s ago (stale past {max_age_s:g} s)",
-                    f"the sender on {box} went quiet: `docker compose ps` in its lb/hw_sender; UDP to the gateway", 0.0)
+                    (_short(box, "hw_sender quiet"),
+                     f"the sender on {box} went quiet: `docker compose ps` in its lb/hw_sender; UDP to the gateway"), 0.0)
     return _row("telemetry", box, True, f"sample {age:.1f} s old", None, 0.0)
 
 
@@ -94,7 +115,8 @@ def _engine(b, probe: Callable[[Any], dict]) -> dict:
         return _row("engine", b.url, True, f"live · {len(models)} model{'s' if len(models) != 1 else ''}{note}",
                     None, ms)
     return _row("engine", b.url, False, f.get("last_error") or "not live",
-                f"engine on {b.box}: `docker logs` its container; {b.url} must be reachable from the gateway", ms)
+                (_short(b.url, "unreachable from the gateway"),
+                 f"engine on {b.box}: `docker logs` its container; {b.url} must be reachable from the gateway"), ms)
 
 
 def _ssh(item: dict, reach: Callable[[Any], tuple[bool, str]]) -> dict:
@@ -105,8 +127,9 @@ def _ssh(item: dict, reach: Callable[[Any], tuple[bool, str]]) -> dict:
     except Exception as exc:
         ok, detail = False, f"{type(exc).__name__}: {exc}"[:200]
     return _row("ssh", f"{host.ssh_target} ({item['via']})", ok, detail or ("ssh ok" if ok else "ssh failed"),
-                f"the gateway's key (LB_CLUSTER_SSH_KEY) in {host.ssh_target}'s authorized_keys, its host key in "
-                f"LB_CLUSTER_KNOWN_HOSTS; try `ssh {host.ssh_target} true` from the gateway",
+                (_short(host.ssh_target, "unreachable over ssh"),
+                 f"the gateway's key (LB_CLUSTER_SSH_KEY) in {host.ssh_target}'s authorized_keys, its host key in "
+                 f"LB_CLUSTER_KNOWN_HOSTS; try `ssh {host.ssh_target} true` from the gateway"),
                 (time.monotonic() - t0) * 1000)
 
 

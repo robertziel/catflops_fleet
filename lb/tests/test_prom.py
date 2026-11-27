@@ -65,11 +65,16 @@ def series(text, name):
 
 def test_backends_live_depth_and_rates():
     t = render(status())
-    assert 'fleet_backend_up{url="http://10.0.0.1:8000",box="box-a",kind="vllm",cluster=""} 1' in t
+    # a backend in no cluster has NO cluster label: in Prometheus an empty value IS an absent label, written out it is noise
+    assert 'fleet_backend_up{url="http://10.0.0.1:8000",box="box-a",kind="vllm"} 1' in t
     assert 'fleet_backend_up{url="http://10.0.0.2:8100",box="box-b",kind="cluster",cluster="pair"} 0' in t
     assert len(series(t, "fleet_backend_requests_waiting")) == 1, "a depth nobody read is omitted, not 0"
     assert len(series(t, "fleet_backend_tokens_per_second")) == 1
     assert 'fleet_backend_generated_tokens_total{url="http://10.0.0.1:8000"' in t
+
+
+def test_no_series_carries_an_empty_label():
+    assert not [ln for ln in lines(render(status())) if '=""' in ln]
 
 
 def test_the_cluster_state_is_a_labelled_gauge():

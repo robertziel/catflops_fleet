@@ -2157,7 +2157,7 @@ questions:
   # ── health ──────────────────────────────────────────────────────────────────────────────────────────────────────────
   - id: health.enabled
     section: health
-    ask: "Should the gateway judge each box's hardware (GPU temperature, RAM available, a busy GPU at idle draw, Xid / OOM-kill / RoCE error counters rising, a server that stopped answering) and raise findings on the panel (and alerts, below)?"
+    ask: "Should the gateway judge each box's hardware (GPU temperature, RAM available, a busy GPU at idle draw, Xid / OOM-kill / RoCE error counters rising, a full disk, a server that stopped answering) and raise findings on the panel (and alerts, below)?"
     why: "the fleet's `health:` block is opt-in: absent, findings are off and the panel says so"
     kind: bool
     validate: "true or false"
@@ -2227,6 +2227,16 @@ questions:
     min: 0
     validate: "seconds ≥ 0"
     writes: ["lb/fleet.yml health.backend_down_s"]
+  - id: health.disk_full_pct
+    section: health
+    when: "health.enabled"
+    ask: "At what share of a disk used (%) should DISK fire (e.g. 90)? Each disk path the box's sender reads (lb/hw_sender disks) is judged; the panel's red on that disk is this finding."
+    why: "the one definition of a full disk — the finding, its alert and the panel's red; with health off there is none and the panel draws the figure unflagged, saying so"
+    kind: number
+    min: 1
+    max: 100
+    validate: "1-100"
+    writes: ["lb/fleet.yml health.disk_full_pct"]
   - id: health.ntfy_url
     section: health
     required: false

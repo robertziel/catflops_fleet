@@ -59,7 +59,7 @@ from vllm_lb import fidelity
 from vllm_lb.hub import Hub
 from vllm_lb.memory_estimate import CLASSIC_MEMORY, estimate_memory
 from vllm_lb.models_view import models_payload
-from vllm_lb.connect import connect_view
+from vllm_lb.connect import LB_SESSION, connect_view
 from vllm_lb import cores
 from vllm_lb import request_kill
 from vllm_lb import request_queue
@@ -1691,6 +1691,9 @@ class Proxy:
                                                "message": f"{h.command} {path} is an admin's, not a member's"}})
         if path == "/healthz":
             return h.send_json(200, {"ok": True})
+        # The page's door (connect.py LB_SESSION): reached here only when no gate in front answered it first.
+        if path == "/auth/session" and h.command in ("GET", "HEAD"):
+            return h.send_json(200, LB_SESSION)
         if path == "/lb/status":
             return h.send_json(200, self.status_for(member))
         if path == "/lb/stream" and h.command in ("GET", "HEAD"):
